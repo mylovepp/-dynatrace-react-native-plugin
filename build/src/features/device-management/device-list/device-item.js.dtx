@@ -1,0 +1,128 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Navigation } from "react-native-navigation";
+import i18n from "react-native-i18n";
+import { Body2, Body3, Icon } from "@invx/components-2";
+import { showBottomMessageBox } from "@invx/modules/navigation";
+import {
+  SERVER_DATE_FORMAT,
+  DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT,
+  formatStringDateToCurrentLocal,
+  formatDate
+} from "@invx/modules/format";
+
+const Container = styled.View`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  height: 60px;
+  border-bottom-width: 1px;
+  border-bottom-color: ${props => props.theme.selectDividerColor};
+  margin-top: 15px;
+`;
+
+const ColumnSide = styled.View`
+  width: 30px;
+  justify-content: center;
+`;
+const ColumnCenter = styled.View`
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  margin-horizontal: ${props => props.theme.spacingSmallValue};
+`;
+const DeviceNameLabel = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+const DeviceRegisterDate = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+const TrashIcon = styled(Icon).attrs(props => ({
+  name: "delete",
+  size: "icon24",
+  color: props.isDeviceRegistered
+    ? props.theme.contentColorDisabled
+    : props.theme.contentColorCTAPurple
+}))``;
+const MobilePhoneIcon = styled(Icon).attrs(props => ({
+  name: "phone-2",
+  size: "icon24",
+  color: props.theme.contentColorVeryHigh
+}))``;
+
+const DeviceItem = props => {
+  const { deviceInfo, isDeviceRegistered } = props;
+  const getDisplayDate = date => {
+    const displayDate = date || formatDate(new Date(), SERVER_DATE_FORMAT);
+    return formatStringDateToCurrentLocal(
+      displayDate,
+      DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT,
+      SERVER_DATE_FORMAT,
+      true
+    );
+  };
+  const onRemoveDevice = () => {
+    const options = {
+      title: i18n.translate("DeviceManagement.ConfirmDialog.Header"),
+      description: i18n.translate("DeviceManagement.ConfirmDialog.Description", {
+        deviceName: deviceInfo.device_model
+      }),
+      leftButton: {
+        text: i18n.translate("DeviceManagement.ConfirmDialog.Buttons.Cancel"),
+        onPress: () => {
+          Navigation.dismissAllModals({ animationType: "none" });
+        }
+      },
+      rightButton: {
+        text: i18n.translate("DeviceManagement.ConfirmDialog.Buttons.Submit"),
+        onPress: () => {
+          props.onRemoveDevice(deviceInfo);
+          Navigation.dismissAllModals({ animationType: "none" });
+        }
+      },
+      variant: "headerBold",
+      brightness: true
+    };
+    showBottomMessageBox(options);
+  };
+
+  return (
+    <Container>
+      <ColumnSide>
+        <MobilePhoneIcon />
+      </ColumnSide>
+
+      <ColumnCenter>
+        <DeviceNameLabel>{deviceInfo.device_model}</DeviceNameLabel>
+        <DeviceRegisterDate>
+          {i18n.translate("DeviceManagement.DateAdded", {
+            date: getDisplayDate(deviceInfo.created_date)
+          })}
+        </DeviceRegisterDate>
+      </ColumnCenter>
+
+      <ColumnSide>
+        <TouchableOpacity onPress={onRemoveDevice} disabled={isDeviceRegistered}>
+          <TrashIcon isDeviceRegistered={isDeviceRegistered} />
+        </TouchableOpacity>
+      </ColumnSide>
+    </Container>
+  );
+};
+
+DeviceItem.defaultProps = {
+  isDeviceRegistered: false
+};
+
+DeviceItem.propTypes = {
+  deviceInfo: PropTypes.shape({
+    device_model: PropTypes.string,
+    created_date: PropTypes.string
+  }).isRequired,
+  onRemoveDevice: PropTypes.func.isRequired,
+  isDeviceRegistered: PropTypes.bool
+};
+
+export default DeviceItem;

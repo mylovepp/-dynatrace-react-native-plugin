@@ -1,0 +1,72 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled, { css } from "styled-components/native";
+import { BottomModal, Divider, LargeCaption } from "../../../components";
+import ActionRow from "../../../components/row/ActionRow";
+import { MARKET_ORDER_TYPE } from "../stocks-util";
+
+const OrderType = styled.View(
+  ({ theme, isSelected }) => css`
+    background-color: ${isSelected ? theme.selectedOptionBackgroundColor : "transparent"};
+    justify-content: center;
+    align-items: center;
+    padding-vertical: ${theme.spacingMediumLarge};
+  `
+);
+
+class StockInvestOrderTypeSelection extends PureComponent {
+  onSelect = orderType => {
+    this.props.onSelectOrderType(orderType);
+    this.props.hideModal();
+  };
+
+  renderHeader = hideModal => (
+    <ActionRow
+      action={hideModal}
+      label={I18n.t("ThaiStocks.OrderTypeSelectionModalHeader")}
+      icon="close"
+    />
+  );
+
+  renderOrderType = orderType => {
+    if (orderType === MARKET_ORDER_TYPE && !this.props.isMarketOpen) {
+      return null;
+    }
+
+    return (
+      <>
+        <TouchableOpacity onPress={() => this.onSelect(orderType)}>
+          <OrderType isSelected={orderType === this.props.selectedOrderType}>
+            <LargeCaption>{I18n.t(`Stocks.OrderType.${orderType}.Label`)}</LargeCaption>
+          </OrderType>
+        </TouchableOpacity>
+        <Divider />
+      </>
+    );
+  };
+
+  render() {
+    return (
+      <BottomModal
+        isVisible={this.props.isVisible}
+        hideModal={this.props.hideModal}
+        headerComponent={this.renderHeader}
+      >
+        {this.props.orderTypes.map(o => this.renderOrderType(o))}
+      </BottomModal>
+    );
+  }
+}
+
+StockInvestOrderTypeSelection.propTypes = {
+  isVisible: PropTypes.bool.isRequired,
+  hideModal: PropTypes.func.isRequired,
+  isMarketOpen: PropTypes.bool.isRequired,
+  selectedOrderType: PropTypes.string.isRequired,
+  orderTypes: PropTypes.arrayOf(PropTypes.string).isRequired,
+  onSelectOrderType: PropTypes.func.isRequired
+};
+
+export default StockInvestOrderTypeSelection;

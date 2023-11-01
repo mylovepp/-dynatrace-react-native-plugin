@@ -1,0 +1,39 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled, { withTheme } from "styled-components/native";
+import PropTypes from "prop-types";
+import _ from "lodash";
+import { Icon, Display3 } from "../../../components-2";
+
+const BackContainer = styled(TouchableOpacity)(() => ({
+  flexDirection: "row",
+  marginLeft: -8,
+  marginTop: -2
+}));
+
+const BackText = styled(Display3)((props) => ({
+  fontWeight: props.theme.display3.fontWeight,
+  color: props.theme.contentColorCTAPurple,
+}));
+
+const DigitalAssetNavBarBackButton = (props) => {
+  const { theme } = props;
+  return (
+    <BackContainer onPress={props.onPressBack}>
+      <Icon name="chevron-left-2" size="icon24" color={theme.contentColorCTAPurple} />
+      {!_.isEmpty(props.backButtonText) && <BackText>{props.backButtonText}</BackText>}
+    </BackContainer>
+  );
+};
+DigitalAssetNavBarBackButton.defaultProps = {
+  backButtonText: "",
+  onPressBack: () => { },
+};
+DigitalAssetNavBarBackButton.propTypes = {
+  onPressBack: PropTypes.func,
+  backButtonText: PropTypes.string,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object.isRequired
+};
+
+export default withTheme(DigitalAssetNavBarBackButton);

@@ -1,0 +1,100 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import {
+  Separator,
+  TextOverlineR,
+  Header1,
+  Header2,
+  TextButtonS
+} from "../../../../../components-2";
+import { Chip } from "../components";
+import { digitalAssetPriceValueDisplay } from "../../../../../modules/i18n/value-display";
+import { FundActivityKinds } from "../../../../../redux/digital-asset-funds/digital-asset-fund-activity/digital-asset-fund-activity-constants";
+
+const DcaListItem = props => {
+  const { fundCode, amount, scheduleDate, goToActivityDetail } = props;
+
+  const goToDcaDetail = () => {
+    goToActivityDetail({ ...props, kind: FundActivityKinds.DCA });
+  };
+
+  return (
+    <TouchableOpacity onPress={goToDcaDetail}>
+      <>
+        <Container>
+          <TopRow>
+            <LabelText>
+              {I18n.t("DigitalAssetsFunds.Activity.Label.Dca.Schedule")}{" "}
+              {I18n.t("DigitalAssetsFunds.Activity.Label.Dca.ScheduleDate", { date: scheduleDate })}
+            </LabelText>
+          </TopRow>
+          <MidRow>
+            <Header1>{fundCode}</Header1>
+            <Header2>{digitalAssetPriceValueDisplay(amount, 2)}</Header2>
+          </MidRow>
+          <BottomRow>
+            <TagRow>
+              <Chip label={I18n.t("DigitalAssetsFunds.Activity.Type.Dca")} />
+            </TagRow>
+            <DetailButton onPress={goToDcaDetail}>
+              {I18n.t("DigitalAssetsFunds.Activity.Label.Dca.DetailShort")}
+            </DetailButton>
+          </BottomRow>
+        </Container>
+        <Separator variant="padding" />
+      </>
+    </TouchableOpacity>
+  );
+};
+
+export default DcaListItem;
+
+DcaListItem.propTypes = {
+  fundCode: PropTypes.string.isRequired,
+  amount: PropTypes.string,
+  scheduleDate: PropTypes.number,
+  goToActivityDetail: PropTypes.func
+};
+
+DcaListItem.defaultProps = {
+  amount: "0.00",
+  goToActivityDetail: () => {},
+  scheduleDate: 0
+};
+
+const Container = styled.View`
+  padding: 8px 16px;
+`;
+
+const TopRow = styled.View`
+  flex-direction: row;
+  justify-content: flex-end;
+`;
+
+const LabelText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const MidRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const BottomRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0px 0px 0px;
+`;
+
+const TagRow = styled.View`
+  flex-direction: row;
+`;
+
+const DetailButton = styled(TextButtonS)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;

@@ -1,0 +1,204 @@
+import React, { useState, useMemo, useEffect } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, ScrollView } from "react-native";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { validateThaiCitizenID } from "@invx/modules/format";
+import { getMaxDOBDate } from "@invx/redux/login/first-time/utils";
+import {
+  PrimaryButton,
+  DateInput,
+  NumberInput,
+  ViewContainer,
+  SectionBackground,
+  NavigationBar,
+  Header3,
+  TextButtonL,
+  Icon,
+  TouchableOpacityDebounced
+} from "../../../components-2";
+
+const Body = styled.View`
+  flex: 1;
+`;
+
+const HeaderContainer = styled(SectionBackground)`
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const InputContainer = styled.View`
+  padding-vertical: ${props => props.theme.spacingXSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const LoginButton = styled(PrimaryButton)`
+  margin: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const DateLabel = styled(Header3)`
+  padding-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+export const ForeignerButton = styled(TouchableOpacityDebounced).attrs({
+  debounceTime: 3000
+})`
+  flex-direction: row;
+  justify-content: flex-end;
+  padding: ${props => props.theme.spacingMedium};
+  align-items: center;
+`;
+
+export const ForeignButtonText = styled(TextButtonL)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const ArrowIcon = styled(Icon).attrs(props => ({
+  name: "chevron-right-2",
+  size: "icon16",
+  color: props.theme.ctaPurple
+}))``;
+
+const initialState = {
+  cid: null,
+  birthDate: null
+};
+
+const VerifyLogin = props => {
+  const {
+    title,
+    buttonLabel,
+    headerDescription,
+    isShowBottomRadius,
+    onSubmit,
+    navigator,
+    onForeignerButtonPress,
+    isLoading
+  } = props;
+
+  const [state, setState] = useState(initialState);
+  const [variant, setVariant] = useState("valid");
+  const [isClear, setIsClear] = useState(false);
+
+  const isDisabled = useMemo(() => {
+    return state.cid === null || state.birthDate === null || variant === "error";
+  }, [state, variant]);
+
+  useEffect(() => {
+    if (isClear) {
+      setIsClear(false);
+    }
+  }, [isClear]);
+
+  const clearDataValue = callback => {
+    callback();
+    setState(initialState);
+    setIsClear(true);
+  };
+
+  const handleCIDChange = value => {
+    if (value.length < 13 && value.length > 0) {
+      setVariant("error");
+    } else if (value.length === 13) {
+      if (validateThaiCitizenID(value)) {
+        setVariant("valid");
+        setState({ ...state, cid: value });
+      } else {
+        setVariant("error");
+      }
+    } else {
+      setVariant("");
+      setState({ ...state, cid: null });
+    }
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <ViewContainer variant="light">
+        <Body>
+          <HeaderContainer>
+            <NavigationBar
+              title={title}
+              onPressBackButton={() => navigator.pop()}
+              isShowBottomRadius={isShowBottomRadius}
+            />
+            {headerDescription}
+          </HeaderContainer>
+          <ScrollView>
+            <InputContainer>
+              <NumberInput
+                label={I18n.t("Login.VerifyLogin.CitizenID.Label")}
+                placeholder={I18n.t("Login.VerifyLogin.CitizenID.Placeholder")}
+                variant={variant}
+                initialValue={state.cid}
+                maxLength={13}
+                precision={0}
+                onEndEditing={({ nativeEvent }) => handleCIDChange(nativeEvent.text)}
+                helperText={variant === "error" && I18n.t("Registration.SignUp.IDNumber.Error")}
+                hasDynamicInitialValue
+                required
+                accessible
+                accessibilityLabel="inputCID"
+              />
+            </InputContainer>
+            <InputContainer>
+              <DateLabel>
+                {I18n.t("Login.VerifyLogin.DateOfBirth.Label")}
+                <Header3 variant="error">*</Header3>
+              </DateLabel>
+              <DateInput
+                isClear={isClear}
+                placeholder={I18n.t("Login.VerifyLogin.DateOfBirth.Placeholder")}
+                initialDate={state.birthDate || getMaxDOBDate()}
+                maximumDate={getMaxDOBDate()}
+                onConfirm={value => setState({ ...state, birthDate: value })}
+                calendarType="buddhist"
+                required
+                isUseNewComponent
+              />
+            </InputContainer>
+            <ForeignerButton onPress={() => clearDataValue(onForeignerButtonPress)}>
+              <ForeignButtonText>{I18n.t("Foreigner.ForgotPIN.Foreigner.Button")}</ForeignButtonText>
+              <ArrowIcon />
+            </ForeignerButton>
+          </ScrollView>
+        </Body>
+        <LoginButton
+          label={buttonLabel || I18n.t("Login.VerifyLogin.LoginButton")}
+          onPress={() => clearDataValue(() => onSubmit(state))}
+          size="large"
+          disable={isDisabled || isLoading}
+          accessible
+          accessibilityLabel="checkCIDAndDOB"
+        />
+      </ViewContainer>
+    </TouchableWithoutFeedback>
+  );
+};
+
+VerifyLogin.defaultProps = {
+  title: null,
+  buttonLabel: "",
+  headerDescription: null,
+  isShowBottomRadius: true,
+  isLoading: false
+};
+
+VerifyLogin.propTypes = {
+  title: PropTypes.string,
+  buttonLabel: PropTypes.string,
+  headerDescription: PropTypes.node,
+  isShowBottomRadius: PropTypes.bool,
+  onSubmit: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  onForeignerButtonPress: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool
+};
+
+export default VerifyLogin;

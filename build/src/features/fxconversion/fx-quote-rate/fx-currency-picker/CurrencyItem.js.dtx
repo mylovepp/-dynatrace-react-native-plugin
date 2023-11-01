@@ -1,0 +1,68 @@
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Image } from "react-native";
+import theme from "@invx/theme";
+import { Header2, Icon } from "@invx/components-2";
+import { nationFlag } from "@invx/features/fxconversion/fxconversion-constants";
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const Container = styled(Row)`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-vertical: ${props => props.theme.spacingSmall};
+`;
+
+const Flag = styled(Image)`
+  margin-right: ${props => props.theme.spacingXSmall};
+`;
+
+const Currency = styled(Header2).attrs(props => ({
+  variant: props.isSelected ? "ctaPurple" : null
+}))`
+  margin-right: ${props => props.theme.spacingXXSmall};
+`;
+
+const CheckIcon = styled(Icon).attrs({
+  name: "check-2",
+  icon: "icon24",
+  color: theme.contentColorCTAPurple
+})``;
+
+const CurrencyItem = props => {
+  const { code, description, isSelected, onPress } = props;
+  return (
+    <TouchableWithoutFeedback onPress={onPress}>
+      <Container>
+        <Row>
+          <Flag source={nationFlag[code]} />
+          <Currency isSelected={isSelected}>
+            {code}
+            {description ? ` - ${description}` : ""}
+          </Currency>
+        </Row>
+        {isSelected && <CheckIcon />}
+      </Container>
+    </TouchableWithoutFeedback>
+  );
+};
+
+CurrencyItem.propTypes = {
+  code: PropTypes.string.isRequired,
+  description: PropTypes.string,
+  isSelected: PropTypes.bool,
+  onPress: PropTypes.func.isRequired
+};
+
+CurrencyItem.defaultProps = {
+  description: undefined,
+  isSelected: false
+};
+
+export default CurrencyItem;

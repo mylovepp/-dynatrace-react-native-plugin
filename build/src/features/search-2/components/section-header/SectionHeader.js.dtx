@@ -1,0 +1,88 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { Icon, SVGIcon, Header3, TextButtonM } from "@invx/components-2";
+
+const LeftContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+`;
+const RightContainer = styled.View`
+  align-items: flex-end;
+`;
+const TitleContainer = styled.View`
+  flex-direction: row;
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+  padding-vertical: ${props => props.theme.spacingXSmall};
+  padding-horizontal: ${props =>
+    props.enableHorizontalPadding ? props.theme.spacingMedium : "0px"};
+`;
+const TitleText = styled(Header3).attrs({
+  variant: "greyHigh"
+})`
+  flex: 1;
+  padding-left: ${props => props.theme.spacingXSmall};
+`;
+const LinkText = styled(TextButtonM).attrs({
+  variant: "ctaPurple"
+})`
+  padding-top: 1px;
+`;
+const IconTitle = styled(Icon).attrs(props => ({
+  size: "icon16",
+  color: props.theme.contentColorHigh
+}))``;
+const IconSvgTitle = styled(SVGIcon).attrs(props => ({
+  size: "icon16",
+  color: props.theme.contentColorHigh
+}))``;
+const SectionHeader = props => {
+  const { title, icon, svgIcon, onClearPress, onViewAllPress, enableHorizontalPadding } = props;
+  return (
+    <TitleContainer enableHorizontalPadding={enableHorizontalPadding}>
+      <LeftContainer>
+        {icon ? <IconTitle testId="icon" name={icon} /> : null}
+        {svgIcon ? <IconSvgTitle testId="svgIcon" name={svgIcon} /> : null}
+        <TitleText numberOfLines={1}>{title}</TitleText>
+      </LeftContainer>
+
+      {onClearPress ? (
+        <RightContainer testID="clearContainer">
+          <TouchableOpacity testID="clearButton" onPress={onClearPress}>
+            <LinkText>{I18n.t("Search.SectionHeader.Clear")}</LinkText>
+          </TouchableOpacity>
+        </RightContainer>
+      ) : null}
+      {onViewAllPress ? (
+        <RightContainer testID="viewAllContainer">
+          <TouchableOpacity testID="viewAllButton" onPress={onViewAllPress}>
+            <LinkText>{I18n.t("Search.SectionHeader.ViewAll")}</LinkText>
+          </TouchableOpacity>
+        </RightContainer>
+      ) : null}
+    </TitleContainer>
+  );
+};
+
+SectionHeader.defaultProps = {
+  onClearPress: null,
+  onViewAllPress: null,
+  enableHorizontalPadding: true,
+  icon: null,
+  svgIcon: null
+};
+SectionHeader.propTypes = {
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.string,
+  svgIcon: PropTypes.string,
+  onClearPress: PropTypes.func,
+  onViewAllPress: PropTypes.func,
+  enableHorizontalPadding: PropTypes.bool
+};
+
+export default SectionHeader;

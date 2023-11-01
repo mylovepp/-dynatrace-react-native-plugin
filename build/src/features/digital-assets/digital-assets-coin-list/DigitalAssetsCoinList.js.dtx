@@ -1,0 +1,580 @@
+import React, { useState, useEffect, useRef } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { AppState, View, Image, Platform } from "react-native";
+
+import { SafeAreaView, ScrollViewContainer, Section, HeaderContainer } from "../../../components";
+import {
+  SearchInput,
+  Display3,
+  Body2,
+  LoadingIndicator,
+  ViewContainer,
+  Row
+} from "../../../components-2";
+
+import { coinWithCommas } from "../../../modules/coin-format";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import defaultCoinIcon from "../../../../assets/images/digital-assets/icons/default-coin-icon.png";
+
+import {
+  DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_WITHDRAW_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+import {
+  trackCryptoDepositSearchClick,
+  trackCryptoWithdrawSearchClick,
+  trackCryptoDepositClick,
+  trackCryptoWithdrawClick
+} from "../../../modules/analytics/analytics-utils";
+import DigitalAssetTermAndPolicy from "../digital-asset-term-and-policy";
+
+const SearchHeaderContainer = styled(HeaderContainer)`
+  padding-left: ${props => props.theme.spacingXSmall};
+  padding-right: ${props => props.theme.spacingXSmall};
+  padding-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const TitleCoin = styled(Display3)`
+  padding-left: ${props => props.theme.spacingSmall};
+  padding-right: ${props => props.theme.spacingSmall};
+`;
+
+const BorderLine = styled(View)`
+  background-color: rgb(204, 207, 211);
+  padding-bottom: 1;
+`;
+
+const Container = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  padding-vertical: ${props => props.theme.spacingXSmall};
+  background-color: ${props => props.theme.backgroundLightColor};
+  flex: 1;
+  flex-direction: column;
+`;
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
+
+const ItemRowContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+`;
+
+const ItemColContainerFlexStart = styled.View`
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-left: ${props => props.theme.spacingSmall};
+`;
+
+const ItemColContainerFlexEnd = styled.View`
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-right: ${props => props.theme.spacingSmall};
+`;
+
+const ItemContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  padding-vertical: ${props => props.theme.spacingSmall};
+`;
+
+const DigitalAssetsCoinList = ({
+  coins,
+  onPressDigitalAsset,
+  pageName,
+  isLoading,
+  i18n,
+  allInstrumentsList,
+  products,
+  userConfig,
+  navigator,
+  isBCP
+}) => {
+  const [modal, setModal] = useState(false);
+  const [currentCoin, setCurrentCoin] = useState({});
+  const [searchText, setSearchText] = useState("");
+  const appState = useRef(AppState.currentState);
+
+  const isIOS = () => Platform.OS === "ios";
+
+  const getIconComp = id => {
+    const data = allInstrumentsList.find(insturment => insturment.base === id);
+    if (data) {
+      if (data.icon) {
+        return <CoinImageIcon uri={data.icon} width={27} height={27} />;
+      }
+    }
+    return (
+      <Image resizeMode="stretch" source={defaultCoinIcon} style={{ height: 27, width: 27 }} />
+    );
+  };
+
+  const getIcon = id => {
+    const data = allInstrumentsList.find(insturment => insturment.base === id);
+    if (data) {
+      return data.icon;
+    }
+    return null;
+  };
+
+  const getProductDecimalPlaces = id => {
+    const daProduct = products.find(product => product.ProductId === id);
+    return daProduct ? daProduct.DecimalPlaces : 8;
+  };
+
+  const getProductTickSize = id => {
+    const daProduct = products.find(product => product.ProductId === id);
+    return daProduct ? daProduct.TickSize : 0.00000001;
+  };
+
+  const filterDepositCoin = data => {
+    let resData = [];
+    if (data.length > 0) {
+      const filtered = data
+        .filter(item => {
+          const daProduct = products.find(product => product.ProductId === item.productId);
+          if (daProduct) {
+            return daProduct && daProduct.ProductType !== "NationalCurrency";
+          }
+          return null;
+        })
+        .sort((a, b) => a.assetId - b.assetId);
+
+      resData = filtered.filter(
+        res =>
+          res.assetId.toLowerCase().indexOf(searchText.toLowerCase()) >= 0 ||
+          res.assetFullName.toLowerCase().indexOf(searchText.toLowerCase()) >= 0
+      );
+    }
+
+    return resData;
+  };
+
+  const filterWithdrawCoin = data => {
+    if (isBCP) {
+      return data.filter(
+        res =>
+          res.assetId.toLowerCase().indexOf(searchText.toLowerCase()) >= 0 ||
+          res.assetFullName.toLowerCase().indexOf(searchText.toLowerCase()) >= 0
+      );
+    }
+    let resData = [];
+    if (data.length > 0) {
+      const holdArr = data
+        .filter(item => {
+          const daProduct = products.find(product => product.ProductId === item.productId);
+          if (daProduct) {
+            return item.priceTHB > 0 && daProduct && daProduct.ProductType !== "NationalCurrency";
+          }
+          return null;
+        })
+        .sort((a, b) => b.priceTHB - a.priceTHB); // reverse sort by priceTHB
+      const otherArr = data
+        .filter(item => {
+          const daProduct = products.find(product => product.ProductId === item.productId);
+          if (daProduct) {
+            return item.priceTHB <= 0 && daProduct.ProductType !== "NationalCurrency";
+          }
+          return null;
+        })
+        .sort((a, b) => a.assetId - b.assetId); // sort by assetId
+
+      const filtered = holdArr.concat(otherArr);
+
+      resData = filtered.filter(
+        res =>
+          res.assetId.toLowerCase().indexOf(searchText.toLowerCase()) >= 0 ||
+          res.assetFullName.toLowerCase().indexOf(searchText.toLowerCase()) >= 0
+      );
+    }
+
+    return resData;
+  };
+
+  const checkDepositEnabled = productId => {
+    const daProduct = products.find(product => product.ProductId === productId);
+    return daProduct.DepositEnabled;
+  };
+
+  const checkWithdrawEnabled = productId => {
+    const daProduct = products.find(product => product.ProductId === productId);
+    return daProduct?.WithdrawEnabled;
+  };
+
+  const checkTermAndPolicy =
+    (userConfig.length > 0 &&
+      userConfig.find(res => res.Key === "DepositTermAndPolicy")?.Value.toLowerCase()) ||
+    "false";
+
+  const handleOnChangeText = text => {
+    setSearchText(text);
+  };
+
+  const handleOnClear = () => {
+    setSearchText("");
+  };
+
+  const initNavBar = () => {
+    navigator.setStyle({
+      backButtonHidden: true,
+      overrideBackPress: true,
+      navBarCustomView: "digitalAssetNavBarWithCoinIcon",
+      navBarCustomViewInitialProps: {
+        onPressBack: () => {
+          if (pageName === DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID) {
+            trackCryptoDepositClick("-", "Back");
+          } else if (pageName === DIGITAL_ASSETS_COIN_WITHDRAW_SCREEN_ID) {
+            trackCryptoWithdrawClick("-", "Back");
+          }
+
+          navigator.pop();
+        },
+        showBackButton: true,
+        title:
+          pageName === DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID
+            ? `${i18n.translations["DigitalAssets.Wallet.Main.Deposit"]}`
+            : `${i18n.translations["DigitalAssets.Wallet.Main.Transfer"]}`
+      }
+    });
+  };
+
+  const goToDeposit = coin => {
+    onPressDigitalAsset("digitalAssetsDeposit", {
+      digitalAssetCode: coin.assetId,
+      availableBalance: coin.quantity,
+      digitalAssetID: coin.productId,
+      accountId: coin.accountNo,
+      minimumDeposit: getProductTickSize(coin.productId),
+      titleNavber: `${i18n.translations["DigitalAssets.Wallet.Main.DepositTitle"]} ${coin.assetId}`
+    });
+  };
+
+  const onPressCloseModal = () => {
+    setModal(false);
+    setCurrentCoin({});
+  };
+
+  const onPressOpenModal = coin => {
+    setModal(true);
+    setCurrentCoin(coin);
+  };
+
+  const handleAppStateChange = nextAppState => {
+    if (appState.current.match(/inactive|background/) && nextAppState === "active") {
+      setModal(false);
+    }
+
+    appState.current = nextAppState;
+  };
+
+  useEffect(() => {
+    initNavBar();
+    AppState.addEventListener("change", handleAppStateChange);
+    return function cleanup() {
+      AppState.removeEventListener("change", handleAppStateChange);
+    };
+  }, []);
+
+  const renderItem = () => {
+    if (isLoading) {
+      return (
+        <ViewContainer variant="screen" isFullScreen>
+          <LoadingContainer>
+            <LoadingIndicator size="large" />
+          </LoadingContainer>
+        </ViewContainer>
+      );
+    }
+
+    return (
+      <>
+        <Container noShadowBorder>
+          {pageName === DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID ? (
+            <ScrollViewContainer>
+              {filterDepositCoin(coins).map(coin =>
+                checkDepositEnabled(coin.productId) ? (
+                  <TouchableOpacity
+                    key={`${coin.assetId}`}
+                    onPress={() =>
+                      checkTermAndPolicy === "true" ? goToDeposit(coin) : onPressOpenModal(coin)
+                    }
+                  >
+                    <Section noBottomBorder noTopBorder noPadding noShadowBorder>
+                      <Row
+                        containerStyle={{
+                          paddingVertical: 0
+                        }}
+                        left={
+                          <ItemContainer>
+                            {getIconComp(coin.assetId)}
+                            <TitleCoin style={{ fontSize: isIOS() ? 17 : 15 }}>
+                              {coin.assetId}
+                            </TitleCoin>
+                            <Body2 style={{ fontSize: isIOS() ? 15 : 13, color: "#93979f" }}>
+                              {coin.assetFullName}
+                            </Body2>
+                          </ItemContainer>
+                        }
+                        leftStyle={{ flex: 7 }}
+                      />
+                      <BorderLine />
+                    </Section>
+                  </TouchableOpacity>
+                ) : (
+                  <Section noBottomBorder noTopBorder noPadding noShadowBorder>
+                    <Row
+                      containerStyle={{
+                        paddingVertical: 0
+                      }}
+                      left={
+                        <ItemContainer>
+                          <View>
+                            {getIconComp(coin.assetId)}
+                            <View
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: "rgba(192, 192, 192, 0.7)",
+                                borderRadius: 30
+                              }}
+                            />
+                          </View>
+
+                          <TitleCoin style={{ fontSize: isIOS() ? 17 : 15, color: "#C0C0C0" }}>
+                            {coin.assetId}
+                          </TitleCoin>
+                          <Body2 style={{ fontSize: isIOS() ? 15 : 13, color: "#C0C0C0" }}>
+                            {coin.assetFullName}
+                          </Body2>
+                        </ItemContainer>
+                      }
+                      leftStyle={{ flex: 7 }}
+                      right={
+                        <Body2 style={{ fontSize: isIOS() ? 17 : 15, color: "#93979f" }}>
+                          ปิดระบบ
+                        </Body2>
+                      }
+                      rightStyle={{ flex: 3 }}
+                    />
+                    <BorderLine />
+                  </Section>
+                )
+              )}
+            </ScrollViewContainer>
+          ) : (
+            <ScrollViewContainer>
+              {filterWithdrawCoin(coins).map(coin =>
+                checkWithdrawEnabled(coin.productId) ? (
+                  <TouchableOpacity
+                    key={`${coin.assetId}`}
+                    onPress={() =>
+                      onPressDigitalAsset(pageName, {
+                        digitalAssetCode: coin.assetId,
+                        availableBalance: Number(coin.quantity) - Number(coin.hold),
+                        balance: coin.quantity,
+                        hold: coin.hold,
+                        digitalAssetID: coin.productId,
+                        accountId: coin.accountNo,
+                        iconSvg: getIcon(coin.assetId),
+                        decimalPlaces: getProductDecimalPlaces(coin.productId),
+                        isBCP
+                      })
+                    }
+                  >
+                    <Section noBottomBorder noTopBorder noPadding noShadowBorder>
+                      <Row
+                        left={
+                          <ItemRowContainer>
+                            {getIconComp(coin.assetId)}
+                            <ItemColContainerFlexStart>
+                              <Display3 style={{ fontSize: isIOS() ? 17 : 15 }}>
+                                {coin.assetId}
+                              </Display3>
+                              <Body2 style={{ fontSize: isIOS() ? 15 : 13, color: "#93979f" }}>
+                                {coin.assetFullName}
+                              </Body2>
+                            </ItemColContainerFlexStart>
+                          </ItemRowContainer>
+                        }
+                        leftStyle={{ flex: 3 }}
+                        right={
+                          <ItemColContainerFlexEnd>
+                            <Display3 style={{ fontSize: isIOS() ? 17 : 15, textAlign: "right" }}>
+                              {coin.decimalPlaces
+                                ? coinWithCommas(coin.quantity, coin.decimalPlaces)
+                                : coinWithCommas(
+                                    coin.quantity,
+                                    getProductDecimalPlaces(coin.productId)
+                                  )}
+                            </Display3>
+                            <Body2
+                              style={{
+                                fontSize: isIOS() ? 15 : 13,
+                                color: "#93979f",
+                                textAlign: "right"
+                              }}
+                            >
+                              {!isBCP &&
+                                `≈ ${i18n.localiseCurrency({
+                                  value: coin.priceTHB
+                                })}`}
+                            </Body2>
+                          </ItemColContainerFlexEnd>
+                        }
+                        rightStyle={{
+                          flex: 4,
+                          alignItems: "flex-end",
+                          justifyContent: "flex-end"
+                        }}
+                      />
+                    </Section>
+                  </TouchableOpacity>
+                ) : (
+                  <View>
+                    <Section noBottomBorder noTopBorder noPadding noShadowBorder>
+                      <Row
+                        left={
+                          <ItemRowContainer>
+                            <View>
+                              {getIconComp(coin.assetId)}
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  backgroundColor: "rgba(192, 192, 192, 0.7)",
+                                  borderRadius: 30
+                                }}
+                              />
+                            </View>
+                            <ItemColContainerFlexStart>
+                              <Display3 style={{ fontSize: isIOS() ? 17 : 15, color: "#C0C0C0" }}>
+                                {coin.assetId}
+                              </Display3>
+                              <Body2 style={{ fontSize: isIOS() ? 15 : 13, color: "#C0C0C0" }}>
+                                {coin.assetFullName}
+                              </Body2>
+                            </ItemColContainerFlexStart>
+                          </ItemRowContainer>
+                        }
+                        leftStyle={{ flex: 3 }}
+                        right={
+                          <Body2 style={{ fontSize: isIOS() ? 18 : 16, color: "#93979f" }}>
+                            ปิดระบบ
+                          </Body2>
+                        }
+                        rightStyle={{ flex: 4 }}
+                      />
+                    </Section>
+                  </View>
+                )
+              )}
+            </ScrollViewContainer>
+          )}
+        </Container>
+      </>
+    );
+  };
+
+  return (
+    <SafeAreaView isFullScreen>
+      {modal ? (
+        <DigitalAssetTermAndPolicy
+          isVisible={modal}
+          onPressCloseModal={onPressCloseModal}
+          onSubmit={goToDeposit}
+          coin={currentCoin}
+        />
+      ) : (
+        <>
+          <SearchHeaderContainer>
+            <SearchInput
+              value={searchText}
+              placeholder={
+                pageName === DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID
+                  ? "เหรียญที่ต้องการฝาก"
+                  : "เหรียญที่ต้องการถอน"
+              }
+              onChangeText={handleOnChangeText}
+              onClear={handleOnClear}
+              noBorder
+              onFocus={() =>
+                pageName === DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID
+                  ? trackCryptoDepositSearchClick()
+                  : trackCryptoWithdrawSearchClick()
+              }
+            />
+          </SearchHeaderContainer>
+          {renderItem()}
+        </>
+      )}
+    </SafeAreaView>
+  );
+};
+
+DigitalAssetsCoinList.defaultProps = {
+  coins: {
+    accountNo: "",
+    assetId: "",
+    networkCode: "",
+    quantity: "",
+    hold: "",
+    priceTHB: "",
+    productId: ""
+  },
+  pageName: "",
+  isBCP: false
+};
+
+DigitalAssetsCoinList.propTypes = {
+  coins: PropTypes.shape({
+    accountNo: PropTypes.string,
+    assetId: PropTypes.string,
+    networkCode: PropTypes.string,
+    quantity: PropTypes.string,
+    hold: PropTypes.string,
+    priceTHB: PropTypes.string,
+    productId: PropTypes.string
+  }),
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  onPressDigitalAsset: PropTypes.func.isRequired,
+  pageName: PropTypes.string,
+  products: PropTypes.arrayOf(
+    PropTypes.shape({
+      ProductId: PropTypes.number,
+      ProductType: PropTypes.string,
+      DepositEnabled: PropTypes.bool,
+      WithdrawEnabled: PropTypes.bool
+    })
+  ).isRequired,
+  isLoading: PropTypes.bool.isRequired,
+  i18n: I18nPropTypes.isRequired,
+  allInstrumentsList: PropTypes.arrayOf(
+    PropTypes.shape({
+      base: PropTypes.string,
+      icon: PropTypes.string
+    })
+  ).isRequired,
+  userConfig: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  isBCP: PropTypes.bool
+};
+
+export default DigitalAssetsCoinList;

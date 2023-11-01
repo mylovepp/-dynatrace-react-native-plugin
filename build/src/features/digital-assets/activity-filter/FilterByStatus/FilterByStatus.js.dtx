@@ -1,0 +1,130 @@
+import React, { Fragment, useState, useEffect, useCallback } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { FlatList, Dimensions } from "react-native";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+
+import { BottomModal } from "../../../../components";
+import { ModalHeaderWithSubmit, MenuButton, CheckMark } from "../components";
+import { Section, Label, Item, ItemText } from "../styled";
+import { DaActivityStatuses } from "../../../../redux/digital-asset/digital-asset-constants";
+import { displayStatusItem } from "../utils";
+
+const FilterByStatus = ({ form, setForm }) => {
+  const getInitialFormState = useCallback(() => {
+    return Object.values(DaActivityStatuses).reduce((acc, cur) => {
+      return { ...acc, [cur]: form.includes(cur) };
+    }, {});
+  }, [form]);
+
+  const [modalVisible, setModalVisibility] = useState(false);
+  const [formState, setFormState] = useState({});
+
+  useEffect(() => {
+    setFormState(getInitialFormState());
+  }, [form]);
+
+  const resetFormState = () => setFormState(getInitialFormState());
+
+  const showModal = () => setModalVisibility(true);
+  const hideModal = () => {
+    setModalVisibility(false);
+  };
+
+  const discardModal = () => {
+    hideModal();
+    resetFormState();
+  };
+
+  const submit = () => {
+    let newForm = [];
+    Object.entries(formState).forEach(([key, value]) => {
+      if (value === true) {
+        newForm.push(key);
+      }
+    });
+
+    if (newForm.length === Object.values(DaActivityStatuses).length) {
+      newForm = [];
+    }
+
+    setForm(newForm);
+    hideModal();
+  };
+
+  const modalHeader = () => (
+    <ModalHeaderWithSubmit
+      title={I18n.t("DigitalAssets.Activity.Filter.Status")}
+      onCloseModal={discardModal}
+      submit={submit}
+    />
+  );
+
+  const renderItem = ({ item }) => {
+    return (
+      <TouchableWithoutFeedback
+        key={item}
+        onPress={() => {
+          setFormState({
+            ...formState,
+            [item]: !formState[item]
+          });
+        }}
+      >
+        <Item>
+          <ItemText>{displayStatusItem(item, I18n)}</ItemText>
+          {formState[item] && <CheckMark />}
+        </Item>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  renderItem.propTypes = {
+    item: PropTypes.string.isRequired
+  };
+
+  return (
+    <Fragment>
+      <Section>
+        <Label>{I18n.t("DigitalAssets.Activity.Filter.Status")}</Label>
+        <MenuButton
+          onPress={showModal}
+          text={
+            form.length === 0
+              ? I18n.t("DigitalAssets.Activity.Filter.All")
+              : I18n.t("DigitalAssets.Activity.Filter.Custom")
+          }
+          active={form.length !== 0}
+        />
+      </Section>
+
+      <BottomModal
+        isVisible={modalVisible}
+        hideModal={discardModal}
+        headerComponent={modalHeader}
+        hiddenDivider
+      >
+        <ModalContent>
+          <FlatList
+            data={Object.values(DaActivityStatuses)}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: isIphoneX() ? 34 : 0, paddingHorizontal: 16 }}
+          />
+        </ModalContent>
+      </BottomModal>
+    </Fragment>
+  );
+};
+
+FilterByStatus.propTypes = {
+  form: PropTypes.arrayOf(PropTypes.string).isRequired,
+  setForm: PropTypes.func.isRequired
+};
+
+export default FilterByStatus;
+
+const ModalContent = styled.View`
+  max-height: ${(Dimensions.get("window").height * 70) / 100};
+`;

@@ -1,0 +1,308 @@
+import React, { Component } from "react";
+import { Picker } from '@dynatrace/react-native-plugin/lib/community/Picker';
+import { StyleSheet } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Moment from "moment";
+import { isValid, monthItems } from "./dateHelpers";
+import { FONT_FAMILY_GRAPHIK_MEDIUM } from "../../theme/fonts";
+
+const PickerContainer = styled.View`
+  flex-direction: row;
+`;
+
+const styles = StyleSheet.create({
+  itemStyle: {
+    fontFamily: FONT_FAMILY_GRAPHIK_MEDIUM,
+    letterSpacing: 0.1,
+    lineHeight: 25.2,
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#855AFF"
+  }
+});
+
+class DatePicker extends Component {
+  constructor(props) {
+    super(props);
+    const { date } = props;
+    const parsedDate = this.getDate(date);
+    this.state = {
+      selectedDay: parsedDate.getDate().toString(),
+      selectedMonth: (parsedDate.getMonth() + 1).toString(),
+      selectedYear: parsedDate.getFullYear().toString(),
+      pickerDayKey: 0
+    };
+  }
+
+  onValueChange = (selectedDay, selectedMonth, selectedYear) => {
+    const minDate = this.getDate(this.props.minDate);
+    const maxDate = this.getDate(this.props.maxDate);
+    const valueDate = new Date(selectedYear, selectedMonth - 1, selectedDay);
+    if (this.props.minDate && valueDate < minDate) {
+      this.setState({
+        selectedDay: minDate.getDate().toString(),
+        selectedMonth: (minDate.getMonth() + 1).toString(),
+        selectedYear: minDate.getFullYear().toString()
+      });
+      this.props.onDateChange(
+        new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())
+      );
+    } else if (this.props.maxDate && valueDate > maxDate) {
+      this.setState({
+        selectedDay: maxDate.getDate().toString(),
+        selectedMonth: (maxDate.getMonth() + 1).toString(),
+        selectedYear: maxDate.getFullYear().toString()
+      });
+      this.props.onDateChange(
+        new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate())
+      );
+    } else if (isValid({ day: selectedDay, month: selectedMonth, year: selectedYear })) {
+      this.setState({ selectedDay, selectedMonth, selectedYear });
+      this.props.onDateChange(new Date(selectedYear, selectedMonth - 1, selectedDay));
+    } else {
+      const correctSelectedDay = Moment(`01/${selectedMonth}/${selectedYear}`, "DDMYYYY").endOf("month").format("DD");
+      this.setState({
+        selectedDay: correctSelectedDay,
+        selectedMonth,
+        selectedYear,
+        pickerDayKey: this.state.pickerDayKey + 1
+      });
+      this.props.onDateChange(
+        new Date(selectedYear, selectedMonth - 1, correctSelectedDay)
+      );
+    }
+  };
+
+  getDayItems = () => {
+    const items = [];
+    const { minDay, maxDay, dayInterval, dayUnit } = this.props;
+    const interval = maxDay / dayInterval;
+    for (let i = minDay; i <= interval; i++) {
+      if (this.selectedMonthHaveDay(i)) {
+        const value = `${i * dayInterval}`;
+        const item = (
+          <Picker.Item
+            key={value}
+            value={value}
+            label={value + dayUnit}
+          />
+        );
+        items.push(item);
+      }
+    }
+    return items;
+  };
+
+  getMonthItems = () => {
+    const items = [];
+    const { minMonth, maxMonth, monthInterval, monthUnit, locale } = this.props;
+    const interval = maxMonth / monthInterval;
+
+    for (let i = minMonth; i <= interval; i++) {
+      const monthIndex = (i - 1) * monthInterval;
+      const value = monthItems(locale)[monthIndex];
+      const item = (
+        <Picker.Item
+          key={value}
+          value={i.toString()}
+          label={value + monthUnit}
+        />
+      );
+      items.push(item);
+    }
+    return items;
+  };
+
+  getYearItems = () => {
+    const items = [];
+    const { yearInterval, yearUnit, calendarType } = this.props;
+    const minYear = this.getMinDate("Year");
+    const maxYear = this.getMaxDate("Year");
+    const interval = maxYear / yearInterval;
+    const valueAddOn = calendarType === "gregorian" ? 0 : 543;
+    for (let i = minYear; i <= interval; i++) {
+      const value = i * yearInterval;
+      const valueString = `${value}`;
+      const item = (
+        <Picker.Item
+          key={valueString}
+          value={valueString}
+          label={`${value + valueAddOn}${yearUnit}`}
+        />
+      );
+      items.push(item);
+    }
+    return items;
+  };
+
+  getMinDate = (unitName) => {
+    const { minDate } = this.props;
+    if (minDate) {
+      const dateMinDate = Moment(minDate, "DDMYYYY");
+      // eslint-disable-next-line default-case
+      switch (unitName) {
+        case "Day":
+          return dateMinDate.day();
+        case "Month":
+          return dateMinDate.month() + 1;
+        case "Year":
+          // eslint-disable-next-line no-case-declarations
+          const min = dateMinDate.year();
+          this.props[`min${unitName}`] = min;
+          return min;
+      }
+      return null;
+      // this.props['min' + unitName] = minUnitName;
+      // return minUnitName;
+    }
+    return this.props[`min${unitName}`];
+  };
+
+  getMaxDate = (unitName) => {
+    const { maxDate } = this.props;
+    if (maxDate) {
+      const dateMaxDate = Moment(maxDate, "DDMYYYY");
+      // eslint-disable-next-line default-case
+      switch (unitName) {
+        case "Day":
+          return dateMaxDate.day();
+        case "Month":
+          return dateMaxDate.month() + 1;
+        case "Year":
+          // eslint-disable-next-line no-case-declarations
+          const max = dateMaxDate.year();
+          this.props[`max${unitName}`] = max;
+          return max;
+      }
+      return null;
+    }
+    return this.props[`max${unitName}`];
+  };
+
+  getDate(date = this.props.date) {
+    const { minDate, maxDate } = this.props;
+
+    // date默认值
+    if (!date) {
+      const now = new Date();
+      if (minDate) {
+        // eslint-disable-next-line no-underscore-dangle
+        const _minDate = this.getDate(minDate);
+        if (now < _minDate) {
+          return _minDate;
+        }
+      }
+
+      if (maxDate) {
+        // eslint-disable-next-line no-underscore-dangle
+        const _maxDate = this.getDate(maxDate);
+
+        if (now > _maxDate) {
+          return _maxDate;
+        }
+      }
+
+      return now;
+    }
+    return date;
+  }
+
+  selectedMonthHaveDay = (day) => {
+    // every month have at least 28 days
+    if (day <= 28) {
+      return true;
+    }
+    // handle case for day 28,29,30,31
+    const { selectedMonth, selectedYear } = this.state;
+    return isValid({ day, month: selectedMonth, year: selectedYear });
+  };
+
+  renderBody = () => {
+    const { selectedDay, selectedMonth, selectedYear, pickerDayKey } = this.state;
+
+    return (
+      <PickerContainer>
+        <Picker
+          key={pickerDayKey}
+          selectedValue={selectedDay}
+          style={{ flex: 1 }}
+          itemStyle={styles.itemStyle}
+          onValueChange={itemValue =>
+            this.onValueChange(itemValue, selectedMonth, selectedYear)
+          }
+        >
+          {this.getDayItems()}
+        </Picker>
+        <Picker
+          selectedValue={selectedMonth}
+          style={{ flex: 1 }}
+          itemStyle={styles.itemStyle}
+          onValueChange={itemValue =>
+            this.onValueChange(selectedDay, itemValue, selectedYear)
+          }
+        >
+          {this.getMonthItems()}
+        </Picker>
+        <Picker
+          selectedValue={selectedYear}
+          style={{ flex: 1 }}
+          itemStyle={styles.itemStyle}
+          onValueChange={itemValue =>
+            this.onValueChange(selectedDay, selectedMonth, itemValue)
+          }
+        >
+          {this.getYearItems()}
+        </Picker>
+      </PickerContainer>
+    );
+  };
+
+  render() {
+    return (
+      this.renderBody()
+    );
+  }
+}
+
+DatePicker.propTypes = {
+  locale: PropTypes.oneOf(["th", "en"]),
+  minDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  maxDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  minMonth: PropTypes.number,
+  minDay: PropTypes.number,
+  maxDay: PropTypes.number,
+  maxMonth: PropTypes.number,
+  dayInterval: PropTypes.number,
+  monthInterval: PropTypes.number,
+  dayUnit: PropTypes.string,
+  monthUnit: PropTypes.string,
+  date: PropTypes.oneOfType(
+    [PropTypes.string, PropTypes.instanceOf(Date), PropTypes.object]),
+  calendarType: PropTypes.oneOf(["gregorian, buddhist"]),
+  onDateChange: PropTypes.func,
+  yearUnit: PropTypes.string,
+  yearInterval: PropTypes.number
+};
+
+DatePicker.defaultProps = {
+  locale: "th",
+  minDate: undefined,
+  maxDate: undefined,
+  minMonth: 1,
+  minDay: 1,
+  maxDay: 31,
+  maxMonth: 12,
+  monthInterval: 1,
+  yearInterval: 1,
+  dayInterval: 1,
+  dayUnit: "",
+  monthUnit: "",
+  yearUnit: "",
+  date: "",
+  calendarType: "buddhist",
+  onDateChange: () => {
+  }
+};
+
+export default DatePicker;

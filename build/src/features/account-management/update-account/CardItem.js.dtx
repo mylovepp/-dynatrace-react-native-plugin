@@ -1,0 +1,104 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React from "react";
+import i18n from "react-native-i18n";
+import { SvgXml } from "react-native-svg";
+import styled from "styled-components/native";
+import userCircle from "@invx/assets/images/icon/user-circle.svg";
+import { maskingCustomerString } from "@invx/redux/login/utils";
+import { Header2, Icon } from "@invx/components-2";
+
+const CardView = styled.View(props => ({
+  backgroundColor: props.isActive
+    ? props.theme.backgroundFlash : props.theme.backgroundLightColor,
+  display: "flex",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  paddingVertical: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  borderRadius: props.theme.spacingSmall,
+  marginVertical: props.theme.spacingXSmall
+}));
+
+const LeftContainer = styled.View(() => ({
+  flex: 2,
+  flexDirection: "row"
+}));
+
+const MiddleContainer = styled.View(props => ({
+  flex: 1,
+  marginLeft: props.theme.spacingLarge,
+  justifyContent: "center"
+}));
+
+const RightContainer = styled.View(props => ({
+  display: "flex",
+  flex: 1,
+  width: `${props.theme.spacingMediumLargeValue * 5}px`,
+  flexDirection: "row",
+  justifyContent: "flex-end"
+}));
+
+const AccountName = styled(Header2).attrs(() => ({
+  numberOfLines: 1
+}))(props => ({
+  marginLeft: props.theme.spacingSmall
+}));
+
+const BinIcon = styled(Icon).attrs(props => ({
+  name: "delete",
+  size: "icon24",
+  color: props.theme.graphRed
+}))``;
+
+const IconContainer = styled.View`
+  justify-content: center;
+  padding-horizontal: ${props => props.theme.spacingXSmall};
+`;
+
+const CardItem = ({ data, onDelete, drag, isActive }) => {
+  return (
+    <TouchableOpacity onLongPress={drag} delayLongPress={100} >
+      <CardView isActive={isActive}>
+        <LeftContainer>
+          <Icon name="grip-lines" size="icon24" />
+          <IconContainer>
+            <SvgXml xml={userCircle} />
+          </IconContainer>
+          <AccountName>
+            {i18n.t("SwitchAccount.AccountName", {
+              name:
+                maskingCustomerString(data.thaiName?.firstName) ||
+                maskingCustomerString(data.engName?.firstName)
+            })}
+          </AccountName>
+        </LeftContainer>
+        <MiddleContainer />
+        <RightContainer>
+          <TouchableOpacity
+            onPress={() => {
+              onDelete(data);
+            }}
+          >
+            <BinIcon name="delete" size="icon24" />
+          </TouchableOpacity>
+        </RightContainer>
+      </CardView>
+    </TouchableOpacity>
+  );
+};
+
+CardItem.defaultProps = {};
+
+CardItem.propTypes = {
+  data: PropTypes.shape({
+    thaiName: PropTypes.shape(),
+    engName: PropTypes.shape(),
+    loginUserId: PropTypes.string
+  }).isRequired,
+  onDelete: PropTypes.func.isRequired,
+  drag: PropTypes.func.isRequired,
+  isActive: PropTypes.bool.isRequired
+};
+
+export default CardItem;

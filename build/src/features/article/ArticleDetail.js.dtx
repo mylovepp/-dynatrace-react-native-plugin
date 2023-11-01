@@ -1,0 +1,715 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Dimensions,
+  LayoutAnimation,
+  Linking,
+  PixelRatio,
+  Platform,
+  View,
+  ScrollView,
+} from "react-native";
+import I18n from "react-native-i18n";
+import LinearGradient from "react-native-linear-gradient";
+import { Navigation } from "react-native-navigation";
+import HTML from "react-native-render-html";
+import { Thumbnail } from "react-native-thumbnail-video";
+import YouTube, { YouTubeStandaloneAndroid } from "react-native-youtube";
+import YoutubePlayer, { PLAYER_STATES } from "react-native-youtube-iframe";
+import { IGNORED_TAGS } from "react-native-render-html/src/HTMLUtils";
+import Video from "react-native-video";
+import styled from "styled-components/native";
+import { ScrollViewContainer, ViewContainer } from "../../components";
+import {
+  Body2,
+  Body3,
+  Display2,
+  Display3,
+  PrimaryButton,
+  SecondaryButton,
+  Header2,
+  ErrorEmptyState,
+  Separator
+} from "../../components-2";
+import LoadingScreen from "../../components-2/loadingIndicator/LoadingScreen/LoadingScreen";
+import { getConfig } from "../../Config";
+import {
+  convertNonBreakingSpace,
+  formatStringDateToCurrentLocal,
+  SHORT_DATE_TIME_FORMAT_NUMERICS_ONLY,
+  SHORT_SERVER_DATE_TIME_FORMAT
+} from "../../modules/format";
+import { ARTICLE_TYPE, CONTENT_TYPE } from "../../redux/article/article-constants";
+import { ALL_NEWS_SCREEN_ID } from "../../redux/navigation/navigation-constants";
+import ImageThumbnail from "./ImageThumbnail";
+
+import { textColorForThemeVariant } from "../../theme/colors";
+
+const ScrollContainer = styled(ScrollViewContainer)(props => ({
+  padding: `0 ${props.theme.spacingMedium}`,
+  marginBottom: props.theme.spacingLarge
+}));
+
+const HeaderSection = styled.View(() => ({}));
+
+const ContentSection = styled.View(props => ({
+  paddingVertical: props.theme.spacingMedium
+}));
+
+const Topic = styled(Display3)(props => ({
+  color: props.theme.primaryColor
+}));
+
+const Title = styled(Display2)(() => ({}));
+
+const DateTime = styled(Body3)(props => ({
+  color: props.theme.contentColorHigh,
+  paddingTop: props.theme.spacingXSmall
+}));
+
+const ViewPDFButton = styled(SecondaryButton)(props => ({
+  width: "50%",
+  alignSelf: "center",
+  alignItems: "center",
+  marginTop: props.theme.spacingMedium,
+  marginBottom: props.theme.spacingLarge,
+  backgroundColor: props.theme.backgroundLightColor
+}));
+
+const ModalStyled = styled(LinearGradient)(() => ({
+  justifyContent: "flex-end"
+}));
+
+const Description = styled.View(props => ({
+  alignItems: "center",
+  padding: props.theme.spacingMediumValue,
+  paddingBottom: 0
+}));
+
+const LoginGuideLabel = styled(Body2)``;
+
+const ButtonContainer = styled.View(props => ({
+  padding: props.theme.spacingMediumLarge
+}));
+
+const LoginOrRegisterButton = styled(PrimaryButton)``;
+
+const IOSYoutubePlyer = styled(YouTube)`
+  align-self: stretch;
+  height: ${props => props.height};
+`;
+
+const IOSYoutubePlyerContainer = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+`;
+
+const YoutubeLogo = styled(TouchableOpacity)`
+  top: ${props => props.height - props.theme.spacingXSmallValue * 7.5};
+  left: ${props => Dimensions.get("window").width - props.theme.spacingXSmallValue * 17.5};
+  height: ${props => props.theme.spacingXSmallValue * 5};
+  width: ${props => props.theme.spacingXSmallValue * 5};
+  position: absolute;
+`;
+
+const YoutubePlayerStandalone = styled(TouchableOpacity)`
+  top: ${props => props.height - props.theme.spacingXSmallValue * 7.5};
+  left: ${props => Dimensions.get("window").width - props.theme.spacingXSmallValue * 8.75};
+  height: ${props => props.theme.spacingXSmallValue * 5};
+  width: ${props => props.theme.spacingXSmallValue * 5};
+  position: absolute;
+`;
+
+const Hashtag = styled(Header2).attrs({
+  variant: "primary"
+})`
+  margin-right: ${props => props.theme.spacingXXSmall};
+`;
+
+const HashtagContainer = styled(View).attrs({
+  flexDirection: "row",
+  flexWrap: "wrap"
+})`
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const HashtagBottomSection = styled(View).attrs({})`
+  padding: ${props => props.theme.spacingLarge} ${props => props.theme.spacingMedium};
+`;
+
+export const ArticleDetail = props => {
+  const {
+    type,
+    isFreemiumMode,
+    popupLoginScreen,
+    onPressCustomBackButton,
+    navigator,
+    loading,
+    showError,
+    onPressLogin,
+    onViewPDF,
+    onPlayVideo,
+    data,
+    retryError,
+    tagList
+  } = props;
+
+  const [isDisplayViewPDFButton, setIsDisplayViewPDFButton] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [viewHeight, setViewHeight] = useState(0);
+  const [hashTagHeight, setHashTagHeight] = useState(0);
+  const [viewPdfHeight, setViewPdfHeight] = useState(0);
+
+  // Variables
+  const enablePremium = !isFreemiumMode;
+  const htmlContent = `<body>${convertNonBreakingSpace(data?.details)}</body>`;
+  const youtubeHeight = PixelRatio.roundToNearestPixel(Dimensions.get("window").width / (16 / 9));
+  const attachmentFile = data?.attachmentFile;
+  const iframeWith = Dimensions.get("window").width - 32;
+
+  const tagsStyles = useMemo(
+    () => ({
+      body: {
+        ...props.theme.getFontGraphik(),
+        color: textColorForThemeVariant(props)
+      },
+      a: {
+        ...props.theme.body2,
+        color: props.theme.textPrimaryColor
+      },
+      b: {
+        ...props.theme.body2,
+        ...props.theme.getFontBoldGraphik()
+      },
+      p: {
+        ...props.theme.body2,
+        color: textColorForThemeVariant(props)
+      },
+      strong: {
+        ...props.theme.body2,
+        ...props.theme.getFontBoldGraphik()
+      },
+      li: {
+        ...props.theme.body2
+      },
+      img: {
+        alignSelf: "center"
+      }
+    }),
+    [props.theme]
+  );
+
+  useEffect(() => {
+    if (onPressCustomBackButton) {
+      navigator.setStyle({
+        navBarCustomView: "backButtonNavigationBar",
+        navBarCustomViewInitialProps: {
+          navigator: props.navigator,
+          onPressBack: props.onPressCustomBackButton
+        }
+      });
+    }
+  }, []);
+
+  const handleClickYoutubeLogo = id => {
+    Linking.openURL(`vnd.youtube://watch?v=${id}`).catch(() => {
+      Linking.openURL(`https://m.youtube.com/watch?v=${id}`);
+    });
+  };
+
+  const handleChangeVideoState = state => {
+    if (onPlayVideo || state === PLAYER_STATES.BUFFERING) {
+      onPlayVideo();
+    }
+  };
+
+  const renderThumbnail = useCallback(
+    (id, height) => {
+      return (
+        <Thumbnail
+          url={`https://m.youtube.com/watch?v=${id}`}
+          onPress={() => {}}
+          showPlayIcon={false}
+          style={{
+            alignSelf: "stretch",
+            height
+          }}
+        />
+      );
+    },
+    [isFreemiumMode]
+  );
+
+  const renderIOSPlayer = (isPremium, id, height) => {
+    const { YOUTUBE_API_KEY } = getConfig();
+    if (isPremium) {
+      return (
+        <IOSYoutubePlyerContainer>
+          <IOSYoutubePlyer
+            videoId={id}
+            apiKey={YOUTUBE_API_KEY}
+            loop
+            height={height}
+            onChangeState={event => handleChangeVideoState(event.state)}
+          />
+        </IOSYoutubePlyerContainer>
+      );
+    }
+    return renderThumbnail(id, height);
+  };
+
+  const renderAndroidPlayer = (isPremium, id, height) => {
+    const { YOUTUBE_API_KEY } = getConfig();
+    if (isPremium) {
+      return (
+        <View>
+          <YoutubePlayer
+            height={height}
+            webViewProps={{ allowsFullscreenVideo: false }}
+            preventFullScreen
+            videoId={id}
+            onChangeState={handleChangeVideoState}
+          />
+          <YoutubeLogo
+            height={height}
+            onPress={() => {
+              handleClickYoutubeLogo(id);
+            }}
+          />
+          <YoutubePlayerStandalone
+            height={height}
+            onPress={() => {
+              YouTubeStandaloneAndroid.playVideo({
+                apiKey: YOUTUBE_API_KEY,
+                videoId: id,
+                autoplay: true
+              });
+            }}
+          />
+        </View>
+      );
+    }
+    return renderThumbnail(id, height);
+  };
+
+  const renderYoutubePlayer = (isPremium, id, height) => {
+    switch (Platform.OS) {
+      case "ios":
+        return renderIOSPlayer(isPremium, id, height);
+      case "android":
+        return renderAndroidPlayer(isPremium, id, height);
+      default:
+        return null;
+    }
+  };
+
+  const handleScroll = useCallback(
+    event => {
+      const CustomLayoutLinear = {
+        duration: 100,
+        create: {
+          type: LayoutAnimation.Types.linear,
+          property: LayoutAnimation.Properties.opacity
+        },
+        update: {
+          type: LayoutAnimation.Types.linear,
+          property: LayoutAnimation.Properties.opacity
+        },
+        delete: { type: LayoutAnimation.Types.linear, property: LayoutAnimation.Properties.opacity }
+      };
+      const currentOffset = event.nativeEvent.contentOffset.y;
+      const shouldDisplayViewPDFButton = currentOffset > scrollOffset;
+      if (shouldDisplayViewPDFButton !== isDisplayViewPDFButton) {
+        LayoutAnimation.configureNext(CustomLayoutLinear);
+        setScrollOffset(currentOffset);
+        setIsDisplayViewPDFButton(shouldDisplayViewPDFButton);
+      }
+      setScrollOffset(currentOffset);
+    },
+    [isDisplayViewPDFButton, scrollOffset]
+  );
+
+  const handleLinkPressed = useCallback(
+    (event, href) => {
+      Linking.canOpenURL(href).then(valid => {
+        if (valid) {
+          Linking.openURL(href);
+        }
+      });
+    },
+    [htmlContent]
+  );
+
+  const handleViewPDF = useCallback(
+    attachFile => {
+      if (attachFile && attachFile.uri && attachFile.originalName) {
+        const { uri, originalName } = attachFile;
+        if (onViewPDF) {
+          onViewPDF();
+        }
+        Navigation.handleDeepLink({
+          link: "App.openNewsPDF",
+          payload: { attachPathUrl: uri, title: originalName }
+        });
+      }
+    },
+    [data?.attachmentFile]
+  );
+
+  const handlePressLogin = () => {
+    if (onPressLogin) {
+      onPressLogin();
+    }
+    popupLoginScreen();
+  };
+
+  const isShortContent = useMemo(() => {
+    const deviceHeight = Dimensions.get("window").height - 64;
+    const totalContentHeight = contentHeight + headerHeight + youtubeHeight;
+    return totalContentHeight < deviceHeight;
+  }, [contentHeight, headerHeight, youtubeHeight]);
+
+  const shouldDisplayPDFButton = useMemo(() => {
+    if (!attachmentFile?.uri) {
+      return false;
+    } else if (enablePremium) {
+      return true;
+    }
+    return isDisplayViewPDFButton;
+  }, [isDisplayViewPDFButton, enablePremium, attachmentFile]);
+
+  const getTagTitle = tag => {
+    if (tagList) {
+      return (
+        tagList.filter(i => tag && i.code === tag.toUpperCase()).map(i => i.description)[0] || tag
+      );
+    }
+    return tag;
+  };
+
+  const handlePressTag = tag => {
+    navigator.push({
+      screen: ALL_NEWS_SCREEN_ID,
+      passProps: {
+        defaultActiveTab: tag
+      },
+      animationType: "slide-horizontal",
+      backButtonTitle: "",
+      navigatorStyle: {
+        tabBarHidden: true
+      }
+    });
+  };
+
+  const renderImgTag = (htmlAttribs, children, convertedCSSStyles, passProps = {}) => {
+    return <ImageThumbnail htmlAttribs={htmlAttribs} passProps={passProps} />;
+  };
+
+  const renderVideoTag = htmlAttribs => {
+    if (!htmlAttribs.src) {
+      return false;
+    }
+    const videoStyle = {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      height: 250
+    };
+
+    const viewStyle = { height: 250 };
+
+    const { src } = htmlAttribs;
+    return (
+      <View style={viewStyle}>
+        <Video
+          source={{
+            uri: src
+          }}
+          style={videoStyle}
+          controls
+          resizeMode="cover"
+          hideShutterView
+          paused
+        />
+      </View>
+    );
+  };
+
+  const getYouTubeId = url => {
+    let id = "";
+    const splitUrl = url.replace(/(>|<)/gi, "").split(/(vi\/|v=|\/v\/|youtu\.be\/|\/embed\/)/);
+    if (splitUrl[2] !== undefined) {
+      const aplitId = splitUrl[2].split(/[^0-9a-z_-]/i);
+      id = aplitId[0] || "";
+    }
+    return id;
+  };
+
+  const renderIframeTag = htmlAttribs => {
+    if (!htmlAttribs.src) {
+      return false;
+    }
+    const { src } = htmlAttribs;
+
+    const youtubeId = getYouTubeId(src);
+    if (youtubeId && youtubeId !== "") {
+      return renderYoutubePlayer(enablePremium, youtubeId, youtubeHeight);
+    }
+    return htmlAttribs;
+  };
+
+  const renderBottomHashTags = () => {
+    return (
+      <View
+        onLayout={event => {
+          const { layout } = event.nativeEvent;
+          setHashTagHeight(layout.height);
+        }}
+      >
+        <Separator />
+        <HashtagBottomSection>
+          <Title>{I18n.t("Article.Tags")}</Title>
+          <HashtagContainer>
+            {data.tags &&
+              data.tags.map(tag => (
+                <Hashtag onPress={() => handlePressTag(tag)} key={tag}>
+                  {`#${getTagTitle(tag)}`}
+                </Hashtag>
+              ))}
+          </HashtagContainer>
+        </HashtagBottomSection>
+      </View>
+    );
+  };
+
+  const renderViewPdf = () => {
+    return (
+      <View
+        onLayout={event => {
+          const { layout } = event.nativeEvent;
+          setViewPdfHeight(layout.height);
+        }}
+      >
+        <Separator />
+        <ViewPDFButton
+          label={I18n.t("News.ViewAsPDF")}
+          startIcon="request-document"
+          onPress={() => handleViewPDF(attachmentFile)}
+        />
+      </View>
+    );
+  };
+
+  const renderLoginModal = () => {
+    return (
+      <ModalStyled colors={["rgba(256, 256, 256, 0.5)", "white"]}>
+        <Description>
+          <LoginGuideLabel>{I18n.t("Freemium.Screen.News.Caption")}</LoginGuideLabel>
+        </Description>
+        <ButtonContainer>
+          <LoginOrRegisterButton
+            label={I18n.t("Freemium.Button.Register")}
+            onPress={handlePressLogin}
+            size="large"
+          />
+        </ButtonContainer>
+      </ModalStyled>
+    );
+  };
+
+  const renderDetailHeader = () => {
+    return (
+      <HeaderSection
+        onLayout={event => {
+          const { layout } = event.nativeEvent;
+          setHeaderHeight(layout.height);
+        }}
+      >
+        {type === ARTICLE_TYPE.KNOWLEDGE && <Topic>{data.topic}</Topic>}
+        <Title>{data.header}</Title>
+        {type === ARTICLE_TYPE.NEWS && (
+          <HashtagContainer>
+            {data.tags &&
+              data.tags.map(tag => (
+                <Hashtag onPress={() => handlePressTag(tag)} key={tag}>
+                  {`#${getTagTitle(tag)}`}
+                </Hashtag>
+              ))}
+          </HashtagContainer>
+        )}
+        <DateTime>
+          {formatStringDateToCurrentLocal(
+            data.updatedDate,
+            SHORT_DATE_TIME_FORMAT_NUMERICS_ONLY,
+            SHORT_SERVER_DATE_TIME_FORMAT,
+            true
+          )}
+        </DateTime>
+      </HeaderSection>
+    );
+  };
+
+  const renderDetailContent = () => {
+    const getIframeHeight = () => {
+      if (Platform.OS === "android" && data.contentType === CONTENT_TYPE.TEXT_URI_LIST) {
+        return viewHeight - headerHeight - hashTagHeight - viewPdfHeight - 12;
+      }
+      return viewHeight - headerHeight - 60;
+    };
+
+    return (
+      <ContentSection
+        onLayout={event => {
+          const { layout } = event.nativeEvent;
+          setContentHeight(layout.height);
+        }}
+      >
+        {data.contentType === CONTENT_TYPE.TEXT_URI_LIST && (
+          <HTML
+            html={`
+              <iframe
+                width="${iframeWith}"
+                height=${getIframeHeight()}
+                scrolling="no"
+                src="${data.details}"
+              >Sorry your browser does not support inline frames.</iframe>
+            `}
+          />
+        )}
+        {data.contentType === CONTENT_TYPE.TEXT_HTML && (
+          <HTML
+            html={htmlContent}
+            renderers={{
+              img: renderImgTag,
+              video: renderVideoTag,
+              iframe: renderIframeTag
+            }}
+            onLinkPress={handleLinkPressed}
+            tagsStyles={tagsStyles}
+            ignoredTags={IGNORED_TAGS.filter(tag => tag !== "video")}
+          />
+        )}
+      </ContentSection>
+    );
+  };
+
+  const renderContent = () => {
+    if (Platform.OS === "android" && data.contentType === CONTENT_TYPE.TEXT_URI_LIST) {
+      return (
+        <ViewContainer
+          variant="light"
+          onLayout={event => {
+            const { height } = event.nativeEvent.layout;
+            setViewHeight(height);
+          }}
+        >
+          <ScrollContainer
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            style={{ marginBottom: 0 }}
+          >
+            {renderDetailHeader()}
+            {renderDetailContent()}
+          </ScrollContainer>
+          {type === ARTICLE_TYPE.NEWS && renderBottomHashTags()}
+          {shouldDisplayPDFButton && enablePremium && renderViewPdf()}
+          {!enablePremium && renderLoginModal()}
+        </ViewContainer>
+      );
+    }
+
+    return (
+      <ViewContainer
+        variant="light"
+        onLayout={event => {
+          const { height } = event.nativeEvent.layout;
+          setViewHeight(height);
+        }}
+      >
+        <ScrollView scrollEnabled={enablePremium}>
+          <ScrollContainer
+            scrollEnabled={enablePremium && !isShortContent}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+          >
+            {renderDetailHeader()}
+            {renderDetailContent()}
+          </ScrollContainer>
+          {type === ARTICLE_TYPE.NEWS && renderBottomHashTags()}
+        </ScrollView>
+        {shouldDisplayPDFButton && enablePremium && renderViewPdf()}
+        {!enablePremium && renderLoginModal()}
+      </ViewContainer>
+    );
+  };
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+  if (showError) {
+    return <ErrorEmptyState onButtonPress={() => retryError()} />;
+  }
+
+  return renderContent();
+};
+
+ArticleDetail.defaultProps = {
+  contentItem: {},
+  loading: false,
+  showError: false,
+  onPressCustomBackButton: null,
+  navigator: null
+};
+
+ArticleDetail.propTypes = {
+  type: PropTypes.string.isRequired,
+  data: PropTypes.shape({
+    id: PropTypes.number,
+    header: PropTypes.string,
+    name: PropTypes.string,
+    details: PropTypes.string,
+    topic: PropTypes.string,
+    contentType: PropTypes.string,
+    shareLink: PropTypes.string,
+    createdDate: PropTypes.instanceOf(Date),
+    createdBy: PropTypes.string,
+    updatedDate: PropTypes.instanceOf(Date),
+    updatedBy: PropTypes.string,
+    shortcutImageUri: PropTypes.string,
+    attachmentFile: PropTypes.shape({
+      originalName: PropTypes.string,
+      reference: PropTypes.string,
+      uri: PropTypes.string
+    })
+  }),
+  loading: PropTypes.bool,
+  showError: PropTypes.bool,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  popupLoginScreen: PropTypes.func.isRequired,
+  onPressCustomBackButton: PropTypes.func,
+  navigator: PropTypes.shape({
+    push: PropTypes.func,
+    setButtons: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired
+  }).isRequired,
+  onPressLogin: PropTypes.func,
+  onViewPDF: PropTypes.func,
+  onPlayVideo: PropTypes.func,
+  retryError: PropTypes.func.isRequired,
+  tagList: PropTypes.arrayOf(
+    PropTypes.shape({
+      code: PropTypes.string,
+      description: PropTypes.string
+    })
+  )
+};

@@ -1,0 +1,63 @@
+import React, { Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { Grabber } from "../styled";
+import { Header1 } from "../../../../components-2";
+
+const ModalHeaderWithSubmit = ({ title = "", submit, children }) => {
+  return (
+    <Fragment>
+      <ModalHeader>
+        <Grabber />
+        <TitleRow>
+          <ModalTitle>{title}</ModalTitle>
+          <SubmitContainer>
+            <TouchableOpacity onPress={submit}>
+              <SubmitButtonText>{I18n.t("DigitalAssets.Activity.Filter.Apply")}</SubmitButtonText>
+            </TouchableOpacity>
+          </SubmitContainer>
+        </TitleRow>
+        {children}
+      </ModalHeader>
+    </Fragment>
+  );
+};
+
+ModalHeaderWithSubmit.propTypes = {
+  title: PropTypes.string.isRequired,
+  submit: PropTypes.func.isRequired,
+  children: PropTypes.node.isRequired
+};
+
+export default ModalHeaderWithSubmit;
+
+const ModalHeader = styled.View`
+  padding: 32px 16px 8px 16px;
+  align-items: center;
+`;
+
+const TitleRow = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 4px;
+`;
+
+const ModalTitle = styled(Header1)`
+  text-align: center;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const SubmitContainer = styled.View`
+  position: absolute;
+  right: 0px;
+`;
+
+const SubmitButtonText = styled(Header1)`
+  text-align: center;
+  color: ${props => props.theme.ctaPurple};
+`;

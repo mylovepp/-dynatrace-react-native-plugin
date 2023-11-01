@@ -1,0 +1,81 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { Dimensions, Image } from "react-native";
+import styled from "styled-components/native";
+
+import { Header3 } from "../text/Text";
+
+const ImageContainer = styled.View(props => ({
+  marginRight: props.theme.spacingSmall
+}));
+
+const ImageItem = styled(Image)`
+  border-radius: 8px;
+`;
+
+// fix min width for the layout to be work with flat list instead of scroll view
+const ImageLabel = styled(Header3)(props => ({
+  color: props.theme.contentColorVeryHigh,
+  minHeight: props.numberOfLines ? `${props.numberOfLines * 20}px` : "auto"
+}));
+
+const { width } = Dimensions.get("window");
+
+const ListItem = ({ item, fixLineNumber, onPress, ...rest }) => {
+  // As requirement want to change scale of image item to 33%
+  // Improvment this can be update as props configuration
+  const imageScales = width * 0.25;
+  return (
+    <ImageContainer {...rest}>
+      <TouchableOpacity onPress={() => onPress(item)}>
+        <ImageItem
+          style={{
+            height: imageScales,
+            width: imageScales
+          }}
+          source={
+            item.source || {
+              uri: item.uri,
+              cache: "reload"
+            }
+          }
+          resizeMode="stretch"
+        />
+        <ImageLabel style={{ width: imageScales }} numberOfLines={fixLineNumber}>
+          {item.text}
+        </ImageLabel>
+      </TouchableOpacity>
+    </ImageContainer>
+  );
+};
+
+ListItem.defaultProps = {
+  fixLineNumber: undefined
+};
+
+ListItem.propTypes = {
+  fixLineNumber: PropTypes.number,
+  item: PropTypes.shape({
+    source: PropTypes.oneOfType([
+      PropTypes.shape({
+        uri: PropTypes.string,
+        headers: PropTypes.objectOf(PropTypes.string)
+      }),
+      PropTypes.number,
+      PropTypes.arrayOf(
+        PropTypes.shape({
+          uri: PropTypes.string,
+          width: PropTypes.number,
+          height: PropTypes.number,
+          headers: PropTypes.objectOf(PropTypes.string)
+        })
+      )
+    ]),
+    uri: PropTypes.string.isRequired,
+    text: PropTypes.string.isRequired
+  }).isRequired,
+  onPress: PropTypes.func.isRequired
+};
+
+export default React.memo(ListItem);

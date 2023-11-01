@@ -1,0 +1,378 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback } from "react";
+import { View } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { trackEvent } from "../../../../modules/analytics/AnalyticsService";
+import {
+  HOME_WATCHLIST_SECTION_ASSET_VIEW,
+  WATCHLIST_SECTION
+} from "../../../../modules/analytics/analytics-constants";
+import {
+  formatPayload,
+  formatUserMode,
+  formatAssetType
+} from "../../../../modules/analytics/analytics-utils";
+import { Body3, Header2, Header3, TextOverlineR } from "../../../../components-2";
+import CoinImageIcon from "../../../../components/icon/CoinImageIcon";
+import { gainOrLossDisplay, getGainOrLoss, stringToNumberFormat } from "../../../../modules/format";
+import { getStockChartSubject } from "../../../../modules/subject/stocks";
+import {
+  AssetType,
+  Currency
+} from "../../../../redux/favorite-watchlist/favorite-watchlist-constants";
+import Record from "../../../../redux/streamlink/components/Record";
+import { OFFSHORE_STOCKS } from "../../../constants/assetType";
+import MiniGraphComponent from "../../components/MiniGraphComponent";
+import WithAssetData from "../../hoc/WithAssetData";
+import { getAssetTypeName } from "../../utils/common";
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+`;
+
+const CardView = styled.View`
+  width: ${props => props.theme.spacingXSmallValue * 17}px;
+  height: 90px;
+  background-color: ${props => props.theme.backgroundWhite};
+  border-color: ${props => props.theme.inputBorderColor};
+  padding-vertical: ${props => props.theme.spacingXSmallValue * 1.5};
+  padding-horizontal: ${props => props.theme.spacingXSmallValue};
+  margin-left: ${props => (props.isLeftmostCard ? 0 : props.theme.spacingXXSmallValue)};
+  margin-right: ${props => (props.isRightmostCard ? 0 : props.theme.spacingXXSmallValue)};
+  margin-vertical: ${props => props.theme.spacingXXSmallValue};
+  box-shadow: 0px 2px 2px rgba(223, 219, 236, 0.1);
+  border-width: 0.5px;
+  border-radius: ${props => props.theme.spacingXSmallValue};
+  flex-direction: column;
+  justify-content: space-between;
+`;
+
+const AssetNameLabel = styled(Body3).attrs(props => ({
+  numberOfLines: props.isError ? 0 : 1
+}))(props => ({
+  color: props.isError ? props.theme.textLabel : props.theme.contentColorHigh,
+  maxWidth: props.isError ? "100%" : "70%",
+  lineHeight: `${props.theme.spacingXXXSmallValue * 7}px`
+}));
+
+const AssetTypeLabelContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXXSmallValue};
+  background-color: ${props => props.theme.textGrayDarkApproxColor};
+  padding-horizontal: ${props => props.theme.spacingXSmallValue};
+  border-radius: ${props => props.theme.spacingXXXLargeValue};
+  align-self: flex-start;
+`;
+
+const AssetTypeLabel = styled(TextOverlineR).attrs({
+  variant: "subdued"
+})`
+  color: white;
+`;
+
+const ValueChangeLabel = styled(Body3)(props => ({
+  lineHeight: `${props.theme.spacingXXXSmallValue * 7}`
+}));
+
+const MainLabel = styled(Header2).attrs({
+  numberOfLines: 1
+})``;
+
+const GraphContainer = styled.View`
+  align-items: center;
+  min-height: ${props => props.theme.spacingXXXSmallValue * 21}px;
+`;
+
+const PriceContainer = styled.View`
+  align-items: flex-start;
+  width: 100%;
+  margin-top: ${props => props.theme.spacingXXSmall};
+`;
+
+const CurrencyLabel = styled(Header3)`
+  margin-left: ${props => props.theme.spacingXXSmall};
+`;
+
+const CoinIcon = styled.View`
+  margin-right: ${props => props.theme.spacingXXSmall};
+`;
+
+const AssetCodeContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const CardContent = styled.View(() => ({
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between"
+}));
+
+const CardItem = ({
+  data,
+  assetInfo,
+  showBottomLine,
+  showAssetName,
+  showAssetType,
+  showGraph,
+  viewProductInfo,
+  isLeftmostCard,
+  isRightmostCard,
+  isFreemiumMode,
+  setAnalyticsTrackChannel
+}) => {
+  const { assetCode, assetName, icon } = assetInfo;
+  const { assetType, symbol, reference } = data;
+
+  const getCurrencyLabel = useCallback(currency => {
+    if (currency === Currency.THB) {
+      return i18n.t("General.Currencies.THB");
+    }
+    return currency;
+  }, []);
+
+  const handleOnPress = useCallback(() => {
+    viewProductInfo();
+    trackEvent(HOME_WATCHLIST_SECTION_ASSET_VIEW, {
+      watchlistDetail: formatPayload([
+        formatUserMode(isFreemiumMode),
+        symbol,
+        formatAssetType(assetType, reference?.isOffshore)
+      ])
+    });
+    setAnalyticsTrackChannel(WATCHLIST_SECTION);
+  }, [
+    viewProductInfo,
+    formatPayload,
+    formatUserMode,
+    trackEvent,
+    isFreemiumMode,
+    symbol,
+    assetType
+  ]);
+
+  const renderPrice = () => {
+    switch (data.assetType) {
+      case AssetType.FUNDS: {
+        const { fundInfo } = assetInfo;
+        return (
+          <RowContainer>
+            <MainLabel variant="black">
+              {fundInfo?.nav ? stringToNumberFormat(fundInfo.nav, 2) : "-"}
+            </MainLabel>
+            {fundInfo?.nav && (
+              <CurrencyLabel variant="black">{getCurrencyLabel(fundInfo.currency)}</CurrencyLabel>
+            )}
+          </RowContainer>
+        );
+      }
+      case AssetType.BONDS: {
+        const { bondInfo } = assetInfo;
+        return (
+          <RowContainer>
+            <MainLabel variant="black">{bondInfo.previousCleanPrice}</MainLabel>
+          </RowContainer>
+        );
+      }
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+
+        return (
+          <RowContainer>
+            <MainLabel variant="black">
+              {stringToNumberFormat(stockInfo?.lastPrice, stockInfo?.pricePrecision || 2) || "-"}
+            </MainLabel>
+            {!!stockInfo?.lastPrice && (
+              <CurrencyLabel>{getCurrencyLabel(stockInfo?.marketCurrency)}</CurrencyLabel>
+            )}
+          </RowContainer>
+        );
+      }
+      case AssetType.DIGITAL_ASSET: {
+        const { lastPrice } = assetInfo;
+        return (
+          <RowContainer>
+            <MainLabel variant="black">{stringToNumberFormat(lastPrice, 2) || "-"}</MainLabel>
+            <CurrencyLabel variant="black">{i18n.t("General.Currencies.THB")}</CurrencyLabel>
+          </RowContainer>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderSecondRow = () => {
+    switch (data.assetType) {
+      case AssetType.FUNDS: {
+        const { fundInfo } = assetInfo;
+        const navString = stringToNumberFormat(fundInfo.navChange, 2);
+        return (
+          <RowContainer>
+            <ValueChangeLabel variant={getGainOrLoss(navString, "primary", "black")}>
+              {gainOrLossDisplay({
+                value: navString,
+                suffix: "%",
+                noDisplayValue: true
+              })}
+            </ValueChangeLabel>
+          </RowContainer>
+        );
+      }
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+        const netChangeString = stringToNumberFormat(stockInfo?.netChange, 2);
+        const percentChangeString = stringToNumberFormat(stockInfo?.percentageChange, 2);
+        return (
+          <RowContainer>
+            <ValueChangeLabel variant={getGainOrLoss(netChangeString, "primary", "black")}>
+              {gainOrLossDisplay({
+                value: percentChangeString,
+                suffix: "%",
+                noDisplayValue: true
+              })}
+            </ValueChangeLabel>
+          </RowContainer>
+        );
+      }
+      case AssetType.BONDS: {
+        return (
+          <RowContainer>
+            <ValueChangeLabel />
+          </RowContainer>
+        );
+      }
+      case AssetType.DIGITAL_ASSET: {
+        const { price24HPercentageChange } = assetInfo;
+        const price24HPercentageChangeString = stringToNumberFormat(price24HPercentageChange, 2);
+        return (
+          <RowContainer>
+            <ValueChangeLabel
+              variant={getGainOrLoss(price24HPercentageChangeString, "primary", "black")}
+            >
+              {gainOrLossDisplay({
+                value: price24HPercentageChangeString,
+                suffix: "%",
+                noDisplayValue: true
+              })}
+            </ValueChangeLabel>
+          </RowContainer>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderMiniGraph = () => {
+    switch (data.assetType) {
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+        const netChangeString = stringToNumberFormat(stockInfo?.netChange, 2);
+        const variant = getGainOrLoss(netChangeString, "primary", "black");
+        if (variant !== "black") {
+          return (
+            <Record
+              subject={getStockChartSubject({
+                stockCode: data.reference.ricCode,
+                interval: "1d",
+                period: "ONE_WEEK",
+                assetType: OFFSHORE_STOCKS
+              })}
+            >
+              {recordKey => <MiniGraphComponent recordKey={recordKey} variant={variant} />}
+            </Record>
+          );
+        }
+        return null;
+      }
+      case AssetType.DIGITAL_ASSET: {
+        const { price, price24HChange } = assetInfo;
+        const variant = getGainOrLoss(price24HChange, "primary", "black") || "";
+        if ((["loss", "gain"].includes(variant) && price.length === 0) || variant === "black") {
+          return null;
+        }
+        return <MiniGraphComponent daPrice={price || []} variant={variant} />;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderCardItem = () => {
+    return (
+      <TouchableOpacity onPress={handleOnPress}>
+        <CardView
+          isLeftmostCard={isLeftmostCard}
+          isRightmostCard={isRightmostCard}
+          showBottomLine={showBottomLine}
+        >
+          <CardContent>
+            <View style={{ display: "flex", alignSelf: "flex-start" }}>
+              <AssetCodeContainer>
+                {data.assetType === AssetType.DIGITAL_ASSET && (
+                  <CoinIcon>
+                    <CoinImageIcon uri={icon} width={20} height={20} />
+                  </CoinIcon>
+                )}
+                <MainLabel>{assetCode || symbol}</MainLabel>
+              </AssetCodeContainer>
+              {showAssetName && <AssetNameLabel>{assetName || "-"}</AssetNameLabel>}
+              {showAssetType && (
+                <AssetTypeLabelContainer>
+                  <AssetTypeLabel>
+                    {getAssetTypeName(
+                      data.assetType,
+                      data?.reference?.isThailand,
+                      assetInfo?.isOffshore
+                    )}
+                  </AssetTypeLabel>
+                </AssetTypeLabelContainer>
+              )}
+            </View>
+            {showGraph && <GraphContainer>{renderMiniGraph()}</GraphContainer>}
+            <PriceContainer>
+              {renderPrice()}
+              {renderSecondRow()}
+            </PriceContainer>
+          </CardContent>
+        </CardView>
+      </TouchableOpacity>
+    );
+  };
+
+  return renderCardItem();
+};
+
+CardItem.defaultProps = {
+  isActive: false,
+  showBottomLine: true,
+  isLeftmostCard: false,
+  isRightmostCard: false,
+  isFreemiumMode: false,
+  showAssetName: false,
+  showAssetType: false,
+  showGraph: false
+};
+
+CardItem.propTypes = {
+  data: PropTypes.shape({
+    symbol: PropTypes.string,
+    assetType: PropTypes.string,
+    reference: PropTypes.shape({})
+  }).isRequired,
+  showBottomLine: PropTypes.bool,
+  viewProductInfo: PropTypes.func.isRequired,
+  isLeftmostCard: PropTypes.bool,
+  isRightmostCard: PropTypes.bool,
+  isFreemiumMode: PropTypes.bool,
+  showGraph: PropTypes.bool,
+  showAssetName: PropTypes.bool,
+  showAssetType: PropTypes.bool
+};
+
+export default React.memo(WithAssetData(CardItem));

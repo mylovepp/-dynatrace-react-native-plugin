@@ -1,0 +1,51 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React from "react";
+import styled from "styled-components/native";
+import { Body2, Icon, Separator } from "../../components-2";
+
+const SectionContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const ItemContainer = styled.View`
+  padding: ${props => props.theme.spacingSmall};
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const TitleContainer = styled.View`
+  flex: 1;
+`;
+
+const HelpAndSupportList = props => {
+    const { title, onPress } = props;
+    return (
+      <SectionContainer>
+        <TouchableOpacity onPress={onPress}>
+          <ItemContainer>
+            <TitleContainer>
+              <Body2>
+                {title}
+              </Body2>
+            </TitleContainer>
+            <Icon name="chevron-right-2" size="icon24" color="black" />
+          </ItemContainer>
+        </TouchableOpacity>
+        <Separator variant="full" />
+      </SectionContainer>
+    );
+};
+
+HelpAndSupportList.defaultProps = {
+    title: undefined,
+    onPress: () => { }
+};
+
+HelpAndSupportList.propTypes = {
+    title: PropTypes.string,
+    onPress: PropTypes.func
+};
+
+export default HelpAndSupportList;

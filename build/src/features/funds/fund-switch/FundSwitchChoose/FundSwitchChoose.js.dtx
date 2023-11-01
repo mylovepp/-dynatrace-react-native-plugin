@@ -1,0 +1,288 @@
+// @ts-nocheck
+import React, { PureComponent, Fragment, createRef } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { FlatList } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { I18nPropTypes, HeaderContainer } from "../../../../components";
+import { Header1, LoadingScreen, Separator, ViewContainer } from "../../../../components-2";
+import FundsSwitchListItem from "../../funds-switch-list-item";
+
+import {
+  getGainOrLoss,
+  getReturnPLDisplayAmount,
+  getReturnPLDisplayPercentage
+} from "../../../../modules/format";
+import FundSwitchHeader from "../../fund-switch-header/FundSwitchHeader";
+import SearchInput from "../../../../components-2/input/SearchInput";
+
+const Container = styled(ViewContainer)(props => ({
+  backgroundColor: props.theme.backgroundTertiaryGrey
+}));
+
+const SearchHeaderContainer = styled(HeaderContainer)(props => ({
+  paddingBottom: props.theme.spacingMedium,
+  paddingLeft: props.theme.spacingMedium,
+  paddingRight: props.theme.spacingMedium,
+  borderBottomEndRadius: props.theme.spacingMedium,
+  borderBottomStartRadius: props.theme.spacingMedium,
+  elevation: 0
+}));
+
+const SearchBarContainer = styled.View(props => ({
+  backgroundColor: props.theme.backgroundTertiaryGrey,
+  paddingBottom: props.theme.spacingMedium,
+  paddingLeft: props.theme.spacingMedium,
+  paddingRight: props.theme.spacingMedium
+}));
+
+const SearchResultsHeader = styled(Header1)(props => ({
+  backgroundColor: props.theme.backgroundTertiaryGrey,
+  color: props.theme.contentColorVeryHigh,
+  paddingTop: props.theme.spacingLarge,
+  paddingBottom: props.theme.spacingMedium,
+  paddingLeft: props.theme.spacingMedium,
+  paddingRight: props.theme.spacingMedium
+}));
+
+const SearchBarTouchViewWrapper = styled.View`
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  left: 0px;
+  bottom: 0px;
+  z-index: 2;
+`;
+
+const SearchBarTouchViewInner = styled.View`
+  flex: 1;
+  width: 100%;
+  background-color: transparent;
+`;
+
+class FundSwitchChoose extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.fullPageSearchBar = createRef();
+  }
+
+  componentDidUpdate({ screenIsVisible }) {
+    if (!screenIsVisible && this.props.screenIsVisible && this.props.fullPageSearch) {
+      this.focusSearchBar();
+    }
+  }
+
+  focusSearchBar = () => {
+    if (this.fullPageSearchBar && this.fullPageSearchBar.current) {
+      this.fullPageSearchBar.current.focus();
+    }
+  };
+
+  clearSearchString = () => {
+    this.props.updateSearchString("");
+  };
+
+  i18nProps = () => {
+    const {
+      i18n,
+      totalValue,
+      totalUnits,
+      fundReturn,
+      returnPercent,
+      fundSwitchTotalRecordCount,
+      fundSwitchRecordIds,
+      portfolioRisk
+    } = this.props;
+
+    return {
+      signPost: i18n.translations["FundDetail.Title.Fund"],
+      listTitle: i18n.translations["FundSwitching.SearchListTitle"],
+      searchTitle: i18n.translations["FundSwitching.SearchInputTitle"],
+      totalValueTitle: i18n.translations["Funds.InvestmentDetails.FieldLabel.TotalValue"],
+      totalUnitTitle: i18n.translations["Funds.InvestmentDetails.FieldLabel.Units"],
+      returnTitle: i18n.translations["Funds.InvestmentDetails.FieldLabel.Return"],
+      returnPercentTitle: i18n.translations["Funds.InvestmentDetails.FieldLabel.ReturnPercent"],
+      totalValueDisplay: i18n.amountValueDisplay(totalValue, true),
+      totalUnitsDisplay: i18n.unitValueDisplay(totalUnits, true),
+      gainOrLossVariant: getGainOrLoss(fundReturn),
+      fundReturnDisplay: getReturnPLDisplayAmount(fundReturn),
+      returnPercentDisplay: getReturnPLDisplayPercentage(returnPercent),
+      searchResultsTitle: i18n.getLabel("FundSwitching.SearchResultsTitle", {
+        count: fundSwitchRecordIds.length,
+        total: fundSwitchTotalRecordCount
+      }),
+      riskLevelTitle: portfolioRisk
+        ? i18n.getLabel("FundDetail.Title.RiskLevel", {
+            riskLevel: portfolioRisk
+          })
+        : undefined
+    };
+  };
+
+  renderFundItem = ({ item }) => (
+    <FundsSwitchListItem
+      style={{ flex: 1 }}
+      key={item}
+      recordKey={item}
+      onPress={this.props.onChooseFund}
+    />
+  );
+
+  renderItemSeparator = () => <Separator variant="padding" />;
+
+  render() {
+    const {
+      fundName,
+      portfolioRisk,
+      fundSearchString,
+      fundSwitchRecordIds,
+      fullPageSearch,
+      onFundSearchFocus,
+      updateSearchString,
+      loading
+    } = this.props;
+
+    const {
+      signPost,
+      listTitle,
+      searchTitle,
+      totalValueTitle,
+      totalUnitTitle,
+      returnTitle,
+      returnPercentTitle,
+      totalValueDisplay,
+      totalUnitsDisplay,
+      gainOrLossVariant,
+      fundReturnDisplay,
+      returnPercentDisplay,
+      searchResultsTitle,
+      riskLevelTitle
+    } = this.i18nProps();
+
+    const mapData = [
+      {
+        title: totalValueTitle,
+        value: totalValueDisplay,
+        variant: false
+      },
+      {
+        title: totalUnitTitle,
+        value: totalUnitsDisplay,
+        variant: false
+      },
+      {
+        title: returnTitle,
+        value: fundReturnDisplay,
+        variant: true
+      },
+      {
+        title: returnPercentTitle,
+        value: returnPercentDisplay,
+        variant: true
+      }
+    ];
+
+    return (
+      <Container isFullScreen>
+        {fullPageSearch ? (
+          <SearchHeaderContainer>
+            <SearchInput
+              value={fundSearchString}
+              placeholder={searchTitle}
+              onChangeText={updateSearchString}
+              onClear={this.clearSearchString}
+              _ref={this.fullPageSearchBar}
+              testID="Fund Switch Search Input"
+              accessibilityLabel="Fund Switch Search Input"
+            />
+          </SearchHeaderContainer>
+        ) : (
+          <Fragment>
+            <FundSwitchHeader
+              title={fundName}
+              category={signPost}
+              riskLevelTitle={riskLevelTitle}
+              riskLevel={portfolioRisk}
+              gainOrLossVariant={gainOrLossVariant}
+              list={mapData}
+            />
+
+            <SearchResultsHeader>{listTitle}</SearchResultsHeader>
+
+            <SearchBarContainer>
+              <SearchInput
+                value={fundSearchString}
+                placeholder={searchTitle}
+                editable={false}
+                testID="Fund Switch Search Button"
+                accessibilityLabel="Fund Switch Search Button"
+              />
+              <TouchableWithoutFeedback onPress={onFundSearchFocus}>
+                <SearchBarTouchViewWrapper>
+                  <SearchBarTouchViewInner />
+                </SearchBarTouchViewWrapper>
+              </TouchableWithoutFeedback>
+            </SearchBarContainer>
+          </Fragment>
+        )}
+        {loading ? (
+          <LoadingScreen caption="Loading..." />
+        ) : (
+          <ViewContainer variant="light">
+            {!!fullPageSearch && (
+              <SearchResultsHeader>
+                {fundSearchString ? searchResultsTitle : listTitle}
+              </SearchResultsHeader>
+            )}
+            <FlatList
+              data={fundSwitchRecordIds}
+              renderItem={this.renderFundItem}
+              ItemSeparatorComponent={this.renderItemSeparator}
+              ListFooterComponent={this.renderItemSeparator}
+            />
+          </ViewContainer>
+        )}
+      </Container>
+    );
+  }
+}
+
+FundSwitchChoose.defaultProps = {
+  totalValue: undefined,
+  totalUnits: undefined,
+  fundReturn: undefined,
+  portfolioRisk: undefined,
+  returnPercent: undefined,
+  fundSearchString: undefined,
+  fundSwitchRecordIds: [],
+  fundSwitchTotalRecordCount: 0,
+  fullPageSearch: false,
+  loading: false,
+  onFundSearchFocus: () => {},
+  updateSearchString: () => {},
+  onChooseFund: () => {}
+};
+
+FundSwitchChoose.propTypes = {
+  // eslint-disable-next-line react/no-unused-prop-types
+  fundCode: PropTypes.string.isRequired,
+  fundName: PropTypes.string.isRequired,
+  portfolioRisk: PropTypes.string,
+  totalValue: PropTypes.string,
+  totalUnits: PropTypes.string,
+  fundReturn: PropTypes.string,
+  returnPercent: PropTypes.string,
+  fundSearchString: PropTypes.string,
+  fundSwitchRecordIds: PropTypes.arrayOf(PropTypes.string),
+  fundSwitchTotalRecordCount: PropTypes.number,
+  fullPageSearch: PropTypes.bool,
+  loading: PropTypes.bool,
+  screenIsVisible: PropTypes.bool.isRequired,
+  onFundSearchFocus: PropTypes.func,
+  updateSearchString: PropTypes.func,
+  onChooseFund: PropTypes.func,
+  i18n: I18nPropTypes.isRequired
+};
+
+export default FundSwitchChoose;

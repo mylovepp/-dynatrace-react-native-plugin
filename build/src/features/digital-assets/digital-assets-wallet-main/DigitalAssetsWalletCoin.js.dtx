@@ -1,0 +1,283 @@
+/* eslint-disable camelcase */
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Linking, Image, FlatList } from "react-native";
+
+import { ViewContainer, Section } from "../../../components";
+import { coinWithCommas } from "../../../modules/coin-format";
+import CoinImageWithTradingSignIcon from "../../../components/icon/CoinImageWithTradingSignIcon";
+import defaultCoinIcon from "../../../../assets/images/digital-assets/icons/default-coin-icon.png";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { getConfig } from "../../../Config";
+import { trackCryptoWalletClick } from "../../../modules/analytics/analytics-utils";
+import { Body2, TextButtonM, Header1, CheckBox } from "../../../components-2";
+import { DIGITAL_ASSET_PRODUCT_INFORMATION_SCREEN_ID } from "../../../redux/navigation/navigation-constants";
+
+const ContainerWallet = styled(ViewContainer)`
+  margin-top: 5px;
+  margin-bottom: 16px;
+`;
+
+const ItemContainer = styled.View`
+  margin: 8px 16px 0px 16px;
+  border-radius: 16px;
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+`;
+
+const Container = styled.View`
+  flex: 1;
+  flex-direction: column;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const ItemRowContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: ${props => props.theme.spacingSmall};
+`;
+
+const ItemColContainerFlexStart = styled.View`
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-left: ${props => props.theme.spacingSmall};
+`;
+
+const ItemRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const ItemColContainerFlexEnd = styled.View`
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-right: ${props => props.theme.spacingSmall};
+`;
+
+const CheckBoxContainer = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const FeeContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+const FeeTitle = styled(TextButtonM)`
+  color: #855aff;
+  margin-right: 8px;
+`;
+
+const CheckBoxTitle = styled(Body2).attrs({ paragraph: true })`
+  margin-left: 8px;
+  color: #4e5054;
+`;
+
+const DigitalAssetsWalletCoin = ({
+  i18n,
+  isBCP,
+  listData,
+  allInstrumentsList,
+  tradingSignListing,
+  navigationBack
+}) => {
+  const [coins, setCoins] = useState(listData);
+  const [lowCoinIsChecked, setLowCoinIsChecked] = useState(true);
+
+  const viewProductInfo = assetId => {
+    const data = allInstrumentsList.find(instrument => instrument.base === assetId);
+    navigationBack(DIGITAL_ASSET_PRODUCT_INFORMATION_SCREEN_ID, {
+      InstrumentId: data?.instrumentId,
+      Symbol: data?.pair
+    });
+  };
+
+  const linkingToFeePage = () => {
+    trackCryptoWalletClick("Fee");
+    const { DIGITAL_ASSETS_FEE_INFO } = getConfig();
+    Linking.openURL(DIGITAL_ASSETS_FEE_INFO);
+  };
+
+  const hideShowLowCoin = () => {
+    trackCryptoWalletClick("Hide");
+    setLowCoinIsChecked(!lowCoinIsChecked);
+  };
+
+  const findLastestTradingSign = id => {
+    const data = allInstrumentsList.find(insturment => insturment.base === id);
+    if (data) {
+      const tradingSign = tradingSignListing.filter(t => t.instrument_id === data?.instrumentId);
+      const lastestTradingSign = tradingSign?.sort((a, b) =>
+        a.updated_at ? a.updated_at - b.updated_at : a.created_at - b.created_at
+      );
+      return lastestTradingSign[0];
+    }
+    return null;
+  };
+
+  const filterLowValueCoin = data => {
+    return data.filter(item => item.priceTHB >= 20);
+  };
+
+  const getIconComp = id => {
+    const data = allInstrumentsList.find(insturment => insturment.base === id);
+    if (data) {
+      if (data.icon) {
+        return (
+          <CoinImageWithTradingSignIcon
+            uri={data.icon}
+            tradingSn={findLastestTradingSign(id)?.trading_sign_short_name}
+            width={35}
+            height={35}
+          />
+        );
+      }
+    }
+    return (
+      <Image resizeMode="stretch" source={defaultCoinIcon} style={{ height: 35, width: 35 }} />
+    );
+  };
+
+  useEffect(() => {
+    const sortedCoins = [...listData].sort((a, b) => {
+      if (a.priceTHB !== b.priceTHB) {
+        return b.priceTHB - a.priceTHB;
+      }
+      return a.assetId < b.assetId ? -1 : 1;
+    });
+    setCoins(sortedCoins);
+    if (listData && !listData.some(res => res.quantity > 0) && !isBCP) {
+      setLowCoinIsChecked(false);
+    }
+    if (isBCP) {
+      setLowCoinIsChecked(false);
+    }
+  }, [listData]);
+
+  const renderItem = data => {
+    return (
+      <TouchableOpacity
+        disabled={isBCP || data.isMarketUnavailable}
+        onPress={() => viewProductInfo(data.assetId)}
+      >
+        <ItemContainer>
+          <ItemRowContainer>
+            <ItemRow>
+              {getIconComp(data.assetId)}
+              <ItemColContainerFlexStart>
+                <Header1>{data.assetId}</Header1>
+                <Body2 variant="subdued" style={{ color: "#93979f" }}>
+                  {data.assetFullName}
+                </Body2>
+              </ItemColContainerFlexStart>
+            </ItemRow>
+            <ItemColContainerFlexEnd>
+              <Header1>{coinWithCommas(data.quantity, data.decimalPlaces)}</Header1>
+              <Body2 variant="subdued" style={{ color: "#93979f" }}>
+                {isBCP || data.isMarketUnavailable
+                  ? "ไม่สามารถชื้อขายได้"
+                  : `≈ ${i18n.localiseCurrency({ value: data.priceTHB })}`}
+              </Body2>
+            </ItemColContainerFlexEnd>
+          </ItemRowContainer>
+        </ItemContainer>
+      </TouchableOpacity>
+    );
+  };
+
+  const dataToRender = lowCoinIsChecked ? filterLowValueCoin(coins) : coins;
+
+  return (
+    <ContainerWallet>
+      <Section noTopBorder noBottomBorder noShadowBorder reversed>
+        {listData && !listData.some(res => res.quantity > 0) ? (
+          <></>
+        ) : (
+          <RowContainer>
+            <CheckBoxContainer onPress={hideShowLowCoin} disabled={isBCP}>
+              <CheckBox
+                borderColor="#93979F"
+                value={lowCoinIsChecked}
+                onValueChange={() => setLowCoinIsChecked(!lowCoinIsChecked)}
+                iconColor="#FFFFFF"
+                disabled={isBCP}
+              />
+              <CheckBoxTitle>
+                {i18n.translations["DigitalAssets.Wallet.Main.HideCoin"]}
+              </CheckBoxTitle>
+            </CheckBoxContainer>
+            <FeeContainer>
+              <FeeTitle onPress={linkingToFeePage}>
+                {i18n.translations["DigitalAssets.Wallet.Main.Fee"]}
+              </FeeTitle>
+            </FeeContainer>
+          </RowContainer>
+        )}
+      </Section>
+      <Container noShadowBorder>
+        <FlatList
+          data={dataToRender}
+          keyExtractor={item => item.assetId}
+          renderItem={({ item }) => renderItem(item)}
+        />
+      </Container>
+    </ContainerWallet>
+  );
+};
+
+DigitalAssetsWalletCoin.defaultProps = {
+  isBCP: false,
+  listData: [
+    {
+      accountNo: "",
+      assetId: "",
+      networkCode: "",
+      quantity: "",
+      hold: "",
+      priceTHB: "",
+      productId: ""
+    }
+  ],
+  allInstrumentsList: {
+    base: "",
+    icon: ""
+  }
+};
+
+DigitalAssetsWalletCoin.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  navigationBack: PropTypes.func.isRequired,
+  isBCP: PropTypes.bool,
+  listData: PropTypes.arrayOf(
+    PropTypes.shape({
+      accountNo: PropTypes.string,
+      assetId: PropTypes.string,
+      networkCode: PropTypes.string,
+      quantity: PropTypes.string,
+      hold: PropTypes.string,
+      priceTHB: PropTypes.string,
+      productId: PropTypes.string
+    })
+  ),
+  allInstrumentsList: PropTypes.arrayOf(
+    PropTypes.shape({
+      base: PropTypes.string,
+      icon: PropTypes.string
+    })
+  ),
+  // eslint-disable-next-line react/forbid-prop-types
+  tradingSignListing: PropTypes.array.isRequired
+};
+
+export default DigitalAssetsWalletCoin;

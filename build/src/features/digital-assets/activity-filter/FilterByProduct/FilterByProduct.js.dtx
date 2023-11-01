@@ -1,0 +1,206 @@
+import React, { Fragment, useState, useEffect, useCallback } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { FlatList, Dimensions } from "react-native";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+
+import { BottomModal } from "../../../../components";
+import { NoList } from "../../activity/components";
+import CoinImageIcon from "../../../../components/icon/CoinImageIcon";
+import { ModalHeaderWithSubmit, MenuButton, CheckMark } from "../components";
+import { Section, Label, Item } from "../styled";
+import { useSearch } from "../../../../modules/digital-asset/hooks";
+import { Body2, SearchInput, LoadingScreen } from "../../../../components-2";
+
+const FilterByProduct = ({
+  instrumentDAList,
+  instrumentListLoading,
+  getAllInstrumentDAList,
+  form,
+  setForm
+}) => {
+  const getInitialFilterForm = useCallback(
+    () =>
+      instrumentDAList.reduce((acc, cur) => {
+        return { ...acc, [cur.base]: form.includes(cur.base) };
+      }, {}),
+    [instrumentDAList, form]
+  );
+
+  const [modalVisible, setModalVisibility] = useState(false);
+  const [filterFormState, setFilterFormState] = useState({});
+
+  const { results, setSearchTerm, searchTerm, resetSearchTerm } = useSearch({
+    data: instrumentDAList,
+    options: {
+      keys: [
+        { name: "base", weight: 0.5 },
+        { name: "coinName", weight: 0.5 }
+      ],
+      threshold: 0.3
+    }
+  });
+
+  useEffect(() => {
+    getAllInstrumentDAList();
+  }, []);
+
+  useEffect(() => {
+    setFilterFormState(getInitialFilterForm());
+  }, [form]);
+
+  const resetFilterFormState = () => setFilterFormState(getInitialFilterForm());
+
+  const showModal = () => setModalVisibility(true);
+  const hideModal = () => {
+    setModalVisibility(false);
+  };
+
+  const discardModal = () => {
+    hideModal();
+    resetFilterFormState();
+  };
+
+  const submit = () => {
+    let newForm = [];
+    Object.entries(filterFormState).forEach(([key, value]) => {
+      if (value === true) {
+        newForm.push(key);
+      }
+    });
+
+    if (newForm.length === instrumentDAList.length) {
+      newForm = [];
+    }
+
+    setForm(newForm);
+    hideModal();
+  };
+
+  const modalHeader = () => (
+    <ModalHeaderWithSubmit
+      title={I18n.t("DigitalAssets.Activity.Filter.Coin")}
+      onCloseModal={discardModal}
+      submit={submit}
+    >
+      <SearchContainer>
+        <SearchInput
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder={I18n.t("DigitalAssets.Activity.Filter.Coin")}
+          onClear={resetSearchTerm}
+        />
+      </SearchContainer>
+    </ModalHeaderWithSubmit>
+  );
+
+  const renderItem = ({ item }) => {
+    return (
+      <TouchableWithoutFeedback
+        key={item.id}
+        onPress={() => {
+          setFilterFormState({
+            ...filterFormState,
+            [item.base]: !filterFormState[item.base]
+          });
+        }}
+      >
+        <Item>
+          <Left>
+            <IconContainer>
+              <CoinImageIcon uri={item.icon} height={24} width={24} />
+            </IconContainer>
+            <ProductSymbol>{item.base}</ProductSymbol>
+          </Left>
+          {filterFormState[item.base] && <CheckMark />}
+        </Item>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  renderItem.propTypes = {
+    item: PropTypes.shape({
+      id: PropTypes.number,
+      icon: PropTypes.string,
+      base: PropTypes.string,
+      coinName: PropTypes.string
+    }).isRequired
+  };
+
+  return (
+    <Fragment>
+      <Section>
+        <Label>{I18n.t("DigitalAssets.Activity.Filter.Coin")}</Label>
+        <MenuButton
+          onPress={showModal}
+          text={
+            form.length === 0
+              ? I18n.t("DigitalAssets.Activity.Filter.All")
+              : I18n.t("DigitalAssets.Activity.Filter.Custom")
+          }
+          active={form.length !== 0}
+        />
+      </Section>
+
+      <BottomModal
+        isVisible={modalVisible}
+        hideModal={discardModal}
+        headerComponent={modalHeader}
+        hiddenDivider
+      >
+        <ModalContent>
+          {instrumentListLoading ? (
+            <LoadingScreen />
+          ) : (
+            <FlatList
+              data={results}
+              renderItem={renderItem}
+              contentContainerStyle={{
+                paddingBottom: isIphoneX() ? 34 : 0,
+                paddingHorizontal: 16,
+                flexGrow: 1
+              }}
+              ListEmptyComponent={<NoList />}
+            />
+          )}
+        </ModalContent>
+      </BottomModal>
+    </Fragment>
+  );
+};
+
+FilterByProduct.propTypes = {
+  instrumentDAList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  form: PropTypes.arrayOf(PropTypes.string).isRequired,
+  setForm: PropTypes.func.isRequired,
+  instrumentListLoading: PropTypes.bool.isRequired,
+  getAllInstrumentDAList: PropTypes.func.isRequired
+};
+
+export default FilterByProduct;
+
+const ModalContent = styled.View`
+  height: ${(Dimensions.get("window").height * 70) / 100};
+`;
+
+const SearchContainer = styled.View`
+  padding-top: 16px;
+  width: 100%;
+`;
+
+const Left = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const IconContainer = styled.View`
+  padding-right: 8px;
+`;
+
+const ProductSymbol = styled(Body2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;

@@ -1,0 +1,67 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { SafeAreaView } from "react-native";
+import styled from "styled-components/native";
+import { ViewContainer, SectionBackground, Icon, Display3 } from "@invx/components-2";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import InsuranceProductCategory from "../../features/insurance/insurance-product-category";
+
+const HeaderContainer = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big"
+})`
+  padding-bottom: ${props => props.theme.spacingXXXSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+const HeaderInnerContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-vertical: ${props => props.theme.spacingMedium};
+`;
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+const TitleText = styled(Display3)`
+  width: 100%;
+  position: absolute;
+  text-align: center;
+  z-index: -1;
+`;
+
+const handleOnBackPress = (navigator) => {
+  return navigator.pop();
+};
+
+const InsuranceProductCategoryScreen = props => {
+  const { navigator } = props;
+  return (
+    <ViewContainer variant="screen">
+      <HeaderContainer>
+        <SafeAreaView>
+          <HeaderInnerContainer>
+            <TouchableOpacity onPress={() => handleOnBackPress(navigator)}>
+              <BackIcon />
+            </TouchableOpacity>
+            <TitleText>{I18n.t("Insurance.Product.Category.Header")}</TitleText>
+          </HeaderInnerContainer>
+        </SafeAreaView>
+      </HeaderContainer>
+      <InsuranceProductCategory {...props} />
+    </ViewContainer >
+  );
+};
+
+InsuranceProductCategoryScreen.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired,
+  isForeigner: PropTypes.bool.isRequired,
+  isLoggedIn: PropTypes.bool.isRequired,
+  selectProduct: PropTypes.func.isRequired
+};
+
+export default InsuranceProductCategoryScreen;

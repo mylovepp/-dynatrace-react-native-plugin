@@ -1,0 +1,74 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback, useEffect } from "react";
+import { Platform, StatusBar, BackHandler } from "react-native";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Display3, Icon } from "../../components-2";
+
+const statusBarHeight = StatusBar.currentHeight || 24;
+
+const NavBarContainer = styled.View(props => ({
+  position: "relative",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  height:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXLargeValue * 3}px`
+      : `${props.theme.spacingXLargeValue * 3 - statusBarHeight}px`,
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXLargeValue + 14}px`
+      : `${props.theme.spacingXLargeValue + 14 - statusBarHeight}px`,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple
+}));
+
+const IconButton = styled(TouchableOpacity)(props => ({
+  position: "absolute",
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXLargeValue + 14}px`
+      : `${props.theme.spacingXLargeValue + 14 - statusBarHeight}px`,
+  paddingHorizontal: props.theme.spacingMedium,
+  left: 0
+}));
+
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  color: props.theme.contentColorCTAPurple,
+  size: props.size
+}))``;
+
+const AllNewsNavBar = props => {
+  const { navigator } = props;
+
+  const handleOnBackButtonPressed = useCallback(() => {
+    navigator.pop();
+  }, []);
+
+  useEffect(() => {
+    BackHandler.addEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    return () => {
+      BackHandler.removeEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    };
+  }, []);
+
+  return (
+    <NavBarContainer>
+      <IconButton onPress={handleOnBackButtonPressed}>
+        <BackIcon size="icon24" />
+      </IconButton>
+      <Display3 variant="black">{I18n.translate("TopNavigationTitle.News")}</Display3>
+    </NavBarContainer>
+  );
+};
+
+AllNewsNavBar.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired
+};
+
+export default AllNewsNavBar;

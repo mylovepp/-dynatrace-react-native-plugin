@@ -1,0 +1,71 @@
+import React, { useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, BackHandler } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Icon from "../../components-2/icon/Icon";
+import { Display3, ViewContainer } from "../../components-2";
+
+const TitleContainer = styled.View`
+  justify-content: center;
+`;
+
+const ButtonContainer = styled.View`
+  justify-content: flex-start;
+  padding-top: ${Platform.OS === "ios" ? 0 : 10};
+`;
+
+const NavBarContainer = styled(ViewContainer).attrs({
+  variant: "light"
+})`
+  justify-content: space-between;
+  padding-horizontal: ${props => props.theme.spacingSmallValue};
+  flex-direction: row;
+`;
+
+const TitleText = styled(Display3)`
+  text-align: center;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const CloseIcon = styled(Icon)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const NavigationBarWithCloseButtonScreen = props => {
+  const { title, onClose } = props;
+  useEffect(() => {
+    const handleBack = () => {
+      onClose();
+    };
+    BackHandler.addEventListener("hardwareBackPress", handleBack);
+    return () => {
+      BackHandler.removeEventListener("hardwareBackPress", handleBack);
+    };
+  }, []);
+  return (
+    <NavBarContainer>
+      <TitleContainer>
+        <TitleText variant="reversed" textAlign="center">
+          {title}
+        </TitleText>
+      </TitleContainer>
+      <ButtonContainer>
+        <TouchableOpacity onPress={onClose}>
+          <CloseIcon name="close-2" size="icon24" />
+        </TouchableOpacity>
+      </ButtonContainer>
+    </NavBarContainer>
+  );
+};
+
+NavigationBarWithCloseButtonScreen.defaultProps = {
+  title: ""
+};
+
+NavigationBarWithCloseButtonScreen.propTypes = {
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string
+};
+
+export default NavigationBarWithCloseButtonScreen;

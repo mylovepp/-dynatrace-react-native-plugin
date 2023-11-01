@@ -1,0 +1,189 @@
+
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image, ScrollView } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import Clipboard from "@react-native-community/clipboard";
+
+import {
+    FRIEND_GET_FRIEND_INVITE_INFO_SCREEN_ID,
+} from "../../../redux/navigation/navigation-constants";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import StockReferImg from "../../../../assets/images/friend-get-friend/stock-refer.png";
+import AccountReferImg from "../../../../assets/images/friend-get-friend/account-refer.png";
+import {
+    ViewContainer,
+    SectionBackground,
+    Display3,
+    TextOverlineM,
+    Body2,
+    Icon,
+    Header1,
+    Divider,
+    PrimaryButton,
+} from "../../../components-2";
+import { showNewInAppNotification } from "../../../modules/navigation";
+
+
+const CopyIcon = styled(Icon).attrs(props => ({
+    color: props.theme.contentColorCTAPurple
+  }))``;
+
+const ButtonBreakdownContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40px;
+  margin-bottom: 16px;
+`;
+
+
+const ExtendedTop = styled(SectionBackground)`
+  padding: 8px 16px 16px 16px;
+  width: 100%;
+`;
+
+const CardLayoutContainer = styled.View`
+  background-color: white;
+  border-radius: 8;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.2;
+  shadow-radius: 4;
+  shadow-offset: 0px 2px;
+  padding: 16px 16px;
+  width: 100%;
+`;
+
+const TitleContainer = styled.View`
+  flex: 1;
+`;
+
+const Container = styled.View`
+  flex-direction: row;
+`;
+
+const IconContainer = styled.View`
+  flex-direction: row;
+  margin-top: 4;
+`;
+
+const ImageContainer = styled.View`
+  margin-top: 16;
+  margin-bottom: 16;
+  justify-content: center;
+  align-items: center;
+`;
+
+const TextContainer = styled.View`
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 32;
+`;
+
+const ReferalCodeText = styled(Display3)((props) => ({
+    color: props.theme.contentColorCTAPurple,
+}));
+
+const DescText = styled(Body2)((props) => ({
+    color: props.theme.contentColorHigh,
+}));
+
+const CopyText = styled(TextOverlineM)((props) => ({
+    color: props.theme.contentColorCTAPurple,
+    marginLeft: 4,
+}));
+
+const ReferalCodeContainer = styled.View`
+    flex-direction: row;
+    justify-content: space-between;
+`;
+
+
+const InviteInfoCover = props => {
+    const { referralCode, i18n, navigator } = props;
+
+    const onPressCopyButton = (displayText) => {
+        Clipboard.setString(displayText);
+        showNewInAppNotification(navigator, {
+          body: "FriendGetFriend.CopyCompleted",
+          variant: "success",
+          iconName: "success"
+        });
+    };
+
+    const onPressInviteFriend = () => {
+        navigator.push({
+            screen: FRIEND_GET_FRIEND_INVITE_INFO_SCREEN_ID,
+            title: i18n.translations["ReferFriends.NavTitle"],
+            passProps: { screenId: FRIEND_GET_FRIEND_INVITE_INFO_SCREEN_ID },
+            backButtonTitle: "",
+            backButtonHidden: true,
+            navigatorStyle: {
+                tabBarHidden: true
+            }
+        });
+    };
+
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        <ExtendedTop variant="secondary">
+          <CardLayoutContainer>
+            <Container>
+              <TitleContainer>
+                <Body2>{i18n.translations["FriendGetFriend.ReferCode"]}</Body2>
+                <ReferalCodeContainer>
+                  <ReferalCodeText>{referralCode}</ReferalCodeText>
+                  <TouchableOpacity onPress={() => {
+                                    onPressCopyButton(referralCode);
+                                }}
+                  >
+                    <IconContainer>
+                      <CopyIcon name="copy" size="icon16" />
+                      <CopyText>{i18n.translations["FriendGetFriend.ReferCopy"]}</CopyText>
+                    </IconContainer>
+                  </TouchableOpacity>
+                </ReferalCodeContainer>
+              </TitleContainer>
+            </Container>
+          </CardLayoutContainer>
+          <ButtonBreakdownContainer>
+            <PrimaryButton
+              size="large"
+              label={i18n.translations["FriendGetFriend.InviteFriend"]}
+              onPress={onPressInviteFriend}
+            />
+          </ButtonBreakdownContainer>
+        </ExtendedTop>
+        <ScrollView>
+          <ImageContainer>
+            <Image source={AccountReferImg} resizeMode="stretch" />
+          </ImageContainer>
+          <TextContainer>
+            <Header1>{i18n.translations["FriendGetFriend.ReferByOpenAccountTitle"]}</Header1>
+            <DescText>{i18n.translations["FriendGetFriend.ReferByOpenAccountDesc"]}</DescText>
+          </TextContainer>
+          <Divider />
+          <ImageContainer style={{ marginTop: 32 }}>
+            <Image source={StockReferImg} resizeMode="stretch" />
+          </ImageContainer>
+          <TextContainer>
+            <Header1>{i18n.translations["FriendGetFriend.ReferByInvestStockTitle"]}</Header1>
+            <DescText>{i18n.translations["FriendGetFriend.ReferByInvestStockDesc"]}</DescText>
+          </TextContainer>
+        </ScrollView>
+      </ViewContainer>
+    );
+};
+
+
+InviteInfoCover.propTypes = {
+    navigator: PropTypes.shape({
+      push: PropTypes.func
+    }).isRequired,
+    i18n: I18nPropTypes.isRequired,
+    referralCode: PropTypes.string.isRequired,
+};
+
+export default InviteInfoCover;

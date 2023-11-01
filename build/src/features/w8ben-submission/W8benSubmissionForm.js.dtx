@@ -1,0 +1,525 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { View } from "react-native";
+import { Header1, Body3, Divider, TextInput, CustomTextInput, Icon } from "@invx/components-2";
+import { dateToStringFormat } from "@invx/modules/format";
+import theme from "@invx/theme";
+import CountryPicker from "./CountryPicker";
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: flex-start;
+`;
+
+const Container = styled.View`
+  background: ${props => props.theme.backgroundWhite};
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const RowSpaceBetween = styled(Row)`
+  justify-content: space-between;
+`;
+
+const KeyValuePairContainer = styled(RowSpaceBetween)`
+  align-items: flex-start;
+  padding-vertical: ${props => props.theme.spacingMedium};
+`;
+
+const KeyLabel = styled(Body3).attrs({
+  variant: "greyHigh"
+})``;
+
+const ValueLabel = styled(Header1)``;
+
+const Section = styled.View`
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const SectionTitle = styled(Header1)`
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const FormControl = styled.View`
+  flex: 1;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+`;
+
+const Grid = styled.View`
+  margin-horizontal: ${props => props.theme.spacingXXSmallValue * -1}px;
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const CheckIcon = styled(Icon).attrs({
+  size: "icon16",
+  name: "chevron-down-2"
+})``;
+
+const TH = "TH";
+
+// eslint-disable-next-line react/prop-types
+const AddressTextInput = ({ onPress, ...textProps }) => (
+  <TouchableOpacity onPress={onPress}>
+    <View pointerEvents="none">
+      <TextInput {...textProps} />
+    </View>
+  </TouchableOpacity>
+);
+
+const InlineTextInputContainer = styled.View`
+  flex: 1;
+  margin-horizontal: 4px;
+  margin-vertical: 2px;
+`;
+
+const InlineTextInput = styled(CustomTextInput).attrs({
+  height: 24
+})`
+  padding-bottom: 2px;
+`;
+
+const W8benSubmissionForm = props => {
+  const {
+    navigator,
+    initialValues,
+    errors,
+    onChange,
+    firstName,
+    lastName,
+    cardId,
+    dateOfBirth
+  } = props;
+
+  const [values, setValues] = React.useState({
+    placeOfBirth: initialValues?.placeOfBirth || TH,
+    permanentAddressLine1: initialValues?.permanentAddressLine1,
+    permanentAddressLine2: initialValues?.permanentAddressLine2,
+    permanentAddressSubDistrict: initialValues?.permanentAddressSubDistrict,
+    permanentAddressCity: initialValues?.permanentAddressCity,
+    permanentAddressStateProvince: initialValues?.permanentAddressStateProvince,
+    permanentAddressZipCode: initialValues?.permanentAddressZipCode,
+    permanentResidenceCountry: initialValues?.permanentResidenceCountry,
+    mailingAddressLine1: initialValues?.mailingAddressLine1,
+    mailingAddressLine2: initialValues?.mailingAddressLine2,
+    mailingAddressSubDistrict: initialValues?.mailingAddressSubDistrict,
+    mailingAddressCity: initialValues?.mailingAddressCity,
+    mailingAddressStateProvince: initialValues?.mailingAddressStateProvince,
+    mailingAddressZipCode: initialValues?.mailingAddressZipCode,
+    mailingResidenceCountry: initialValues?.mailingResidenceCountry
+  });
+
+  const [incomeCountry, setIncomeCountry] = React.useState(TH);
+  const [specialRates, setSpecialRates] = React.useState();
+  const [percent, setPercent] = React.useState();
+
+  React.useEffect(() => {
+    if (onChange) {
+      onChange(values);
+    }
+  }, [values]);
+
+  const onChangeText = key => text => {
+    setValues({
+      ...values,
+      [key]: text
+    });
+  };
+
+  const handlePressPermanentAddress = () => {
+    navigator.push({
+      screen: "taxRegistrationSearchSubDistrict",
+      backButtonTitle: "",
+      navigatorStyle: {
+        navBarHidden: true
+      },
+      passProps: {
+        setLanguage: "en",
+        onItemSelected: item => {
+          if (item) {
+            setValues({
+              ...values,
+              permanentAddressSubDistrict: item?.subDistrictName,
+              permanentAddressCity: item?.districtName,
+              permanentAddressStateProvince: item?.provinceName,
+              permanentAddressZipCode: item?.postalCode,
+              permanentResidenceCountry: TH
+            });
+          }
+        }
+      },
+      overrideBackPress: true
+    });
+  };
+
+  const handlePressMailingAddress = () => {
+    navigator.push({
+      screen: "taxRegistrationSearchSubDistrict",
+      backButtonTitle: "",
+      navigatorStyle: {
+        navBarHidden: true
+      },
+      passProps: {
+        setLanguage: "en",
+        onItemSelected: item => {
+          if (item) {
+            setValues({
+              ...values,
+              mailingAddressSubDistrict: item?.subDistrictName,
+              mailingAddressCity: item?.districtName,
+              mailingAddressStateProvince: item?.provinceName,
+              mailingAddressZipCode: item?.postalCode,
+              mailingResidenceCountry: TH
+            });
+          }
+        }
+      },
+      overrideBackPress: true
+    });
+  };
+
+  const renderInfo = () => {
+    return (
+      <Section>
+        <KeyValuePairContainer>
+          <KeyLabel>Name</KeyLabel>
+          <ValueLabel>{firstName}</ValueLabel>
+        </KeyValuePairContainer>
+        <Divider />
+        <KeyValuePairContainer>
+          <KeyLabel>Surname</KeyLabel>
+          <ValueLabel>{lastName}</ValueLabel>
+        </KeyValuePairContainer>
+        <Divider />
+        <KeyValuePairContainer>
+          <KeyLabel>Place of birth</KeyLabel>
+          <View>
+            <CountryPicker
+              initialCountryCode={values?.placeOfBirth}
+              onSelected={item => setValues({ ...values, placeOfBirth: item?.country_code })}
+            />
+          </View>
+        </KeyValuePairContainer>
+        <Divider />
+        <KeyValuePairContainer>
+          <KeyLabel>Foreign tax identification no,</KeyLabel>
+          <ValueLabel>{cardId}</ValueLabel>
+        </KeyValuePairContainer>
+        <Divider />
+        <KeyValuePairContainer>
+          <KeyLabel>Date of birth</KeyLabel>
+          <ValueLabel>{dateToStringFormat(dateOfBirth, "DD-MM-YYYY")}</ValueLabel>
+        </KeyValuePairContainer>
+        <Divider />
+      </Section>
+    );
+  };
+
+  const renderPermanentAddress = () => {
+    return (
+      <Section>
+        <KeyLabel>Permament Address</KeyLabel>
+        <Grid>
+          <Row>
+            <FormControl>
+              <TextInput
+                placeholder="Address"
+                value={values.permanentAddressLine1}
+                onChangeText={onChangeText("permanentAddressLine1")}
+                variant={errors?.permanentAddressLine1 ? "error" : "default"}
+                helperText={errors?.permanentAddressLine1}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <TextInput
+                placeholder="Address"
+                value={values.permanentAddressLine2}
+                onChangeText={onChangeText("permanentAddressLine2")}
+                variant={errors?.permanentAddressLine2 ? "error" : "default"}
+                helperText={errors?.permanentAddressLine2}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Sub-district"
+                value={values.permanentAddressSubDistrict}
+                onPress={handlePressPermanentAddress}
+                variant={errors?.permanentAddressSubDistrict ? "error" : "default"}
+                helperText={errors?.permanentAddressSubDistrict}
+              />
+            </FormControl>
+            <FormControl>
+              <AddressTextInput
+                placeholder="District"
+                value={values.permanentAddressCity}
+                onPress={handlePressPermanentAddress}
+                variant={errors?.permanentAddressCity ? "error" : "default"}
+                helperText={errors?.permanentAddressCity}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Province"
+                value={values.permanentAddressStateProvince}
+                onPress={handlePressPermanentAddress}
+                variant={errors?.permanentAddressStateProvince ? "error" : "default"}
+                helperText={errors?.permanentAddressStateProvince}
+              />
+            </FormControl>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Postal Code"
+                value={values.permanentAddressZipCode}
+                onPress={handlePressPermanentAddress}
+                variant={errors?.permanentAddressZipCode ? "error" : "default"}
+                helperText={errors?.permanentAddressZipCode}
+              />
+            </FormControl>
+          </Row>
+        </Grid>
+        <Divider />
+      </Section>
+    );
+  };
+
+  const renderMailingAddress = () => {
+    return (
+      <Section>
+        <KeyLabel>Mailing Address</KeyLabel>
+        <Grid>
+          <Row>
+            <FormControl>
+              <TextInput
+                placeholder="Address"
+                value={values.mailingAddressLine1}
+                onChangeText={onChangeText("mailingAddressLine1")}
+                variant={errors?.mailingAddressLine1 ? "error" : "default"}
+                helperText={errors?.mailingAddressLine1}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <TextInput
+                placeholder="Address"
+                value={values.mailingAddressLine2}
+                onChangeText={onChangeText("mailingAddressLine2")}
+                variant={errors?.mailingAddressLine2 ? "error" : "default"}
+                helperText={errors?.mailingAddressLine2}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Sub-district"
+                value={values.mailingAddressSubDistrict}
+                onPress={handlePressMailingAddress}
+                variant={errors?.mailingAddressSubDistrict ? "error" : "default"}
+                helperText={errors?.mailingAddressSubDistrict}
+              />
+            </FormControl>
+            <FormControl>
+              <AddressTextInput
+                placeholder="District"
+                value={values.mailingAddressCity}
+                onPress={handlePressMailingAddress}
+                variant={errors?.mailingAddressCity ? "error" : "default"}
+                helperText={errors?.mailingAddressCity}
+              />
+            </FormControl>
+          </Row>
+          <Row>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Province"
+                value={values.mailingAddressStateProvince}
+                onPress={handlePressMailingAddress}
+                variant={errors?.mailingAddressStateProvince ? "error" : "default"}
+                helperText={errors?.mailingAddressStateProvince}
+              />
+            </FormControl>
+            <FormControl>
+              <AddressTextInput
+                placeholder="Postal Code"
+                value={values.mailingAddressZipCode}
+                onPress={handlePressMailingAddress}
+                variant={errors?.mailingAddressZipCode ? "error" : "default"}
+                helperText={errors?.mailingAddressZipCode}
+              />
+            </FormControl>
+          </Row>
+        </Grid>
+        <Divider />
+      </Section>
+    );
+  };
+
+  const renderNotice = () => {
+    return (
+      <Section>
+        <Row>
+          <Body3>The beneficial owner is claiming the provisions of Articles</Body3>
+        </Row>
+        <Row style={{ alignItems: "center" }}>
+          <Body3>and paragraph</Body3>
+          <CountryPicker
+            initialCountryCode={incomeCountry}
+            onSelected={item => setIncomeCountry(item?.country_code)}
+            renderLabel={({ selected, handlePress }) => (
+              <InlineTextInputContainer>
+                <TouchableOpacity onPress={handlePress}>
+                  <View pointerEvents="none">
+                    <InlineTextInput value={selected?.name} rightComponent={<CheckIcon />} />
+                  </View>
+                </TouchableOpacity>
+              </InlineTextInputContainer>
+            )}
+          />
+          <Body3>the income tax treaty</Body3>
+        </Row>
+        <Row>
+          <Body3>between the United States and that country.</Body3>
+        </Row>
+      </Section>
+    );
+  };
+
+  const renderSpecialRates = () => {
+    return (
+      <Section>
+        <SectionTitle>Special rates and conditions</SectionTitle>
+        <Row>
+          <Body3>The beneficial owner is claiming the provisions of Articles</Body3>
+        </Row>
+        <Row style={{ alignItems: "center" }}>
+          <Body3>and paragraph</Body3>
+          <InlineTextInputContainer>
+            <InlineTextInput
+              placeholder="-"
+              value={specialRates}
+              onChange={v => setSpecialRates(v)}
+            />
+          </InlineTextInputContainer>
+        </Row>
+        <Row style={{ alignItems: "center" }}>
+          <Body3>of the treaty identify on above to claim a</Body3>
+          <InlineTextInputContainer>
+            <InlineTextInput
+              placeholder="-"
+              value={percent}
+              onChange={v => setPercent(v)}
+              keyboardType="number-pad"
+              returnKeyType="done"
+            />
+          </InlineTextInputContainer>
+          <Body3>%</Body3>
+        </Row>
+        <Row>
+          <Body3>rate of withholding on (specify type of income):</Body3>
+        </Row>
+      </Section>
+    );
+  };
+
+  const renderPenaltieOfPerjury = () => {
+    return (
+      <Section>
+        <SectionTitle>Penaltie of perjury</SectionTitle>
+        <Body3 style={{ marginBottom: theme.spacingXSmallValue }}>
+          Under penalties of perjury, I declare that I have examined the information on this form
+          and to the best of my knowledge and belief it is true, correct, and complete. I further
+          certify under penalties of perjury that:
+        </Body3>
+        <Body3 style={{ marginBottom: theme.spacingXSmallValue }}>
+          • I am the individual that is the beneficial owner (or am authorized to sign for the
+          individual that is the beneficial owner) of all the income or proceeds to which this form
+          relates or am using this form to document myself for chapter 4 purposes;{" "}
+        </Body3>
+        <Body3 style={{ marginBottom: theme.spacingXSmallValue }}>
+          • The person named on line 1 of this form is not a U.S. person;{" "}
+        </Body3>
+        <Body3 style={{ marginBottom: theme.spacingXSmallValue }}>
+          • This form relates to: (a) income not effectively connected with the conduct of a trade
+          or business in the United States; (b) income effectively connected with the conduct of a
+          trade or business in the United States but is not subject to tax under an applicable
+          income tax treaty; (c) the partner’s share of a partnership’s effectively connected
+          taxable income; or (d) the partner’s amount realized from the transfer of a partnership
+          interest subject to withholding under section 1446(f);{" "}
+        </Body3>
+        <Body3>
+          • The person named on line 1 of this form is a resident of the treaty country listed on
+          line 9 of the form (if any) within the meaning of the income tax treaty between the United
+          States and that country; and{" "}
+        </Body3>
+      </Section>
+    );
+  };
+
+  return (
+    <Container>
+      {renderInfo()}
+      {renderPermanentAddress()}
+      {renderMailingAddress()}
+      {renderNotice()}
+      {renderSpecialRates()}
+      {renderPenaltieOfPerjury()}
+    </Container>
+  );
+};
+
+W8benSubmissionForm.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired,
+  firstName: PropTypes.string.isRequired,
+  lastName: PropTypes.string.isRequired,
+  dateOfBirth: PropTypes.string.isRequired,
+  cardId: PropTypes.string.isRequired,
+  initialValues: PropTypes.shape({
+    placeOfBirth: PropTypes.string,
+    permanentAddressLine1: PropTypes.string,
+    permanentAddressLine2: PropTypes.string,
+    permanentAddressSubDistrict: PropTypes.string,
+    permanentAddressCity: PropTypes.string,
+    permanentAddressStateProvince: PropTypes.string,
+    permanentAddressZipCode: PropTypes.string,
+    permanentResidenceCountry: PropTypes.string,
+    mailingAddressLine1: PropTypes.string,
+    mailingAddressLine2: PropTypes.string,
+    mailingAddressSubDistrict: PropTypes.string,
+    mailingAddressCity: PropTypes.string,
+    mailingAddressStateProvince: PropTypes.string,
+    mailingAddressZipCode: PropTypes.string,
+    mailingResidenceCountry: PropTypes.string
+  }),
+  errors: PropTypes.shape({
+    permanentAddressLine1: PropTypes.string,
+    permanentAddressLine2: PropTypes.string,
+    permanentAddressSubDistrict: PropTypes.string,
+    permanentAddressCity: PropTypes.string,
+    permanentAddressStateProvince: PropTypes.string,
+    permanentAddressZipCode: PropTypes.string,
+    mailingAddressLine1: PropTypes.string,
+    mailingAddressLine2: PropTypes.string,
+    mailingAddressSubDistrict: PropTypes.string,
+    mailingAddressCity: PropTypes.string,
+    mailingAddressStateProvince: PropTypes.string,
+    mailingAddressZipCode: PropTypes.string
+  }),
+  onChange: PropTypes.func
+};
+
+W8benSubmissionForm.defaultProps = {
+  initialValues: undefined,
+  onChange: undefined,
+  errors: undefined
+};
+
+export default W8benSubmissionForm;

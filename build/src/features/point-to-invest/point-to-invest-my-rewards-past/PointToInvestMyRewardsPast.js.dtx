@@ -1,0 +1,517 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import {
+  Image,
+  View,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  Platform,
+  UIManager,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import i18n from "react-native-i18n";
+import Clipboard from "@react-native-community/clipboard";
+import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import LinearGradient from "react-native-linear-gradient";
+
+import PropTypes from "prop-types";
+import styled, { withTheme } from "styled-components/native";
+import { getStatusBarHeight } from "react-native-iphone-screen-helper";
+import QRCode from "react-native-qrcode-svg";
+import Barcode from "react-native-barcode-svg";
+
+import {
+  Body2,
+  Body3,
+  Display3,
+  ErrorSevereBanner,
+  Header2,
+  Header3,
+  Icon,
+  LargeDisplay,
+  LoadingScreen,
+  LottieLoadingIndicator,
+  TextOverlineR,
+  TouchableOpacityDebounced,
+  SVGIcon,
+  SecondaryButton,
+  ViewContainer
+} from "../../../components-2";
+import { showNewInAppNotification } from "../../../modules/navigation";
+import { formatDate, DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT } from "../../../modules/format";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
+
+const MAX_HEIGHT = 296;
+const STATUSBAR_HEIGHT = getStatusBarHeight(true);
+
+const LoadingIndicator = styled(ShimmerPlaceHolder)(props => ({
+  borderRadius: props.borderRadius,
+  width: Dimensions.get("window").width,
+  height: MAX_HEIGHT
+}));
+
+const calHeight = Platform.OS === "ios" ? 71 : 43;
+const statusBar = Platform.OS === "ios" ? STATUSBAR_HEIGHT : 31;
+
+const Container = styled(View)(() => ({
+  marginTop: statusBar,
+  height: MAX_HEIGHT - calHeight,
+  backgroundColor: "transparent"
+}));
+
+const SectionBackground = styled(Animated.View)(props => ({
+  width: "100%",
+  borderBottomLeftRadius: 16,
+  borderBottomRightRadius: 16,
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  paddingHorizontal: 16,
+  position: "absolute",
+  zIndex: 99,
+  paddingVertical: props.isExpand ? 16 : 0,
+  backgroundColor: props.isExpand ? props.theme.navigation : "transparent"
+}));
+
+const BackContainer = styled(TouchableOpacityDebounced)(props => ({
+  borderRadius: 100,
+  backgroundColor: props.isExpand ? "transparent" : "rgba(246, 246, 246, 0.5)",
+  width: 32,
+  height: 32,
+  alignItems: "center",
+  justifyContent: "center"
+}));
+
+const CopyIcon = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const BackIcon = styled(Icon).attrs(props => ({
+  size: "icon24",
+  name: "chevronLeft",
+  color: props.isExpand ? props.theme.contentColorCTAPurple : props.theme.contentColorWhite
+}))``;
+
+const ImageThumbnailContainer = styled(Animated.View)(() => ({
+  position: "absolute",
+  top: -1
+}));
+
+const ImageThumbnail = styled(Image)(props => ({
+  height: MAX_HEIGHT,
+  width: Dimensions.get("window").width,
+  alignSelf: "stretch",
+  resizeMode: "cover",
+  backgroundColor: props.theme.navigation
+}));
+
+const HeaderContainer = styled(View)(() => ({
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  backgroundColor: "white",
+  padding: 16
+}));
+
+const RowIcon = styled(View)(() => ({
+  flexDirection: "row",
+  padding: 2
+}));
+
+const DialogErrorContainer = styled.View`
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const DialogErrorTitle = styled.View`
+  flex-direction: row;
+`;
+
+const DialogErrorDetail = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const RowCopyIcon = styled.View`
+  flex-direction: row;
+  margin-top: -${props => props.theme.spacingLarge};
+  padding-bottom: ${props => props.theme.spacingXLarge};
+`;
+
+const RowCode = styled.View`
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: -${props => props.theme.spacingLarge};
+`;
+
+const ButtonContainer = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const ResultView = styled.View`
+  width: 100%;
+  height: 160px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #855aff;
+  border-radius: 8px;
+`;
+
+const HeroBannerContainer = styled.View`
+  flex-direction: row;
+  min-height: 55px;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const LeftButton = styled(TouchableOpacity)`
+  width: 50px;
+  border-width: 0;
+  border-radius: 0;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+const ResponseMessageBox = styled.View(props => ({
+  backgroundColor: props.theme.backgroundWhite,
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  paddingBottom: "15%"
+}));
+
+class PointToInvestMyRewardsPast extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      showError: true
+    };
+  }
+  componentDidMount() {
+    const { pointToInvestRewardInfo, rewardID } = this.props;
+    this.props.clearRedemption();
+    this.props.clearUseReward();
+    this.props.fetchRedemtionByID(rewardID);
+    this.generateReward(rewardID);
+    if (pointToInvestRewardInfo && pointToInvestRewardInfo.detailImgRef) {
+      this.props.getImagePath(pointToInvestRewardInfo.detailImgRef);
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    const { pointToInvestRewardInfo, rewardID } = this.props;
+    if (prevProps.pointToInvestRewardInfo.detailImgRef !== pointToInvestRewardInfo.detailImgRef) {
+      this.props.getImagePath(pointToInvestRewardInfo.detailImgRef);
+    }
+    if (prevProps.rewardID !== rewardID) {
+      this.generateReward(rewardID);
+    }
+  }
+
+  renderBanner = () => {
+    const { imagePath, loadImagePath } = this.props;
+    if (loadImagePath) {
+      return <LoadingIndicator />;
+    }
+    return (
+      <ImageThumbnailContainer style={{ opacity: 1 }}>
+        <ImageThumbnail source={{ uri: `${imagePath}`, cache: "reload" }} />
+      </ImageThumbnailContainer>
+    );
+  };
+
+  renderNavbar = () => {
+    const { onPressBack } = this.props;
+    return (
+      <SectionBackground>
+        <BackContainer onPress={onPressBack}>
+          <BackIcon />
+        </BackContainer>
+      </SectionBackground>
+    );
+  };
+
+  renderCondition = conditions => {
+    return (
+      <SafeAreaView>
+        <FlatList
+          ref={ref => {
+            this.flatListRef = ref;
+          }}
+          data={conditions}
+          keyExtractor={(key, index) => `${key}-${index}`}
+          renderItem={this.renderItem}
+        />
+      </SafeAreaView>
+    );
+  };
+
+  renderItem = ({ item }) => {
+    return <Body3 variant="greyHigh">{`• ${item}`}</Body3>;
+  };
+
+  onPressCopyButton = displayText => {
+    const { navigator } = this.props;
+    Clipboard.setString(displayText);
+    showNewInAppNotification(navigator, {
+      body: "FriendGetFriend.CopyCompleted",
+      variant: "success",
+      iconName: "success"
+    });
+  };
+
+  renderIconCopy = message => {
+    return (
+      <RowCopyIcon>
+        <TouchableOpacityDebounced
+          onPress={() => {
+            this.onPressCopyButton(message);
+          }}
+        >
+          <Row>
+            <CopyIcon name="copy" size="icon16" />
+            <Header3 variant="ctaPurple" style={{ marginTop: -3 }}>
+              {` ${i18n.t("FriendGetFriend.ReferCopy")}`}
+            </Header3>
+          </Row>
+        </TouchableOpacityDebounced>
+      </RowCopyIcon>
+    );
+  };
+
+  renderResultGen = codeType => {
+    const { itemForGenerateCode } = this.props;
+    const isOverLength = itemForGenerateCode?.code?.length > 12;
+    if (codeType === "QR_CODE") {
+      return <QRCode style={{ flex: 1 }} value={itemForGenerateCode?.code} size={88} />;
+    }
+    if (codeType === "BARCODE") {
+      return <Barcode maxWidth={300} value={itemForGenerateCode?.code} format="CODE128" />;
+    }
+    return isOverLength ? (
+      <Header2>{itemForGenerateCode?.code}</Header2>
+    ) : (
+      <LargeDisplay>{itemForGenerateCode?.code}</LargeDisplay>
+    );
+  };
+
+  formatDateThai = date => {
+    const formYear = new Date(date).getFullYear();
+    const thaiYear = formYear + 543;
+    const thaiShortYear = thaiYear.toString();
+    const itemForm = formatDate(new Date(date), DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT, "th");
+    return `${itemForm.slice(0, -4)}${thaiShortYear}`;
+  };
+
+  renderContent = () => {
+    const { pointToInvestRewardInfo, loadingItemForGenerate, itemForGenerateCode } = this.props;
+    return (
+      <SafeAreaView style={{ flex: 1 }}>
+        <HeaderContainer>
+          <ScrollView>
+            <TextOverlineR numberOfLines={1}>{pointToInvestRewardInfo?.brandName}</TextOverlineR>
+            <Header2 numberOfLines={1}>{pointToInvestRewardInfo?.topic}</Header2>
+            <RowIcon>
+              <Icon name="calendar-2" size="icon16" color="#7E7E7E" />
+              <Body3 variant="greyHigh" numberOfLines={1} style={{ marginLeft: 5, marginTop: -3 }}>
+                {`${this.formatDateThai(pointToInvestRewardInfo.validFrom)} - ${this.formatDateThai(
+                  pointToInvestRewardInfo.validTo
+                )}`}
+              </Body3>
+            </RowIcon>
+            <RowIcon>
+              <SVGIcon name="Location" size="icon16" />
+              <Body3 variant="greyHigh" style={{ marginLeft: 5, marginTop: -3, maxWidth: "95%" }}>
+                {pointToInvestRewardInfo?.branch}
+              </Body3>
+            </RowIcon>
+            <RowContainer>
+              <ResultView>
+                {itemForGenerateCode && itemForGenerateCode?.codeType && !loadingItemForGenerate ? (
+                  this.renderResultGen(itemForGenerateCode?.codeType)
+                ) : (
+                  <>
+                    {loadingItemForGenerate ? (
+                      <LottieLoadingIndicator size="large" />
+                    ) : (
+                      <Header3 variant="ctaPurple">
+                        {`${i18n.t(
+                          "Profile.PointToInvest.Reward.Info.ActiveReward"
+                        )} \n      ${i18n.t("Profile.PointToInvest.Reward.Info.ActiveReward2")}`}
+                      </Header3>
+                    )}
+                  </>
+                )}
+              </ResultView>
+            </RowContainer>
+            {itemForGenerateCode?.codeType !== "CODE" && (
+              <RowCode>
+                <Header3>{itemForGenerateCode?.code}</Header3>
+              </RowCode>
+            )}
+            {itemForGenerateCode?.codeType === "CODE" && (
+              <RowCode>{this.renderIconCopy(itemForGenerateCode?.code)}</RowCode>
+            )}
+            <Header2 numberOfLines={1} style={{ marginTop: 15 }}>
+              {i18n.t("Profile.PointToInvest.Reward.Info.Detail")}
+            </Header2>
+            <Body3 variant="greyHigh" numberOfLines={2}>
+              {pointToInvestRewardInfo?.detail}
+            </Body3>
+            <Header2 numberOfLines={1} style={{ marginTop: 15 }}>
+              {i18n.t("Profile.PointToInvest.Reward.Info.Condition")}
+            </Header2>
+            {this.renderCondition(pointToInvestRewardInfo?.conditions)}
+          </ScrollView>
+        </HeaderContainer>
+      </SafeAreaView>
+    );
+  };
+
+  generateReward = RedeemID => {
+    setTimeout(() => {
+      this.props.useReward(RedeemID);
+    }, 400);
+  };
+
+  delayPop = () => {
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleCloseError = () => {
+    this.setState({ showError: false });
+    setTimeout(() => {
+      this.delayPop();
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  renderErrorDialog = () => {
+    const { showErrorItemForGenerate, loadingItemForGenerate, theme } = this.props;
+    return (
+      <View>
+        {showErrorItemForGenerate && !loadingItemForGenerate && (
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showError}
+            onRequestClose={() => {
+              this.setState({ showError: false });
+            }}
+          >
+            <ViewContainer>
+              <HeroBannerContainer>
+                <ButtonContainer>
+                  <LeftButton onPress={() => this.handleCloseError()}>
+                    <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                  </LeftButton>
+                </ButtonContainer>
+              </HeroBannerContainer>
+              <ResponseMessageBox>
+                <ErrorSevereBanner size="illus78" />
+                <DialogErrorContainer>
+                  <DialogErrorTitle>
+                    <Display3>
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title")}
+                    </Display3>
+                  </DialogErrorTitle>
+                  <DialogErrorDetail>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail2")}
+                    </Body2>
+                  </DialogErrorDetail>
+                </DialogErrorContainer>
+                <ButtonContainer>
+                  <SecondaryButton
+                    size="large"
+                    label={i18n.t(
+                      "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                    )}
+                    onPress={() => this.handleCloseError()}
+                  />
+                </ButtonContainer>
+              </ResponseMessageBox>
+            </ViewContainer>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
+  render() {
+    if (this.props.loadingRewardInfo || this.props.loadingItemForGenerate) {
+      return <LoadingScreen caption="Loading..." />;
+    }
+
+    return (
+      <View style={{ backgroundColor: "white", flex: 1 }}>
+        {this.renderBanner()}
+        <View style={{ flex: 1, backgroundColor: "transparent" }}>
+          <Container>{this.renderNavbar()}</Container>
+          {this.renderContent()}
+          {this.renderErrorDialog()}
+        </View>
+      </View>
+    );
+  }
+}
+
+PointToInvestMyRewardsPast.defaultProps = {
+  rewardID: 0,
+  pointToInvestRewardInfo: [],
+  itemForGenerateCode: [],
+  imagePath: "",
+  loadImagePath: false,
+  loadingRewardInfo: false,
+  loadingItemForGenerate: false,
+  showErrorItemForGenerate: false,
+  clearRedemption: () => {},
+  clearUseReward: () => {},
+  fetchRedemtionByID: () => {},
+  getImagePath: () => {},
+  onPressBack: () => {},
+  useReward: () => {}
+};
+PointToInvestMyRewardsPast.propTypes = {
+  rewardID: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  pointToInvestRewardInfo: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  itemForGenerateCode: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  imagePath: PropTypes.string,
+  loadImagePath: PropTypes.bool,
+  loadingRewardInfo: PropTypes.bool,
+  loadingItemForGenerate: PropTypes.bool,
+  showErrorItemForGenerate: PropTypes.bool,
+  fetchRedemtionByID: PropTypes.func,
+  getImagePath: PropTypes.func,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  clearRedemption: PropTypes.func,
+  clearUseReward: PropTypes.func,
+  onPressBack: PropTypes.func,
+  useReward: PropTypes.func,
+  theme: PropTypes.oneOfType([PropTypes.array, PropTypes.object]).isRequired
+};
+export default withTheme(PointToInvestMyRewardsPast);

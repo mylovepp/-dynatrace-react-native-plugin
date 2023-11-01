@@ -1,0 +1,72 @@
+import React, { useState } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, ScrollView } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { getMaxDOBDate } from "@invx/redux/login/first-time/utils";
+import { InputContainer, LoginButton, DateLabel } from "./CheckDobStyled";
+import { DateInput, ViewContainer, Header3, SectionBackground } from "../../../components-2";
+
+const CheckDob = props => {
+  const { buttonLabel, headerDescription, onSubmit, isLoading } = props;
+
+  const [birthDate, setBirthDate] = useState(null);
+
+  return (
+    <TouchableWithoutFeedback
+      accessible={false}
+      accessibilityLabel="frmCkDob"
+      onPress={() => Keyboard.dismiss()}
+    >
+      <ViewContainer variant="light" isFullScreen>
+        <SectionBackground variant="secondary" borderRadius="big" style={{ minHeight: 16 }} />
+        {headerDescription}
+        <ScrollView>
+          <InputContainer accessibilityLabel="secCkDob">
+            <DateLabel>
+              {I18n.t("Login.CheckDOB.DateOfBirth.Label")}
+              <Header3 variant="error">*</Header3>
+            </DateLabel>
+            <DateInput
+              placeholder={I18n.t("Login.CheckDOB.DateOfBirth.Placeholder")}
+              initialDate={birthDate || getMaxDOBDate()}
+              maximumDate={getMaxDOBDate()}
+              onConfirm={value => setBirthDate(value)}
+              calendarType="buddhist"
+              required
+              accessible
+              testId="txtDob"
+              isUseNewComponent
+            />
+          </InputContainer>
+        </ScrollView>
+        <LoginButton
+          label={buttonLabel || I18n.t("Login.CheckDOB.ButtonTitle")}
+          onPress={() => onSubmit(birthDate)}
+          size="large"
+          disable={!birthDate || isLoading}
+          accessible
+          testId="checkDOBButton"
+        />
+      </ViewContainer>
+    </TouchableWithoutFeedback>
+  );
+};
+
+CheckDob.defaultProps = {
+  buttonLabel: "",
+  headerDescription: null,
+  isLoading: false
+};
+
+CheckDob.propTypes = {
+  buttonLabel: PropTypes.string,
+  headerDescription: PropTypes.node,
+  onSubmit: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  isLoading: PropTypes.bool
+};
+
+export default CheckDob;

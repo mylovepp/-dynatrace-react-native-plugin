@@ -1,0 +1,24 @@
+import { View } from "react-native";
+import { TouchableOpacity, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import React from "react";
+
+const AdvisoryHome = ({ navigator }) => {
+  return (
+    <View>
+      <Text style={{ marginTop: 20, alignSelf: "center" }}>AdvisoryHome</Text>
+      <TouchableOpacity
+        onPress={() => navigator.push({ screen: "advisoryOnBoardMembershipScreen", title: "ADVISORY ONBOARD MEMBERSHIP" })}
+        style={{ marginTop: 20, alignSelf: "center" }}
+      >
+        <Text style={{ color: "blue" }}>NEXT</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+AdvisoryHome.propTypes = {
+  navigator: PropTypes.shape().isRequired
+};
+
+export default AdvisoryHome;

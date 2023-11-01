@@ -1,0 +1,513 @@
+/* eslint-disable no-param-reassign */
+/* eslint-disable no-unused-expressions */
+import React, { useEffect, useState, useRef } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, BackHandler, Platform } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { ViewContainer } from "@invx/components-2";
+import NavigationSearchBar from "@invx/features/search-2/navigation-search-bar";
+import {
+  SearchTab,
+  AssetType,
+  TrackScreenName,
+  TrackEventName,
+  TrackSection
+} from "@invx/redux/search/search-constants";
+import { mappingAssetName } from "@invx/redux/search/utils";
+import {
+  AllResultTab,
+  FundResultTab,
+  OffshoreFundResultTab,
+  OffshoreStockResultTab,
+  BondResultTab,
+  DigitalAssetResultTab
+} from "@invx/features/search-2/tabs";
+import SearchHistory from "@invx/features/search-2/search-history";
+import { getSearchHistory } from "@invx/features/search-2/utils";
+import { getMarginBottomWithoutBottomTab } from "@invx/modules/navigation/defaultStyle";
+import { trackEvent } from "@invx/modules/analytics/AnalyticsService";
+
+import {
+  openFundScreen,
+  openStockScreen,
+  openBondScreen,
+  openDigitalAssetScreen
+} from "./openScreenHandler";
+
+const SearchHistoryContainer = styled.View`
+  display: ${props => (props.hide ? "none" : "flex")};
+`;
+const MainContainer = styled(ViewContainer)`
+  margin-bottom: ${getMarginBottomWithoutBottomTab()};
+`;
+const BodyContainer = styled.ScrollView.attrs({
+  showsVerticalScrollIndicator: false,
+  contentContainerStyle: {
+    flexGrow: 1
+  }
+})``;
+
+const NewSearchScreen = props => {
+  const {
+    assetClassToSearch,
+    setAssetClassToSearch,
+    navigator,
+    getSearchAll,
+    searchAllItems,
+    isLoading,
+    isDataNotFound,
+    isHotSearchDataNotFound,
+    clearSearch,
+    searchByAsset,
+    searchThaiFundResults,
+    searchOffshoreFundResults,
+    searchOffshoreStockResults,
+    searchBondResults,
+    searchDigitalAssetResults,
+    isError,
+    setServiceSearchUnavailable,
+    saveHotSearchClick,
+    requestId,
+    thaiFundRequestId,
+    offshoreFundRequestId,
+    offshoreStockRequestId,
+    bondRequestId,
+    digitalAssetRequestId,
+    externalCustomerID,
+    userMode
+  } = props;
+
+  const [activeTab, setActiveTab] = useState(assetClassToSearch ?? SearchTab.ALL);
+  const [searchText, setSearchText] = useState("");
+  const [forceSearch, setForceSearch] = useState(false);
+  const [haveSearchHistory, setHaveSearchHistory] = useState(false);
+  const searchHistoryRef = useRef();
+  const backHandler = useRef();
+  const ignoreTrackRef = useRef(false);
+  const scrollViewRef = useRef();
+  const isSearchByThaiFundAMC = useRef(false);
+  const isSearchByOffshoreFundAMC = useRef(false);
+
+  useEffect(() => {
+    getSearchHistory().then(data => {
+      setHaveSearchHistory(data.length > 0);
+    });
+    if (Platform.OS === "android") {
+      backHandler.current = BackHandler.addEventListener("hardwareBackPress", () => {
+        navigator.pop();
+      });
+    }
+    return () => {
+      if (Platform.OS === "android") {
+        backHandler.current.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isError) {
+      setServiceSearchUnavailable(searchText);
+    }
+  }, [isError]);
+
+  useEffect(() => {
+    if (!ignoreTrackRef.current && searchText) {
+      const params = {
+        Keyword: searchText
+      };
+      let eventName = "";
+      switch (activeTab) {
+        case SearchTab.ALL:
+          eventName = TrackEventName.SEARCH_KEYWORDS;
+          break;
+        case SearchTab.FUNDS:
+          eventName = TrackEventName.SEARCH_KEYWORDS_FUNDS;
+          break;
+        case SearchTab.OFFSHORE_FUNDS:
+          eventName = TrackEventName.SEARCH_KEYWORDS_OFFSHORE_FUNDS;
+          break;
+        case SearchTab.STOCKS:
+          eventName = TrackEventName.SEARCH_KEYWORDS_STOCKS;
+          break;
+        case SearchTab.BONDS:
+          eventName = TrackEventName.SEARCH_KEYWORDS_BONDS;
+          break;
+        case SearchTab.DIGITAL_ASSETS:
+          eventName = TrackEventName.SEARCH_KEYWORDS_DIGITAL_ASSET;
+          break;
+        default:
+          break;
+      }
+      firebaseTracking(eventName, params);
+    }
+    ignoreTrackRef.current = false;
+  }, [searchText, activeTab]);
+
+  /**
+   *
+   * @param {string} eventName
+   * @param {{assetType: string, assetCode: string, Section: string, Keyword: string}} params
+   * Extend parameters
+   */
+  const firebaseTracking = (eventName, params = {}) => {
+    ignoreTrackRef.current = true;
+    params.screenName = TrackScreenName;
+    params.externalCustomerID = externalCustomerID;
+    params.userMode = userMode;
+
+    trackEvent(eventName, params);
+  };
+
+  const handleOnSubmitSearch = (value, tabId, isSearchWithAmcName = false) => {
+    if (value !== searchText || tabId !== activeTab || forceSearch) {
+      setForceSearch(false);
+      setSearchText(value);
+      setActiveTab(tabId);
+      setAssetClassToSearch(tabId);
+
+      if (value) {
+        switch (tabId) {
+          case SearchTab.FUNDS:
+            isSearchByThaiFundAMC.current = isSearchWithAmcName;
+            searchByAsset(value, AssetType.FUNDS, isSearchWithAmcName);
+            break;
+          case SearchTab.OFFSHORE_FUNDS:
+            isSearchByOffshoreFundAMC.current = isSearchWithAmcName;
+            searchByAsset(value, AssetType.OFFSHORE_FUNDS, isSearchWithAmcName);
+            break;
+          case SearchTab.STOCKS:
+            searchByAsset(value, AssetType.OFFSHORE_STOCK);
+            break;
+          case SearchTab.BONDS:
+            searchByAsset(value, AssetType.BONDS);
+            break;
+          case SearchTab.DIGITAL_ASSETS:
+            searchByAsset(value, AssetType.DIGITAL_ASSET);
+            break;
+          default:
+            getSearchAll(value);
+            break;
+        }
+      } else {
+        clearSearch();
+      }
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  };
+  const handleOnClearHistory = () => {
+    setForceSearch(true);
+    setHaveSearchHistory(false);
+  };
+  const handleOnItemHistoryPress = value => {
+    if (value !== searchText || forceSearch) {
+      firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+        Keyword: value,
+        Section: TrackSection.HISTORY
+      });
+      handleOnSubmitSearch(value, activeTab);
+    }
+  };
+  const handleOnViewAllPress = assetType => {
+    firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+      Keyword: searchText,
+      Section: TrackSection.RESULT,
+      assetCode: "View All",
+      assetType: mappingAssetName(assetType)
+    });
+    switch (assetType) {
+      case AssetType.FUNDS:
+        handleOnSubmitSearch(searchText, SearchTab.FUNDS);
+        break;
+      case AssetType.OFFSHORE_FUNDS:
+        handleOnSubmitSearch(searchText, SearchTab.OFFSHORE_FUNDS);
+        break;
+      case AssetType.OFFSHORE_STOCK:
+        handleOnSubmitSearch(searchText, SearchTab.STOCKS);
+        break;
+      case AssetType.BONDS:
+        handleOnSubmitSearch(searchText, SearchTab.BONDS);
+        break;
+      case AssetType.DIGITAL_ASSET:
+        handleOnSubmitSearch(searchText, SearchTab.DIGITAL_ASSETS);
+        break;
+      default:
+        break;
+    }
+  };
+  const getRequestId = (assetType, isHotSearch = false) => {
+    if (isHotSearch) {
+      return "";
+    }
+    switch (assetType) {
+      case AssetType.FUNDS:
+        return activeTab === SearchTab.ALL ? thaiFundRequestId : requestId;
+      case AssetType.OFFSHORE_FUNDS:
+        return activeTab === SearchTab.ALL ? offshoreFundRequestId : requestId;
+      case AssetType.OFFSHORE_STOCK:
+        return activeTab === SearchTab.ALL ? offshoreStockRequestId : requestId;
+      case AssetType.BONDS:
+        return activeTab === SearchTab.ALL ? bondRequestId : requestId;
+      case AssetType.DIGITAL_ASSET:
+        return activeTab === SearchTab.ALL ? digitalAssetRequestId : requestId;
+      default:
+        return "";
+    }
+  };
+
+  const handleItemPress = (dataItem, isHotSearch = false) => {
+    // hot search doesn't have any search text
+    if (!isHotSearch) {
+      searchHistoryRef.current.updateSearchHistory(searchText);
+      setHaveSearchHistory(true);
+    } else {
+      firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+        assetCode: dataItem.assetCode,
+        assetType: mappingAssetName(dataItem.assetType),
+        Section: TrackSection.POPULAR
+      });
+    }
+
+    const {
+      id,
+      assetType,
+      assetCode,
+      name,
+      uic,
+      isin,
+      ric: ricCode,
+      countryCode,
+      sourceId,
+      instrumentId,
+      pair,
+      fundClass
+    } = dataItem;
+
+    saveHotSearchClick(searchText, id, assetType, getRequestId(dataItem.assetType, isHotSearch));
+
+    switch (assetType) {
+      case AssetType.FUNDS:
+        openFundScreen(
+          {
+            fundCode: assetCode,
+            fundName: name,
+            fundClass,
+            isOffshore: false
+          },
+          searchText
+        );
+        break;
+      case AssetType.OFFSHORE_FUNDS:
+        openFundScreen(
+          {
+            fundCode: assetCode,
+            fundName: name,
+            isOffshore: true,
+            isin,
+            uic
+          },
+          searchText
+        );
+        break;
+      case AssetType.OFFSHORE_STOCK:
+        openStockScreen({
+          stockCode: assetCode,
+          ricCode,
+          sourceId,
+          country: countryCode
+        });
+        break;
+      case AssetType.BONDS:
+        openBondScreen(assetCode, name);
+        break;
+      case AssetType.DIGITAL_ASSET:
+        openDigitalAssetScreen(instrumentId, pair);
+        break;
+      default:
+        break;
+    }
+  };
+  const handleOnAmcThaiFundPress = amcName => {
+    firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+      Section: TrackSection.AMC,
+      assetCode: amcName,
+      assetType: mappingAssetName(AssetType.FUNDS)
+    });
+    handleOnSubmitSearch(amcName, activeTab, true);
+  };
+  const handleOnAmcOffshoreFundPress = amcName => {
+    firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+      Section: TrackSection.AMC,
+      assetCode: amcName,
+      assetType: mappingAssetName(AssetType.OFFSHORE_FUNDS)
+    });
+    handleOnSubmitSearch(amcName, activeTab, true);
+  };
+  const onItemByAssetHotSearchPress = (dataItem, trackingSection) => {
+    firebaseTracking(TrackEventName.SEARCH_SELECT_ASSET, {
+      Section: trackingSection,
+      assetCode: dataItem.assetCode,
+      assetType: mappingAssetName(dataItem.assetType)
+    });
+    handleItemPress(dataItem);
+  };
+  const renderTabResult = () => {
+    switch (activeTab) {
+      case SearchTab.FUNDS:
+        return (
+          <FundResultTab
+            isLoading={isLoading}
+            dataItems={searchThaiFundResults}
+            searchText={searchText}
+            onAmcPress={handleOnAmcThaiFundPress}
+            onItemPress={handleItemPress}
+            haveSearchHistory={haveSearchHistory}
+            isSearchByAmc={isSearchByThaiFundAMC.current}
+          />
+        );
+      case SearchTab.OFFSHORE_FUNDS:
+        return (
+          <OffshoreFundResultTab
+            isLoading={isLoading}
+            dataItems={searchOffshoreFundResults}
+            searchText={searchText}
+            onAmcPress={handleOnAmcOffshoreFundPress}
+            onItemPress={handleItemPress}
+            haveSearchHistory={haveSearchHistory}
+            isSearchByAmc={isSearchByOffshoreFundAMC.current}
+          />
+        );
+      case SearchTab.STOCKS:
+        return (
+          <OffshoreStockResultTab
+            isLoading={isLoading}
+            dataItems={searchOffshoreStockResults}
+            searchText={searchText}
+            onItemPress={handleItemPress}
+            onItemHotSearchPress={dataItem =>
+              onItemByAssetHotSearchPress(dataItem, TrackSection.OFFSHORE_POPULAR)
+            }
+            haveSearchHistory={haveSearchHistory}
+            isHotSearchDataNotFound={isHotSearchDataNotFound}
+          />
+        );
+      case SearchTab.BONDS:
+        return (
+          <BondResultTab
+            isLoading={isLoading}
+            dataItems={searchBondResults}
+            searchText={searchText}
+            onItemPress={handleItemPress}
+            onItemHotSearchPress={dataItem =>
+              onItemByAssetHotSearchPress(dataItem, TrackSection.BOND_POPULAR)
+            }
+            haveSearchHistory={haveSearchHistory}
+            isHotSearchDataNotFound={isHotSearchDataNotFound}
+          />
+        );
+      case SearchTab.DIGITAL_ASSETS:
+        return (
+          <DigitalAssetResultTab
+            isLoading={isLoading}
+            dataItems={searchDigitalAssetResults}
+            searchText={searchText}
+            onItemPress={handleItemPress}
+            onItemHotSearchPress={dataItem =>
+              onItemByAssetHotSearchPress(dataItem, TrackSection.DA_POPULAR)
+            }
+            haveSearchHistory={haveSearchHistory}
+            isHotSearchDataNotFound={isHotSearchDataNotFound}
+          />
+        );
+      default:
+        return (
+          <AllResultTab
+            isLoading={isLoading}
+            isDataNotFound={isDataNotFound}
+            isHotSearchDataNotFound={isHotSearchDataNotFound}
+            searchAllItems={searchAllItems}
+            isClearSearch={!searchText}
+            searchText={searchText}
+            haveSearchHistory={haveSearchHistory}
+            onHotSearchItemPress={dataItem => handleItemPress(dataItem, true)}
+            onItemPress={handleItemPress}
+            onViewAllPress={handleOnViewAllPress}
+          />
+        );
+    }
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()} accessible={false}>
+      <MainContainer variant={searchText && activeTab !== SearchTab.ALL ? "light" : "screen"}>
+        <NavigationSearchBar
+          onSubmitSearch={handleOnSubmitSearch}
+          navigator={navigator}
+          selectedTab={activeTab}
+          searchValue={searchText}
+        />
+        <BodyContainer ref={scrollViewRef}>
+          <SearchHistoryContainer hide={searchText}>
+            <SearchHistory
+              ref={searchHistoryRef}
+              onClearHistoryCallback={handleOnClearHistory}
+              onPress={handleOnItemHistoryPress}
+            />
+          </SearchHistoryContainer>
+          {renderTabResult()}
+        </BodyContainer>
+      </MainContainer>
+    </TouchableWithoutFeedback>
+  );
+};
+
+NewSearchScreen.defaultProps = {
+  assetClassToSearch: "",
+  searchAllItems: null,
+  isLoading: false,
+  isDataNotFound: false,
+  isHotSearchDataNotFound: false,
+  searchThaiFundResults: [],
+  searchOffshoreFundResults: [],
+  searchOffshoreStockResults: [],
+  searchBondResults: [],
+  searchDigitalAssetResults: [],
+  requestId: "",
+  thaiFundRequestId: "",
+  offshoreFundRequestId: "",
+  offshoreStockRequestId: "",
+  bondRequestId: "",
+  digitalAssetRequestId: "",
+  externalCustomerID: ""
+};
+NewSearchScreen.propTypes = {
+  assetClassToSearch: PropTypes.string,
+  setAssetClassToSearch: PropTypes.func.isRequired,
+  navigator: PropTypes.shape().isRequired,
+  getSearchAll: PropTypes.func.isRequired,
+  searchAllItems: PropTypes.shape(),
+  isLoading: PropTypes.bool,
+  isDataNotFound: PropTypes.bool,
+  isHotSearchDataNotFound: PropTypes.bool,
+  clearSearch: PropTypes.func.isRequired,
+  searchByAsset: PropTypes.func.isRequired,
+  searchThaiFundResults: PropTypes.arrayOf(PropTypes.shape()),
+  searchOffshoreFundResults: PropTypes.arrayOf(PropTypes.shape()),
+  searchOffshoreStockResults: PropTypes.arrayOf(PropTypes.shape()),
+  searchBondResults: PropTypes.arrayOf(PropTypes.shape()),
+  searchDigitalAssetResults: PropTypes.arrayOf(PropTypes.shape()),
+  isError: PropTypes.bool.isRequired,
+  setServiceSearchUnavailable: PropTypes.func.isRequired,
+  saveHotSearchClick: PropTypes.func.isRequired,
+  requestId: PropTypes.string,
+  thaiFundRequestId: PropTypes.string,
+  offshoreFundRequestId: PropTypes.string,
+  offshoreStockRequestId: PropTypes.string,
+  bondRequestId: PropTypes.string,
+  digitalAssetRequestId: PropTypes.string,
+  externalCustomerID: PropTypes.string,
+  userMode: PropTypes.string.isRequired
+};
+
+export default NewSearchScreen;

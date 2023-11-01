@@ -1,0 +1,140 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import {
+  Separator,
+  TextOverlineR,
+  Header1,
+  Header2,
+  TextButtonS
+} from "../../../../../components-2";
+import { digitalAssetPriceValueDisplay } from "../../../../../modules/i18n/value-display";
+import { formatDate, FULL_DISPLAY_DATE_ACTIVITY } from "../../../../../modules/format";
+import { displayOrderStatus, displayOrderType, getStatusColor } from "../utils";
+import { Chip } from "../components";
+import { FundActivityKinds } from "../../../../../redux/digital-asset-funds/digital-asset-fund-activity/digital-asset-fund-activity-constants";
+
+const OrderListItem = props => {
+  const {
+    orderId,
+    dateTs,
+    fundCode,
+    amount,
+    amountDecimalDigits,
+    type,
+    status,
+    fundCompanyId,
+    goToActivityDetail,
+    popupModal,
+    isCancellable
+  } = props;
+
+  const goToOrderDetail = () => {
+    goToActivityDetail({
+      orderId,
+      fundCompanyId,
+      kind: FundActivityKinds.ORDER,
+      isCancellable,
+      ...props
+    });
+  };
+
+  return (
+    <>
+      <TouchableOpacity onPress={goToOrderDetail}>
+        <>
+          <Container>
+            <TopRow>
+              <LabelText>
+                {formatDate(new Date(dateTs), FULL_DISPLAY_DATE_ACTIVITY, "th-TH")}
+              </LabelText>
+              <LabelText>{I18n.t("DigitalAssetsFunds.Activity.Label.NotionalValue")}</LabelText>
+            </TopRow>
+            <MidRow>
+              <Header1>{fundCode}</Header1>
+              <Header2>{digitalAssetPriceValueDisplay(amount, amountDecimalDigits ?? 2)}</Header2>
+            </MidRow>
+            <BottomRow>
+              <TagRow>
+                {type && <Chip label={displayOrderType({ type, I18n })} />}
+                {status && (
+                  <Chip
+                    label={displayOrderStatus({ status, I18n })}
+                    color={getStatusColor(status)}
+                  />
+                )}
+              </TagRow>
+              {isCancellable && (
+                <CancelButton
+                  onPress={() => {
+                    popupModal({ orderId, fundCompanyId });
+                  }}
+                >
+                  {I18n.t("DigitalAssetsFunds.Activity.Cancel.Cancel")}
+                </CancelButton>
+              )}
+            </BottomRow>
+          </Container>
+          <Separator variant="padding" />
+        </>
+      </TouchableOpacity>
+    </>
+  );
+};
+
+export default OrderListItem;
+
+OrderListItem.propTypes = {
+  orderId: PropTypes.string.isRequired,
+  dateTs: PropTypes.string.isRequired,
+  fundCode: PropTypes.string.isRequired,
+  amount: PropTypes.number,
+  amountDecimalDigits: PropTypes.number,
+  type: PropTypes.string.isRequired,
+  status: PropTypes.string.isRequired,
+  fundCompanyId: PropTypes.number.isRequired,
+  goToActivityDetail: PropTypes.func,
+  popupModal: PropTypes.func.isRequired,
+  isCancellable: PropTypes.bool.isRequired
+};
+
+OrderListItem.defaultProps = {
+  amount: 0,
+  amountDecimalDigits: 2,
+  goToActivityDetail: () => {}
+};
+
+const Container = styled.View`
+  padding: 8px 16px;
+`;
+
+const TopRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const LabelText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const MidRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const BottomRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin: 8px 0px 0px 0px;
+`;
+
+const TagRow = styled.View`
+  flex-direction: row;
+`;
+
+const CancelButton = styled(TextButtonS)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;

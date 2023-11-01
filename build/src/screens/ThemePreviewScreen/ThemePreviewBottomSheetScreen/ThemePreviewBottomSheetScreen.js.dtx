@@ -1,0 +1,58 @@
+// @ts-nocheck
+import React, { Component } from "react";
+import { Button } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { BottomSheet, ViewContainer } from "../../../components-2";
+
+const Background = styled(ViewContainer).attrs({ isFullScreen: true, variant: "light" })(props => ({
+  padding: props.theme.spacingMediumLarge,
+  alignItems: "flex-start"
+}));
+
+class ThemePreviewBottomSheetScreen extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isVisible1: false,
+      isVisible2: false
+    };
+  }
+
+  onModalClose = target => () => {
+    this.setState(old => ({ ...old, [target]: false }));
+  };
+
+  onModalShow = target => () => {
+    this.setState(old => ({ ...old, [target]: true }));
+  };
+
+  render() {
+    return (
+      <Background>
+        <Button title="Show Modal 1" onPress={this.onModalShow("isVisible1")} />
+        <Button title="Show Modal 2" onPress={this.onModalShow("isVisible2")} />
+        <BottomSheet
+          isDisableCloseButton={false}
+          isVisible={this.state.isVisible1}
+          onModalClose={this.onModalClose("isVisible1")}
+          title="Title"
+        >
+          <View style={{ backgroundColor: "red", height: 200 }} />
+          <View style={{ backgroundColor: "blue", height: 200 }} />
+        </BottomSheet>
+        <BottomSheet
+          isDisableCloseButton
+          isVisible={this.state.isVisible2}
+          onModalClose={this.onModalClose("isVisible2")}
+          title="Title"
+        >
+          <View style={{ backgroundColor: "red", height: 200 }} />
+          <View style={{ backgroundColor: "blue", height: 200 }} />
+        </BottomSheet>
+      </Background>
+    );
+  }
+}
+
+export default ThemePreviewBottomSheetScreen;

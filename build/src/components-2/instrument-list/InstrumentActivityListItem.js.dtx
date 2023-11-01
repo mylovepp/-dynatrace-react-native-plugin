@@ -1,0 +1,184 @@
+// @ts-nocheck
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+
+import { Body2, Header2, TextOverlineR, TextOverlineM } from "../text/Text";
+import { Column, Row } from "../../features/activity/activity-list-item/styled";
+import ViewContainer from "../view/ViewContainer";
+import Separator from "../separator/Separator";
+import Tag from "../tag/Tag";
+
+const InstrumentListItemContainer = styled(ViewContainer)`
+  border-color: ${props => props.theme.borderLightColor};
+  padding-top: ${props => props.theme.spacingXSmall};
+`;
+
+const BodyContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const ShareContainer = styled.View(props => ({
+  paddingTop: props.theme.spacingXSmall,
+  flexDirection: "row"
+}));
+
+const Section = styled.View(props => ({
+  width: "120px",
+  marginRight: props.theme.spacingXXLargeValue
+}));
+
+const RowContainer = styled(Row)`
+  justify-content: space-between;
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const TagContainer = styled.View`
+  padding-right: ${props => props.theme.spacingXXSmall};
+  padding-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const Header = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const Title = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const LeftContainer = styled.View`
+  flex-direction: row;
+`;
+
+const RightContainer = styled.View`
+  align-items: flex-end;
+`;
+
+const HeaderLabel = styled(TextOverlineR)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const TitleLabel = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const AmountLabel = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const DetailLabel = styled(TextOverlineM)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const InstrumentActivityListItem = ({
+  onPress,
+  dateHeader,
+  rightHeader,
+  code,
+  amount,
+  shareAmount,
+  sharePrice,
+  pillList,
+  variant,
+  testID,
+  disabled,
+  accessibilityLabel
+}) => {
+  return (
+    <InstrumentListItemContainer
+      variant={variant}
+      testID={testID}
+      accessibilityLabel={accessibilityLabel}
+    >
+      <TouchableWithoutFeedback disabled={disabled} onPress={onPress}>
+        <BodyContainer>
+          <Header testID="title">
+            <LeftContainer>
+              <HeaderLabel>{dateHeader}</HeaderLabel>
+            </LeftContainer>
+            <RightContainer>
+              {typeof rightHeader === "string" ? (
+                <HeaderLabel>{rightHeader}</HeaderLabel>
+              ) : (
+                rightHeader
+              )}
+            </RightContainer>
+          </Header>
+          <Title>
+            <LeftContainer>
+              <TitleLabel>{code}</TitleLabel>
+            </LeftContainer>
+            <RightContainer>
+              {typeof amount === "string" ? <AmountLabel>{amount}</AmountLabel> : amount}
+            </RightContainer>
+          </Title>
+          {shareAmount && sharePrice && (
+            <ShareContainer>
+              <Section>{shareAmount}</Section>
+              <Section>{sharePrice}</Section>
+            </ShareContainer>
+          )}
+          <Column>
+            <RowContainer>
+              <LeftContainer key={code}>
+                {pillList.map(
+                  data =>
+                    data.label && (
+                      <TagContainer key={data.label}>
+                        <Tag size="small" label={data.label} variant={data.variant} />
+                      </TagContainer>
+                    )
+                )}
+              </LeftContainer>
+              <RightContainer>
+                {!disabled && <DetailLabel>{`${I18n.t("General.Detail")}`}</DetailLabel>}
+              </RightContainer>
+            </RowContainer>
+            <Separator />
+          </Column>
+        </BodyContainer>
+      </TouchableWithoutFeedback>
+    </InstrumentListItemContainer>
+  );
+};
+
+InstrumentActivityListItem.defaultProps = {
+  onPress: null,
+  dateHeader: "",
+  rightHeader: "",
+  code: "",
+  amount: "",
+  shareAmount: null,
+  sharePrice: null,
+  disabled: false,
+  variant: "light",
+  accessibilityLabel: "listItem",
+  testID: "listItem"
+};
+
+InstrumentActivityListItem.propTypes = {
+  onPress: PropTypes.func,
+  dateHeader: PropTypes.string,
+  rightHeader: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  shareAmount: PropTypes.node,
+  sharePrice: PropTypes.node,
+  code: PropTypes.string,
+  pillList: PropTypes.arrayOf(
+    PropTypes.shape({
+      label: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]).isRequired,
+      variant: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
+      isUpperCase: PropTypes.bool
+    })
+  ).isRequired,
+  disabled: PropTypes.bool,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  variant: PropTypes.oneOf(["light", "light-disabled"]),
+  accessibilityLabel: PropTypes.string,
+  testID: PropTypes.string
+};
+
+export default InstrumentActivityListItem;

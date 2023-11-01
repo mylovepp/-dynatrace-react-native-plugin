@@ -1,0 +1,142 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { Body3, Header3, Header1, RiskTag } from "../../../../../components-2";
+import { FormatFund } from "../../../../../modules/digital-asset/fund/format";
+
+const numberFormat = value =>
+  new Intl.NumberFormat("en-US", {
+    style: "decimal",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+
+const ProductCard = ({
+  fundName,
+  fundFullName,
+  percentChange,
+  riskLevel,
+  minimumInvest,
+  description,
+  onPress = () => {}
+}) => {
+  return (
+    <TouchableOpacity onPress={onPress}>
+      <CardContainer>
+        <HeaderContainer>
+          <TitleContainer>
+            <Title>{fundName}</Title>
+            <TitleFullName>{fundFullName}</TitleFullName>
+          </TitleContainer>
+          <TitleContainer>
+            <PercentChange color={FormatFund.genColor(percentChange)}>
+              {FormatFund.getPercentChangeText(percentChange)}
+            </PercentChange>
+            <ReturnOneYear>
+              {I18n.t("DigitalAssets.DAFundManagement.products.returnOneYearText")}
+            </ReturnOneYear>
+          </TitleContainer>
+        </HeaderContainer>
+        <DescriptionContainer>
+          <Description numberOfLines={3}>{description}</Description>
+        </DescriptionContainer>
+        <Footer>
+          <FooterBox>
+            <FooterTitleText>
+              {I18n.t("DigitalAssets.DAFundManagement.products.riskLevelText")}
+            </FooterTitleText>
+            <FooterTag>
+              <RiskTag
+                level={riskLevel}
+                size="small"
+                label={`${I18n.t("DigitalAssets.DAFundManagement.constants.risk")} ${riskLevel}`}
+              />
+            </FooterTag>
+          </FooterBox>
+          <FooterBox>
+            <FooterTitleText>
+              {I18n.t("DigitalAssets.DAFundManagement.products.minimumInvestmentText")}
+            </FooterTitleText>
+            <MinInvestText>
+              {numberFormat(minimumInvest)}{" "}
+              {I18n.t("DigitalAssets.DAFundManagement.constants.bath")}
+            </MinInvestText>
+          </FooterBox>
+        </Footer>
+      </CardContainer>
+    </TouchableOpacity>
+  );
+};
+
+export default ProductCard;
+
+ProductCard.propTypes = {
+  fundName: PropTypes.string.isRequired,
+  fundFullName: PropTypes.string.isRequired,
+  percentChange: PropTypes.string.isRequired,
+  riskLevel: PropTypes.number.isRequired,
+  minimumInvest: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+  onPress: PropTypes.func.isRequired
+};
+
+const CardContainer = styled.View`
+  padding: 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  margin: 0px 0px 8px 0px;
+`;
+
+const HeaderContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+`;
+
+const TitleContainer = styled.View`
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+`;
+const Title = styled(Header1)``;
+const TitleFullName = styled(Body3)``;
+
+const PercentChange = styled(Header1)`
+  text-align: right;
+  color: ${props => props.color};
+`;
+const ReturnOneYear = styled(Body3)`
+  text-align: right;
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const DescriptionContainer = styled.View`
+  margin-bottom: 16px;
+  height: 60px;
+`;
+const Description = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const Footer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+const FooterBox = styled.View`
+  flex-direction: column;
+  margin-right: 16px;
+`;
+
+const FooterTag = styled.View({
+  display: "flex",
+  flexDirection: "row"
+});
+
+const FooterTitleText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const MinInvestText = styled(Header3)``;

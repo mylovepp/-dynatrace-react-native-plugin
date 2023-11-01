@@ -1,0 +1,274 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import Clipboard from "@react-native-community/clipboard";
+import QRCode from "react-native-qrcode-svg";
+import { View, Platform, Linking } from "react-native";
+import Modal from "react-native-modal";
+import styled from "styled-components/native";
+import { WITHDRAW_POST_CONFIRM_SCREEN } from "../../../features/digital-assets/digital-assets-constants";
+import { alphapoint2FA } from "../services";
+import { Icon } from "../../../components";
+import { ButtonDA } from "../../../components/digital-assets/buttons";
+
+const HeaderContainer = styled(View)`
+  padding: 0px 18px 0px 18px;
+  padding-top: 18px;
+  padding-bottom: 12px;
+`;
+
+const ButtonContainer = styled(View)`
+  padding: 0px 18px 0px 18px;
+  flex-direction: row;
+  justify-content: flex-end;
+  padding-top: 24px;
+  flex-direction: column;
+`;
+
+const SafeAreaView = styled.SafeAreaView`
+  background-color: ${props => props.theme.backgroundLightColor};
+  border-top-left-radius: ${props => props.theme.bottomModalBorderRadius};
+  border-top-right-radius: ${props => props.theme.bottomModalBorderRadius};
+  margin-top: 24px;
+`;
+
+const Content = styled.ScrollView``;
+
+const ManualContainer = styled.View`
+  flex-direction: row;
+  margin-horizontal: ${props => props.theme.spacingLarge};
+`;
+
+const GoogleCodeContainer = styled.View`
+  flex-direction: column;
+`;
+
+const IconContainer = styled.View`
+  align-items: center;
+  justify-content: center;
+`;
+
+const CopyIcon = styled(Icon).attrs({
+  name: "copy",
+  customSize: 22
+})``;
+
+const Title = styled(Text)`
+  font-weight: 500;
+  font-size: 22px;
+  color: #8954f4;
+`;
+
+const GoogleManualTitle = styled(Text)`
+  width: 199px;
+  height: 24px;
+  flex-grow: 0;
+  margin: 0 0 4px;
+  font-family: DBHeavent;
+  font-size: 21px;
+  text-align: left;
+  color: #0a0b0d;
+`;
+
+const GoogleManualCode = styled(Text)`
+  margin: 4px 22px 0 0;
+  font-family: DBHeavent-Med;
+  font-size: 24px;
+  text-align: left;
+  color: #0a0b0d;
+`;
+
+const QrWrapper = styled.View`
+  margin-top: 16px;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const withWithdrawCoinPinCode = WrappedComponent => {
+  const BorderLine = styled(View)`
+    background-color: rgb(204, 207, 211);
+    padding-bottom: 1;
+  `;
+  const WithWithdrawCoinPinCode = props => {
+    const onFinish = async pinCode => {
+      const {
+        navigator,
+        digitalAssetCode,
+        receiveAmount,
+        networkSelected,
+        receiveAddress,
+        amountBeforeFee,
+        transactionFee,
+        createAt,
+        receiveTag,
+        createCryptocurrencyWithdrawTicket,
+        withdrawTemplate
+      } = props;
+      const isFinish = props.onFinish(pinCode);
+      const { accountId, productId, accountProviderId, templateType } = withdrawTemplate;
+      if (isFinish) {
+        await createCryptocurrencyWithdrawTicket({
+          tfaCode: "0",
+          accountId,
+          productId,
+          amount: amountBeforeFee,
+          externalAddress: receiveAddress,
+          destinationTagNumber: receiveTag,
+          accountProviderId,
+          templateType
+        });
+        navigator.push({
+          screen: "digitalAssetsPostConfirmScreen",
+          title: "Confirm Order",
+          navigatorStyle: {
+            navBarHidden: true,
+            navBarTransparent: true
+          },
+          animationType: "slide-horizontal",
+          passProps: {
+            details: {
+              coinName: digitalAssetCode,
+              coinReceive: receiveAmount,
+              coinNetwork: networkSelected,
+              coinAddress: receiveAddress,
+              coinAmount: amountBeforeFee,
+              coinFee: transactionFee,
+              createAt,
+              coinTag: receiveTag
+            },
+            postconfirmType: WITHDRAW_POST_CONFIRM_SCREEN
+          }
+        });
+      }
+    };
+
+    const [isVisible, setIsVisible] = useState(true);
+    const [qrcode, setQrCode] = useState("");
+    const [manualCode, setManualCode] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const createGoogle2FA = async () => {
+        const response = await alphapoint2FA.getEnableGoogle2FA();
+        setQrCode(response?.GoogleQRCode.split("/")[0]);
+        setManualCode(response?.ManualCode);
+        setLoading(!loading);
+      };
+
+      createGoogle2FA();
+    }, []);
+
+    const onCancel = () => {
+      setIsVisible(!isVisible);
+    };
+
+    const headerComponent = () => (
+      <HeaderContainer>
+        <Title>Two-Factor Authentication</Title>
+      </HeaderContainer>
+    );
+
+    const linkingToAppStore = () => {
+      const APP_STORE_LINK = "itms-apps://apps.apple.com/sg/app/google-authenticator/id388497605";
+      const PLAY_STORE_LINK =
+        "http://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2";
+
+      return Platform.select({
+        ios: () => {
+          Linking.openURL(APP_STORE_LINK);
+        },
+        android: () => {
+          Linking.openURL(PLAY_STORE_LINK);
+        }
+      });
+    };
+
+    const qrCodeComponent = () => (
+      <SafeAreaView style={{ flex: 1 }}>
+        <Content>
+          {headerComponent()}
+          <QrWrapper>
+            <QRCode style={{ flex: 1 }} value={qrcode} size={200} />
+          </QrWrapper>
+          <ManualContainer>
+            <GoogleCodeContainer>
+              <GoogleManualTitle>ใส่รหัสนี้ใน Google Authenticator</GoogleManualTitle>
+              <GoogleManualCode>{manualCode}</GoogleManualCode>
+            </GoogleCodeContainer>
+            <IconContainer>
+              <TouchableOpacity
+                onPress={() => {
+                  Clipboard.setString(manualCode);
+                }}
+              >
+                <CopyIcon />
+              </TouchableOpacity>
+            </IconContainer>
+          </ManualContainer>
+        </Content>
+        <ButtonContainer>
+          <ButtonDA
+            buttonLight
+            style={{ marginVertical: 15 }}
+            onPress={linkingToAppStore}
+            color="#8954f4"
+            size="small"
+          >
+            Download Google Authenticator
+          </ButtonDA>
+
+          <ButtonDA style={{ marginVertical: 15 }} color="#8954f4" size="xlarge">
+            เปิด Google Authenticator
+          </ButtonDA>
+
+          <ButtonDA
+            buttonPrimary
+            style={{ marginVertical: 15 }}
+            color="#8954f4"
+            size="xlarge"
+            onPress={onCancel}
+          >
+            ใส่รหัสยืนยัน
+          </ButtonDA>
+        </ButtonContainer>
+      </SafeAreaView>
+    );
+
+    return (
+      <>
+        <BorderLine />
+        <Modal visible={isVisible} statusBarTranslucent animationType="fade" transparent={false}>
+          {!loading && qrCodeComponent()}
+        </Modal>
+        <WrappedComponent {...props} onFinish={onFinish} />
+      </>
+    );
+  };
+
+  WithWithdrawCoinPinCode.propTypes = {
+    navigator: PropTypes.shape({
+      push: PropTypes.func.isRequired
+    }).isRequired,
+    onFinish: PropTypes.func.isRequired,
+    digitalAssetCode: PropTypes.string.isRequired,
+    receiveAmount: PropTypes.string.isRequired,
+    networkSelected: PropTypes.string.isRequired,
+    receiveAddress: PropTypes.string.isRequired,
+    amountBeforeFee: PropTypes.string.isRequired,
+    transactionFee: PropTypes.string.isRequired,
+    createAt: PropTypes.string.isRequired,
+    receiveTag: PropTypes.string.isRequired,
+    createCryptocurrencyWithdrawTicket: PropTypes.func.isRequired,
+    withdrawTemplate: PropTypes.shape({
+      accountId: PropTypes.number.isRequired,
+      productId: PropTypes.number.isRequired,
+      accountProviderId: PropTypes.number.isRequired,
+      templateType: PropTypes.string.isRequired
+    }).isRequired
+  };
+
+  return WithWithdrawCoinPinCode;
+};
+
+export default withWithdrawCoinPinCode;

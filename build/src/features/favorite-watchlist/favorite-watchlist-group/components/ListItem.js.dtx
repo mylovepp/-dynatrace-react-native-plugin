@@ -1,0 +1,493 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback, useMemo, useState, useEffect } from "react";
+import { View } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import {
+  Body2,
+  Body3,
+  Header2,
+  Header3,
+  TextOverlineM,
+  TextOverlineR
+} from "../../../../components-2";
+import CoinImageIcon from "../../../../components/icon/CoinImageIcon";
+import { gainOrLossDisplay, getGainOrLoss, stringToNumberFormat } from "../../../../modules/format";
+import { displayDaPercentageChange } from "../../../../modules/digital-asset/format";
+import { getStockChartSubject } from "../../../../modules/subject/stocks";
+import {
+  AssetType,
+  Currency
+} from "../../../../redux/favorite-watchlist/favorite-watchlist-constants";
+import Record from "../../../../redux/streamlink/components/Record";
+
+import theme from "../../../../theme";
+import { OFFSHORE_STOCKS } from "../../../constants/assetType";
+import MiniGraphComponent from "../../components/MiniGraphComponent";
+import WithAssetData from "../../hoc/WithAssetData";
+import { getAssetTypeName } from "../../utils/common";
+
+export const itemContianerStyle = props => ({
+  backgroundColor: props.theme.backgroundLightColor,
+  borderBottomWidth: props.showBottomLine ? 1 : 0,
+  borderTopWidth: props.showTopLine ? 1 : 0,
+  borderColor: props.theme.separatorGrey,
+  paddingHorizontal: props.isBriefView ? 0 : props.theme.spacingMedium,
+  flexDirection: "column",
+  justifyContent: "space-between",
+  paddingVertical: props.theme.spacingXSmall
+});
+
+const ItemContianer = styled.View(props => itemContianerStyle(props));
+
+const RowContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "space-between"
+}));
+
+const AssetCodeLabel = styled(Header2).attrs(() => ({
+  numberOfLines: 1
+}))``;
+
+const CurrencyLabel = styled(Header3)(props => ({
+  marginLeft: props.theme.spacingXXXSmall,
+  lineHeight: 24
+}));
+
+const AssetNameLabel = styled(Body2).attrs(props => ({
+  numberOfLines: props.isError ? 0 : 1
+}))`
+  color: ${props => (props.isError ? props.theme.textLabel : props.theme.contentColorHigh)};
+`;
+
+const AssetTypeContainer = styled.View(props => ({
+  backgroundColor: props.theme.contentColorMedium,
+  borderRadius: props.theme.spacingMediumLarge,
+  paddingHorizontal: `${props.theme.spacingXXSmallValue + 2}px`
+}));
+
+const CountryExchangeText = styled(TextOverlineR)`
+  margin-left: ${props => props.theme.spacingXSmall};
+`;
+
+const Column = styled.View(() => ({
+  flex: 1,
+  flexDirection: "column",
+  alignItems: "flex-start"
+}));
+
+const RowContainerWithFlexWrap = styled.View(props => ({
+  flexDirection: "row",
+  alignItems: "center",
+  flexWrap: "wrap",
+  marginTop: props.hasMarginTop ? 10 : 0
+}));
+
+const RiskContainer = styled.View(props => ({
+  backgroundColor: props.theme.contentColorWhite,
+  borderRadius: props.theme.spacingMediumLarge,
+  border: `1px solid ${props.color}`,
+  paddingHorizontal: `${props.theme.spacingXSmallValue + 1}px`
+}));
+
+const BondBoxValue = styled.View(props => ({
+  marginBottom: props.hasMarginBottom ? props.theme.spacingXSmall : 0
+}));
+
+const TimeView = styled.View(() => ({
+  flexDirection: "row",
+  flex: 1,
+  justifyContent: "flex-end"
+}));
+
+const CoinIcon = styled.View(props => ({
+  marginRight: props.theme.spacingXXSmall
+}));
+
+const ListItem = props => {
+  const {
+    data,
+    assetInfo,
+    streamlinkInfo,
+    showBottomLine,
+    showTopLine,
+    viewProductInfo,
+    isBriefView,
+    updateAssetMappings,
+    assetMappings,
+    setTrackChannel,
+    handleOnPress,
+    setItemErrorCode,
+    setItemStatus,
+    hideAssetType,
+    hideGraph
+  } = props;
+  const { assetCode, assetName, icon } = assetInfo;
+  const { symbol } = data;
+  const [isRun, setIsRun] = useState(false);
+
+  useEffect(() => {
+    if (setItemErrorCode && streamlinkInfo.errorCode) {
+      setItemErrorCode(streamlinkInfo.errorCode);
+    }
+  }, [streamlinkInfo.errorCode]);
+
+  useEffect(() => {
+    if (setItemStatus && streamlinkInfo.status) {
+      setItemStatus(streamlinkInfo.status);
+    }
+  }, [streamlinkInfo.status]);
+
+  const getCurrencyLabel = useCallback(currency => {
+    if (currency === Currency.THB) {
+      return i18n.t("General.Currencies.THB");
+    }
+    return currency;
+  }, []);
+
+  const onPressHandler = useCallback(() => {
+    setTrackChannel();
+    viewProductInfo();
+    handleOnPress();
+  }, [setTrackChannel, viewProductInfo]);
+
+  const renderPrice = useMemo(() => {
+    switch (data.assetType) {
+      case AssetType.FUNDS: {
+        const { fundInfo } = assetInfo;
+        return (
+          <RowContainer>
+            <AssetCodeLabel variant="black">{fundInfo?.nav || "-"}</AssetCodeLabel>
+            <CurrencyLabel variant="black">
+              {getCurrencyLabel(fundInfo?.currency) || "-"}
+            </CurrencyLabel>
+          </RowContainer>
+        );
+      }
+      case AssetType.BONDS: {
+        const { bondInfo } = assetInfo;
+        return (
+          <RowContainer>
+            <AssetCodeLabel>{bondInfo?.previousCleanPrice}</AssetCodeLabel>
+          </RowContainer>
+        );
+      }
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+        return (
+          <RowContainer>
+            <AssetCodeLabel variant="black">
+              {stringToNumberFormat(stockInfo?.lastPrice, stockInfo?.pricePrecision || 2) || "-"}
+            </AssetCodeLabel>
+            {!!stockInfo?.lastPrice && (
+              <CurrencyLabel variant="black">{stockInfo?.marketCurrency || "-"}</CurrencyLabel>
+            )}
+          </RowContainer>
+        );
+      }
+      case AssetType.DIGITAL_ASSET: {
+        const { lastPrice } = assetInfo;
+        return (
+          <RowContainer>
+            <AssetCodeLabel variant="black">
+              {stringToNumberFormat(lastPrice, 2) || "-"}
+            </AssetCodeLabel>
+            <CurrencyLabel variant="black">{i18n.t("General.Currencies.THB")}</CurrencyLabel>
+          </RowContainer>
+        );
+      }
+      default:
+        return null;
+    }
+  }, [data, assetInfo]);
+
+  if (
+    !isRun &&
+    assetInfo.assetCode &&
+    data.assetType &&
+    !assetMappings?.find(
+      each => each.assetType === data.assetType && each.assetCode === assetInfo.assetCode
+    ) &&
+    assetInfo.assetName
+  ) {
+    updateAssetMappings({
+      assetType: data.assetType,
+      assetCode: assetInfo.assetCode,
+      assetName: assetInfo.assetName
+    });
+    setIsRun(true);
+  }
+
+  const renderSecondRow = () => {
+    switch (data.assetType) {
+      case AssetType.FUNDS: {
+        const { fundInfo } = assetInfo;
+        const navString = stringToNumberFormat(fundInfo?.navChange, 2);
+        return (
+          <RowContainer>
+            <Body3 variant={getGainOrLoss(navString, "primary", "black")}>
+              {gainOrLossDisplay({
+                value: navString,
+                suffix: "%",
+                noDisplayValue: true
+              })}
+            </Body3>
+          </RowContainer>
+        );
+      }
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+        const netChangeString = stringToNumberFormat(stockInfo?.netChange, 2);
+        const percentChangeString = stringToNumberFormat(stockInfo?.percentageChange, 2);
+        const netChangeDisplay = gainOrLossDisplay({
+          value: netChangeString,
+          suffix: "",
+          noDisplayValue: true
+        });
+        return (
+          <RowContainer>
+            <Body3 variant={getGainOrLoss(netChangeString, "primary", "black")}>
+              {netChangeDisplay === "-" ? "-" : `${netChangeDisplay} (${percentChangeString}%)`}
+            </Body3>
+          </RowContainer>
+        );
+      }
+      case AssetType.DIGITAL_ASSET: {
+        const { price24HPercentageChange } = assetInfo;
+        return (
+          <RowContainer>
+            <Body3
+              variant={getGainOrLoss(price24HPercentageChange?.toString(), "primary", "black")}
+            >
+              {displayDaPercentageChange(price24HPercentageChange)}
+            </Body3>
+          </RowContainer>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderAssetType = useMemo(() => {
+    const { stockInfo } = assetInfo;
+    if (hideAssetType) {
+      return <></>;
+    }
+
+    return (
+      <RowContainerWithFlexWrap
+        hasMarginTop={
+          [AssetType.FUNDS, AssetType.DIGITAL_ASSET].includes(data.assetType) ||
+          (data.assetType === AssetType.BONDS && isBriefView)
+        }
+      >
+        <AssetTypeContainer>
+          <TextOverlineR variant="white">
+            {getAssetTypeName(data.assetType, data?.reference?.isThailand, assetInfo?.isOffshore)}
+          </TextOverlineR>
+        </AssetTypeContainer>
+        {data.assetType === AssetType.OFFSHORE && (
+          <>
+            <CountryExchangeText variant="greyHigh">
+              {`${stockInfo?.country || "-"}  |  ${data.reference.exchange || "-"}`}
+            </CountryExchangeText>
+            <TimeView>
+              <TextOverlineR variant="greyHigh">{stockInfo?.asOfTime}</TextOverlineR>
+            </TimeView>
+          </>
+        )}
+      </RowContainerWithFlexWrap>
+    );
+  }, [data, assetInfo, hideAssetType]);
+
+  const renderMiniGraph = useCallback(() => {
+    switch (data.assetType) {
+      case AssetType.OFFSHORE: {
+        const { stockInfo } = assetInfo;
+        const netChangeString = stringToNumberFormat(stockInfo?.netChange, 2);
+        const variant = getGainOrLoss(netChangeString, "primary", "black");
+        if (stockInfo?.netChange !== undefined) {
+          return (
+            <Record
+              subject={getStockChartSubject({
+                stockCode: data.reference.ricCode,
+                interval: "1d",
+                period: "ONE_WEEK",
+                assetType: OFFSHORE_STOCKS
+              })}
+            >
+              {recordKey => <MiniGraphComponent recordKey={recordKey} variant={variant} />}
+            </Record>
+          );
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  }, [data, assetInfo]);
+
+  const renderListItem = () => {
+    return (
+      <TouchableOpacity onPress={onPressHandler}>
+        <ItemContianer
+          showTopLine={showTopLine}
+          showBottomLine={showBottomLine}
+          isBriefView={isBriefView}
+        >
+          <RowContainer>
+            {data.assetType === AssetType.FUNDS ||
+            (data.assetType === AssetType.BONDS && isBriefView) ||
+            streamlinkInfo.errorCode ? (
+              <View style={{ flex: 1, flexDirection: "row" }}>
+                <View style={{ flex: 2 }}>
+                  <AssetCodeLabel variant="black">{assetCode || symbol}</AssetCodeLabel>
+                  <AssetNameLabel>{assetName || "-"}</AssetNameLabel>
+                </View>
+                <View style={{ alignItems: "flex-end", flex: 1 }}>
+                  {renderPrice}
+                  {renderSecondRow()}
+                </View>
+              </View>
+            ) : (
+              <>
+                <Column>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {data.assetType === AssetType.DIGITAL_ASSET && (
+                      <CoinIcon>
+                        <CoinImageIcon uri={icon} width={20} height={20} />
+                      </CoinIcon>
+                    )}
+                    <AssetCodeLabel variant="black">{assetCode || symbol}</AssetCodeLabel>
+                  </View>
+                  <AssetNameLabel>{assetName || "-"}</AssetNameLabel>
+                </Column>
+                {!hideGraph && (
+                  <Column style={{ alignItems: "center" }}>
+                    {data.assetType !== AssetType.FUNDS && renderMiniGraph()}
+                  </Column>
+                )}
+                <Column style={{ alignItems: "flex-end" }}>
+                  {renderPrice}
+                  {renderSecondRow()}
+                </Column>
+              </>
+            )}
+          </RowContainer>
+          {renderAssetType}
+        </ItemContianer>
+      </TouchableOpacity>
+    );
+  };
+
+  const riskColorMapping = riskLevel => {
+    switch (riskLevel) {
+      case 1:
+        return theme.riskLevel3;
+      case 2:
+        return theme.riskLevel5;
+      case 3:
+        return theme.riskLevel7;
+      case 4:
+        return theme.riskLevel8;
+      default:
+        return theme.contentColorHigh;
+    }
+  };
+
+  const renderBondsListItem = () => {
+    const { bondInfo } = assetInfo;
+    return (
+      <TouchableOpacity onPress={onPressHandler}>
+        <ItemContianer showBottomLine={showBottomLine}>
+          <RowContainer style={{ alignItems: "center" }}>
+            <AssetCodeLabel variant="black">{assetCode || symbol}</AssetCodeLabel>
+            {bondInfo.riskLevel && (
+              <RiskContainer color={riskColorMapping(bondInfo.riskLevel)}>
+                <TextOverlineM variant="greyHigh">{bondInfo.riskLevel}</TextOverlineM>
+              </RiskContainer>
+            )}
+          </RowContainer>
+          <AssetNameLabel>{assetName || "-"}</AssetNameLabel>
+          <RowContainer style={{ marginVertical: 8 }}>
+            <Column>
+              <BondBoxValue hasMarginBottom>
+                <TextOverlineR variant="greyHigh">INVX Bid Yield</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.previousBidYield || "-"}</Body2>
+              </BondBoxValue>
+              <BondBoxValue>
+                <TextOverlineR variant="greyHigh">INVX Bid Price</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.previousBidPrice || "-"}</Body2>
+              </BondBoxValue>
+            </Column>
+            <Column>
+              <BondBoxValue hasMarginBottom>
+                <TextOverlineR variant="greyHigh">INVX Offer Yield</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.previousAskYield || "-"}</Body2>
+              </BondBoxValue>
+              <BondBoxValue>
+                <TextOverlineR variant="greyHigh">INVX Offer Price</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.previousCleanPrice || "-"}</Body2>
+              </BondBoxValue>
+            </Column>
+            <Column>
+              <BondBoxValue hasMarginBottom>
+                <TextOverlineR variant="greyHigh">Coupon</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.couponValue || "-"}</Body2>
+              </BondBoxValue>
+              <BondBoxValue>
+                <TextOverlineR variant="greyHigh">Maturity Date</TextOverlineR>
+                <Body2 variant="black">{bondInfo?.maturityDate || "-"}</Body2>
+              </BondBoxValue>
+            </Column>
+          </RowContainer>
+          {renderAssetType}
+        </ItemContianer>
+      </TouchableOpacity>
+    );
+  };
+
+  if (data.errorCode) {
+    return null;
+  }
+
+  return data.assetType === AssetType.BONDS && !isBriefView
+    ? renderBondsListItem()
+    : renderListItem();
+};
+
+ListItem.defaultProps = {
+  isActive: false,
+  showBottomLine: true,
+  hideAssetType: false,
+  hideGraph: false,
+  updateAssetMappings: () => {},
+  handleOnPress: () => {},
+  setItemErrorCode: () => {},
+  setItemStatus: () => {}
+};
+
+ListItem.propTypes = {
+  data: PropTypes.shape({
+    symbol: PropTypes.string,
+    assetType: PropTypes.string,
+    reference: PropTypes.shape({}),
+    errorCode: PropTypes.string
+  }).isRequired,
+  showBottomLine: PropTypes.bool,
+  showTopLine: PropTypes.bool,
+  viewProductInfo: PropTypes.func.isRequired,
+  isBriefView: PropTypes.bool,
+  updateAssetMappings: PropTypes.func,
+  icon: PropTypes.string,
+  setTrackChannel: PropTypes.func.isRequired,
+  handleOnPress: PropTypes.func,
+  setItemErrorCode: PropTypes.func,
+  setItemStatus: PropTypes.func,
+  hideAssetType: PropTypes.bool,
+  hideGraph: PropTypes.bool
+};
+
+export default React.memo(WithAssetData(ListItem));

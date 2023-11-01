@@ -1,0 +1,599 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { format } from "fecha";
+import { View, Platform } from "react-native";
+import { SelectAccount } from "../../../components/digital-assets/";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { coinWithCommas, getDecimalValue } from "../../../modules/coin-format";
+import { googleAuthenticator } from "../digital-assets-constants";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import {
+  Body2,
+  Display3,
+  CheckBox,
+  LoadingIndicator,
+  ViewContainer,
+  OptionButton2FA,
+  Option2FA,
+  Row
+} from "../../../components-2";
+import {
+  RateContainer,
+  RateDetailContainer,
+  CheckBoxContainer,
+  CheckBoxGroup,
+  CheckBoxView,
+  CheckBoxTitle,
+  CalloutCustom
+} from "./PreConfirmationComponent";
+import { trackCryptoWithdrawClick } from "../../../modules/analytics/analytics-utils";
+
+const isIOS = () => Platform.OS === "ios";
+
+const SelectHeadline = styled(Display3)`
+  color: #000000;
+  text-align: center;
+  font-size: ${isIOS() ? 20 : 18};
+`;
+
+const DetailTextLeft = styled(Body2)`
+  font-size: ${isIOS() ? 16 : 14};
+  text-align: left;
+  color: #0a0b0d;
+`;
+
+const DetailTextRight = styled(DetailTextLeft)`
+  text-align: right;
+  font-weight: 500;
+`;
+
+const ItemColContainerFlexEnd = styled.View`
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-left: ${props => props.theme.spacingSmall};
+`;
+
+const ItemRowContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+const Section = styled.View`
+  padding-top: 1px;
+`;
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+`;
+
+const WithDrawPreConfirmationView = ({
+  i18n,
+  navigator,
+  amountBeforeFee,
+  maxCoinValidated,
+  isBCP,
+  receiveAmount,
+  receiveAddress,
+  networkSelected,
+  providerId,
+  digitalAssetCode,
+  digitalAssetID,
+  transactionFee,
+  decimalPlaces,
+  iconSvg,
+  handleConfirmPress,
+  receiveTag,
+  Use2FA,
+  products,
+  withdrawInsert,
+  templateType,
+  tagLabel,
+  dtFieldName,
+  bcpWithdrawInfo,
+  loadingBCPWithdrawInsert,
+  Use2FAInnovestX,
+  getUserTwoFAInnovestX,
+  apMode
+}) => {
+  const CONFIG = apMode ? "AP" : "INNOVESTX";
+  const [selectedAccount, setSelectedAccount] = useState(null);
+
+  const [checkOne, setCheckOne] = useState(false);
+  const [checkTwo, setCheckTwo] = useState(false);
+  const [clickBCPWithdraw, setClickBCPWithdraw] = useState(false);
+
+  // const getProductFullname = id => {
+  //   const daProduct = products.find(product => product.ProductId === id);
+  //   return daProduct.ProductFullName;
+  // };
+
+  const handleCheckBoxOne = () => {
+    setCheckOne(!checkOne);
+  };
+
+  const handleCheckBoxTwo = () => {
+    setCheckTwo(!checkTwo);
+  };
+
+  const sendToTFA = () => {
+    trackCryptoWithdrawClick(digitalAssetCode, "Confirm");
+    setSelectedAccount(null);
+
+    if (CONFIG === "AP") {
+      setTimeout(() => {
+        return Use2FA
+          ? handleConfirmPress(
+              "digitalAssetAlphapoint2FAScreen",
+              "",
+              {},
+              {
+                clearStackPage: true,
+                tfaType: "DIGITAL_ASSETS/WITHDRAW_2FA_FOR_CREATE_TICKET_SCREEN",
+                screen: "digitalAssetsPostConfirmScreen",
+                title: "Confirm Order",
+                navigatorStyle: {
+                  navBarHidden: true,
+                  navBarTransparent: true
+                },
+                passProps: {
+                  details: {
+                    coinName: digitalAssetCode,
+                    coinReceive: receiveAmount,
+                    coinNetwork: networkSelected,
+                    coinProviderId: providerId,
+                    coinAddress: receiveAddress,
+                    coinAmount: amountBeforeFee,
+                    coinTag: receiveTag,
+                    coinFee: transactionFee,
+                    decimalPlaces,
+                    digitalAssetID,
+                    templateType,
+                    createAt: format(new Date(), "DD/MM/YYYY, hh:mm a"),
+                    tagLabel,
+                    dtFieldName
+                  },
+                  postconfirmType: "DIGITAL_ASSETS/WITHDRAW_POST_CONFIRM_SCREEN"
+                }
+              }
+            )
+          : handleConfirmPress(
+              "digitalAssetAlphapoint2FAScreen",
+              "",
+              {},
+              {
+                tfaType: "DIGITAL_ASSETS/ENABLE_2FA_SCREEN",
+                screen: "digitalAssetsPreConfirmationScreen",
+                title: i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.Title"],
+                passProps: {
+                  receiveAmount,
+                  receiveAddress,
+                  receiveTag,
+                  networkSelected,
+                  providerId,
+                  digitalAssetCode,
+                  digitalAssetID,
+                  amountBeforeFee,
+                  transactionFee,
+                  decimalPlaces,
+                  maxCoinValidated,
+                  isBCP,
+                  products,
+                  preconfirmType: "DIGITAL_ASSETS/WITHDRAW_PRE_CONFIRM_SCREEN",
+                  tagLabel,
+                  dtFieldName
+                }
+              }
+            );
+      }, 500);
+    } else {
+      const {
+        data: { enable }
+      } = Use2FAInnovestX;
+
+      setTimeout(() => {
+        return enable
+          ? handleConfirmPress(
+              "digitalAssetAlphapoint2FAScreen",
+              "",
+              {},
+              {
+                clearStackPage: true,
+                tfaType: "DIGITAL_ASSETS/WITHDRAW_2FA_FOR_CREATE_TICKET_SCREEN",
+                screen: "digitalAssetsPostConfirmScreen",
+                title: "Confirm Order",
+                navigatorStyle: {
+                  navBarHidden: true,
+                  navBarTransparent: true
+                },
+                passProps: {
+                  details: {
+                    coinName: digitalAssetCode,
+                    coinReceive: receiveAmount,
+                    coinNetwork: networkSelected,
+                    coinProviderId: providerId,
+                    coinAddress: receiveAddress,
+                    coinAmount: amountBeforeFee,
+                    coinTag: receiveTag,
+                    coinFee: transactionFee,
+                    decimalPlaces,
+                    digitalAssetID,
+                    templateType,
+                    createAt: format(new Date(), "DD/MM/YYYY, hh:mm a"),
+                    tagLabel,
+                    dtFieldName
+                  },
+                  postconfirmType: "DIGITAL_ASSETS/WITHDRAW_POST_CONFIRM_SCREEN"
+                }
+              }
+            )
+          : handleConfirmPress(
+              "digitalAssetAlphapoint2FAScreen",
+              "",
+              {},
+              {
+                tfaType: "DIGITAL_ASSETS/ENABLE_2FA_SCREEN",
+                screen: "digitalAssetsPreConfirmationScreen",
+                title: i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.Title"],
+                passProps: {
+                  receiveAmount,
+                  receiveAddress,
+                  receiveTag,
+                  networkSelected,
+                  providerId,
+                  digitalAssetCode,
+                  digitalAssetID,
+                  amountBeforeFee,
+                  transactionFee,
+                  decimalPlaces,
+                  maxCoinValidated,
+                  isBCP,
+                  products,
+                  preconfirmType: "DIGITAL_ASSETS/WITHDRAW_PRE_CONFIRM_SCREEN",
+                  tagLabel,
+                  dtFieldName
+                }
+              }
+            );
+      }, 500);
+    }
+  };
+
+  const insertBCPWithdraw = () => {
+    trackCryptoWithdrawClick(digitalAssetCode, "Confirm");
+    setClickBCPWithdraw(true);
+    withdrawInsert({
+      currencyId: digitalAssetCode,
+      providerId,
+      quantity: amountBeforeFee,
+      networkCode: networkSelected,
+      destinationWalletAddress: receiveAddress,
+      tag: receiveTag
+    });
+  };
+
+  const sendToSlip = () => {
+    setSelectedAccount(null);
+    const date = new Date().getDate();
+
+    return handleConfirmPress(
+      "digitalAssetsPostConfirmScreen",
+      "ตรวจสอบข้อมูล",
+      { navBarHidden: true, navBarTransparent: true },
+      {
+        details: {
+          coinName: digitalAssetCode,
+          coinReceive: receiveAmount,
+          coinNetwork: networkSelected,
+          coinProviderId: providerId,
+          coinAddress: receiveAddress,
+          coinAmount: amountBeforeFee,
+          coinTag: receiveTag,
+          coinFee: transactionFee,
+          decimalPlaces,
+          createAt: date,
+          tagLabel,
+          dtFieldName
+        },
+        isBCP,
+        postconfirmType: "DIGITAL_ASSETS/WITHDRAW_POST_CONFIRM_SCREEN"
+      },
+      true
+    );
+  };
+
+  const initNavBar = () => {
+    navigator.setStyle({
+      backButtonHidden: true,
+      overrideBackPress: true,
+      navBarCustomView: "digitalAssetNavBarWithCoinIcon",
+      navBarCustomViewInitialProps: {
+        onPressBack: () => {
+          trackCryptoWithdrawClick(digitalAssetCode, "Back");
+          navigator.pop();
+        },
+        showBackButton: true,
+        title: "ตรวจสอบข้อมูล"
+      }
+    });
+  };
+
+  useEffect(() => {
+    initNavBar();
+  });
+
+  useEffect(() => {
+    if (isBCP && bcpWithdrawInfo.transactionId !== undefined && clickBCPWithdraw) {
+      sendToSlip();
+    }
+    getUserTwoFAInnovestX();
+  }, [bcpWithdrawInfo]);
+
+  const accounts = [
+    {
+      type: googleAuthenticator,
+      account: undefined,
+      accountNumber: "Authenticator",
+      goToNextPage: () => sendToTFA()
+    }
+  ];
+
+  const selectAuth = () => {
+    if (isBCP) {
+      return (
+        <TouchableOpacity onPress={insertBCPWithdraw}>
+          <OptionButton2FA color="#8954f4" title="ยืนยัน" size="large" />
+        </TouchableOpacity>
+      );
+    }
+    return (
+      <Section>
+        <SelectAccount
+          label={<SelectHeadline fontWeight="500">กรุณาเลือกวิธียืนยันตัวตน</SelectHeadline>}
+          options={accounts}
+          renderPlaceholder={() => <OptionButton2FA color="#8954f4" title="ยืนยัน" size="large" />}
+          renderSelected={() => <OptionButton2FA color="#8954f4" title="ยืนยัน" size="large" />}
+          renderOption={option => (
+            <Option2FA
+              type={option.type}
+              account={option.account}
+              accountNumber={option.accountNumber}
+              isSelected={option.isSelected}
+              isOption
+              goToNextPage={option.goToNextPage}
+            />
+          )}
+          keyExtractor={item => item.type}
+          selectedAccount={selectedAccount}
+          setSelectedAccount={setSelectedAccount}
+        />
+      </Section>
+    );
+  };
+
+  if (loadingBCPWithdrawInsert) {
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <LoadingContainer>
+          <LoadingIndicator size="large" />
+        </LoadingContainer>
+      </ViewContainer>
+    );
+  }
+
+  return (
+    <>
+      <RateContainer>
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.WithdrawCoin"]}
+              </DetailTextLeft>
+            }
+            right={
+              <ItemRowContainer>
+                <CoinImageIcon uri={iconSvg} width={27} height={27} />
+                <ItemColContainerFlexEnd>
+                  <DetailTextRight>{digitalAssetCode}</DetailTextRight>
+                  {/* <Subhead variant="light">
+                    {isBCP ? "-" : getProductFullname(digitalAssetID)}
+                  </Subhead> */}
+                </ItemColContainerFlexEnd>
+              </ItemRowContainer>
+            }
+          />
+        </RateDetailContainer>
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.getLabel("DigitalAssets.PreConfirm.DAWithdraw.AmountToGet", {
+                  daCode: digitalAssetCode
+                })}
+              </DetailTextLeft>
+            }
+            right={
+              <DetailTextRight>
+                {receiveAmount >= getDecimalValue(decimalPlaces) || Number(receiveAmount) === 0
+                  ? `${coinWithCommas(receiveAmount, decimalPlaces)}`
+                  : `≈ ${coinWithCommas(getDecimalValue(decimalPlaces))}`}
+              </DetailTextRight>
+            }
+          />
+        </RateDetailContainer>
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.Network"]}
+              </DetailTextLeft>
+            }
+            right={<DetailTextRight>{networkSelected}</DetailTextRight>}
+          />
+        </RateDetailContainer>
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.DestAddress"]}
+              </DetailTextLeft>
+            }
+            right={<DetailTextRight>{receiveAddress}</DetailTextRight>}
+          />
+        </RateDetailContainer>
+        {(tagLabel && tagLabel !== "") || isBCP ? (
+          <RateDetailContainer>
+            <Row
+              left={
+                <DetailTextLeft>
+                  {isBCP
+                    ? i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Input.Tag.Label"]
+                    : tagLabel}
+                </DetailTextLeft>
+              }
+              right={<DetailTextRight>{receiveTag === "" ? "" : receiveTag}</DetailTextRight>}
+            />
+          </RateDetailContainer>
+        ) : (
+          <></>
+        )}
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.getLabel("DigitalAssets.PreConfirm.DAWithdraw.WithdrawAmount", {
+                  daCode: digitalAssetCode
+                })}
+              </DetailTextLeft>
+            }
+            right={
+              <DetailTextRight>
+                {amountBeforeFee >= getDecimalValue(decimalPlaces)
+                  ? `${coinWithCommas(amountBeforeFee)}`
+                  : `≈ ${coinWithCommas(getDecimalValue(decimalPlaces))}`}
+              </DetailTextRight>
+            }
+          />
+        </RateDetailContainer>
+        <RateDetailContainer>
+          <Row
+            left={
+              <DetailTextLeft>
+                {i18n.getLabel("DigitalAssets.PreConfirm.DAWithdraw.NetworkFee", {
+                  daCode: digitalAssetCode
+                })}
+              </DetailTextLeft>
+            }
+            right={
+              <DetailTextRight>
+                {transactionFee >= getDecimalValue(decimalPlaces) || Number(transactionFee) === 0
+                  ? `${coinWithCommas(transactionFee)}`
+                  : `≈ ${coinWithCommas(getDecimalValue(decimalPlaces))}`}
+              </DetailTextRight>
+            }
+          />
+        </RateDetailContainer>
+      </RateContainer>
+      {amountBeforeFee > maxCoinValidated ? (
+        <View>
+          <CheckBoxContainer>
+            <CheckBoxTitle>
+              {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.AML.Label"]}
+            </CheckBoxTitle>
+
+            <CheckBoxGroup onPress={handleCheckBoxOne}>
+              <CheckBoxView>
+                <CheckBox
+                  backgroundColor="#8954f4"
+                  borderColor="#A5A5A5"
+                  iconColor="white"
+                  value={checkOne}
+                  onValueChange={() => setCheckOne(!checkOne)}
+                />
+              </CheckBoxView>
+              <CalloutCustom>
+                {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.AML.CheckBox1"]}
+              </CalloutCustom>
+            </CheckBoxGroup>
+
+            <CheckBoxGroup onPress={handleCheckBoxTwo}>
+              <CheckBoxView>
+                <CheckBox
+                  backgroundColor="#8954f4"
+                  borderColor="#A5A5A5"
+                  iconColor="white"
+                  value={checkTwo}
+                  onValueChange={() => setCheckTwo(!checkTwo)}
+                />
+              </CheckBoxView>
+              <CalloutCustom>
+                {i18n.translations["DigitalAssets.PreConfirm.DAWithdraw.AML.CheckBox2"]}
+              </CalloutCustom>
+            </CheckBoxGroup>
+          </CheckBoxContainer>
+          {!checkOne || !checkTwo ? (
+            <OptionButton2FA title="ยืนยัน" size="large" isDisable />
+          ) : (
+            selectAuth()
+          )}
+        </View>
+      ) : (
+        selectAuth()
+      )}
+    </>
+  );
+};
+
+WithDrawPreConfirmationView.defaultProps = {
+  isBCP: false,
+  receiveTag: 0,
+  tagLabel: "",
+  dtFieldName: "",
+  iconSvg: null
+};
+
+WithDrawPreConfirmationView.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  receiveAmount: PropTypes.string.isRequired,
+  receiveAddress: PropTypes.string.isRequired,
+  networkSelected: PropTypes.string.isRequired,
+  providerId: PropTypes.string.isRequired,
+  digitalAssetCode: PropTypes.string.isRequired,
+  digitalAssetID: PropTypes.number.isRequired,
+  templateType: PropTypes.string.isRequired,
+  amountBeforeFee: PropTypes.string.isRequired,
+  transactionFee: PropTypes.string.isRequired,
+  decimalPlaces: PropTypes.number.isRequired,
+  iconSvg: PropTypes.number,
+  maxCoinValidated: PropTypes.string.isRequired,
+  handleConfirmPress: PropTypes.func.isRequired,
+  isBCP: PropTypes.bool,
+  receiveTag: PropTypes.string,
+  products: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  Use2FA: PropTypes.bool.isRequired,
+  withdrawInsert: PropTypes.bool.isRequired,
+  bcpWithdrawInfo: PropTypes.shape({
+    transactionId: PropTypes.string
+  }).isRequired,
+  loadingBCPWithdrawInsert: PropTypes.bool.isRequired,
+  tagLabel: PropTypes.string,
+  dtFieldName: PropTypes.string,
+  Use2FAInnovestX: PropTypes.func.isRequired,
+  getUserTwoFAInnovestX: PropTypes.func.isRequired,
+  apMode: PropTypes.bool.isRequired
+};
+
+export default WithDrawPreConfirmationView;

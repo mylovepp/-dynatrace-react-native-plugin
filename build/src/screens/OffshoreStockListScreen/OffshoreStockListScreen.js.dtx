@@ -1,0 +1,326 @@
+import React, { useCallback } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import PropTypes from "prop-types";
+import {
+  Separator,
+  SVGIcon,
+  TextOverlineR,
+  Display3,
+  Icon,
+  SectionBackground
+} from "@invx/components-2";
+import { OFFSHORE_TUTORIAL } from "@invx/features/stocks//redux/stocks-constants";
+import InstrumentList from "@invx/features/stocks/stocks-list/components/InstrumentList/InstrumentList";
+import StocksListItem from "@invx/features/stocks/stocks-list-item/";
+import { getExtendTopNavBarHeight } from "@invx/modules/navigation/defaultStyle";
+import { SearchTab } from "@invx/redux/search/search-constants";
+
+import MarketList from "../../features/stocks/stocks-list/components/MarketList/MarketList";
+import Tab from "../../features/stocks/stocks-list/Tab";
+import MarketStatusLabel from "../../components-2/market-status-label/MarketStatusLabel";
+import { Tabs } from "../../features/stocks/stocks-list/constants";
+
+const Container = styled.View`
+  flex: 1;
+  padding-bottom: 50px;
+  background-color: ${props => props.theme.backgroundWhite};
+`;
+
+const HeaderContainer = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big"
+})`
+  padding-top: ${getExtendTopNavBarHeight()};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const TitleContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+
+const SearchIcon = styled(Icon).attrs(props => ({
+  name: "search-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+
+const TitleText = styled(Display3)`
+  text-align: center;
+`;
+
+const MarketActivitySection = styled.View`
+  margin-top: ${props => (props.marginTop ? props.theme.spacingSmall : "0px")};
+  margin-bottom: ${props => props.theme.spacingMedium};
+  margin-left: ${props => (props.hasMarginLeft ? props.theme.spacingMedium : "0px")};
+`;
+
+const MarketInfoSection = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const MarketInfoText = styled(TextOverlineR)`
+  color: ${props => props.theme.textGrayDarkApproxColor};
+  margin-left: ${props => props.theme.spacingXXSmall};
+`;
+
+const MarketAndCountryInfo = styled.View`
+  flex-direction: row;
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+`;
+const MarketStatusInfo = styled.View`
+  flex-direction: row;
+`;
+
+const HeaderListSection = styled.View`
+  height: 25px;
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+  margin-top: ${props => props.theme.spacingXSmall};
+  justify-content: center;
+`;
+
+const HeaderListSectionContainer = styled.View`
+  flex-direction: row;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const SymbolText = styled(TextOverlineR)`
+  color: ${props => props.theme.textNewGreyDark};
+  flex: 0.6;
+`;
+
+const PercentChangedContainer = styled.View`
+  flex: 0.2;
+  align-items: flex-end;
+`;
+
+const LastPriceContainer = styled.View`
+  flex: 0.22;
+  align-items: flex-end;
+`;
+
+const PercentChangedText = styled(TextOverlineR)`
+  color: ${props => props.theme.textNewGreyDark};
+`;
+
+const LastPriceText = styled(TextOverlineR)`
+  color: ${props => props.theme.textNewGreyDark};
+`;
+
+const LabelContainer = styled.View`
+  margin-right: ${props => props.theme.spacingXXSmall};
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const Label = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+const OffshoreStockListScreen = props => {
+  const {
+    navigator,
+    selectedCountry,
+    currentMarket,
+    marketList,
+    setCurrentMarket,
+    offshoreTutorialStep,
+    viewStock,
+    isServiceUnavailable,
+    setActiveMarketActivityTabUnderCountry,
+    records,
+    isDisplayMarketList,
+    marketActivity,
+    setAssetClassToSearch,
+    marketStatus
+  } = props;
+
+  const onBackPress = () => {
+    navigator.pop();
+  };
+
+  const onExchangeItemPress = ({ item: { key, value } }) => {
+    setCurrentMarket({ key, value });
+  };
+
+  const getMarketTypeText = tabId => {
+    switch (tabId) {
+      case Tabs.MOST_ACTIVE_VALUE:
+        return I18n.t("Invest.Offshore.Stock.SubTabs.MostActiveValue");
+      case Tabs.MOST_ACTIVE_VOLUME:
+        return I18n.t("Invest.Offshore.Stock.SubTabs.MostActiveVolume");
+      case Tabs.GAINER:
+        return I18n.t("Invest.Offshore.Stock.SubTabs.Gainers");
+      case Tabs.LOSER:
+        return I18n.t("Invest.Offshore.Stock.SubTabs.Losers");
+      default:
+        return "";
+    }
+  };
+
+  const getNameCountryIcon = countryName => {
+    switch (countryName) {
+      case "US":
+        return "USA";
+      case "Hong Kong":
+        return "HK";
+      default:
+        return "USA";
+    }
+  };
+
+  // eslint-disable-next-line react/prop-types
+  const renderItem = ({ item }) => {
+    return (
+      <StocksListItem
+        style={{ flex: 1 }}
+        key={item}
+        subscriptionKey={item}
+        onPress={offshoreTutorialStep === OFFSHORE_TUTORIAL.STEP1 ? () => {} : viewStock}
+        isThaiStock={false}
+        isServiceUnavailable={isServiceUnavailable}
+      />
+    );
+  };
+
+  const handleSearch = useCallback(() => {
+    setAssetClassToSearch(SearchTab.STOCKS);
+    Navigation.handleDeepLink({ link: "App.openSearch" });
+  }, []);
+
+  const handleOnBackPress = onPress => {
+    if (onPress) {
+      return onPress();
+    }
+    return navigator.pop();
+  };
+
+  const score =
+    (selectedCountry.mostActiveValue ? 2 : 0) +
+    (selectedCountry.mostActiveVolume ? 2 : 0) +
+    (selectedCountry.gainer ? 1 : 0) +
+    (selectedCountry.loser ? 1 : 0);
+
+  return (
+    <Container>
+      <HeaderContainer>
+        <TitleContainer>
+          <TouchableOpacity onPress={() => handleOnBackPress(onBackPress)}>
+            <BackIcon />
+          </TouchableOpacity>
+          <TitleText>
+            {I18n.t("Invest.Offshore.Stock.MarketOverView.Header", {
+              market: I18n.t("Invest.Offshore.Stock.Countries")[
+                selectedCountry?.name.replace(" ", "")
+              ]
+            })}
+          </TitleText>
+          <TouchableOpacity onPress={() => handleSearch()}>
+            <SearchIcon />
+          </TouchableOpacity>
+        </TitleContainer>
+      </HeaderContainer>
+      {isDisplayMarketList && (
+        <MarketList
+          datas={marketList}
+          marketSelected={currentMarket}
+          onMarketSelected={onExchangeItemPress}
+          selectedCountry
+          fullWidth
+        />
+      )}
+      <MarketActivitySection hasMarginLeft={score > 4} marginTop={!isDisplayMarketList}>
+        <Tab
+          selectedCountry={selectedCountry}
+          selectedTab={marketActivity.activeTabId}
+          onTabPress={id => {
+            setActiveMarketActivityTabUnderCountry(selectedCountry.name, id);
+          }}
+        />
+      </MarketActivitySection>
+      <Separator />
+
+      <MarketInfoSection>
+        <MarketAndCountryInfo>
+          <SVGIcon name={getNameCountryIcon(selectedCountry.name)} size="icon16" />
+          <MarketInfoText>{currentMarket?.value}</MarketInfoText>
+          <MarketInfoText>{getMarketTypeText(marketActivity.activeTabId)}</MarketInfoText>
+        </MarketAndCountryInfo>
+        <MarketStatusInfo>
+          <LabelContainer>
+            <Label>{I18n.translate("Invest.Offshore.Stock.MarketStatus.Label")}</Label>
+          </LabelContainer>
+          <MarketStatusLabel marketStatus={marketStatus} />
+        </MarketStatusInfo>
+      </MarketInfoSection>
+
+      <HeaderListSection>
+        <HeaderListSectionContainer>
+          <SymbolText>
+            {I18n.translate("Invest.Offshore.Stock.MarketOverView.ItemList.Header.Symbol")}
+          </SymbolText>
+          <PercentChangedContainer>
+            <PercentChangedText>
+              {I18n.translate("Invest.Offshore.Stock.MarketOverView.ItemList.Header.PercentChange")}
+            </PercentChangedText>
+          </PercentChangedContainer>
+          <LastPriceContainer>
+            <LastPriceText>
+              {I18n.translate("Invest.Offshore.Stock.MarketOverView.ItemList.Header.LastPrice")}
+            </LastPriceText>
+          </LastPriceContainer>
+        </HeaderListSectionContainer>
+      </HeaderListSection>
+      <InstrumentList data={records} renderItem={renderItem} />
+    </Container>
+  );
+};
+
+OffshoreStockListScreen.defaultProps = {
+  offshoreTutorialStep: "",
+  isDisplayMarketList: true,
+  marketStatus: null
+};
+
+OffshoreStockListScreen.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  currentMarket: PropTypes.shape({ key: PropTypes.string, value: PropTypes.string }).isRequired,
+  setCurrentMarket: PropTypes.func.isRequired,
+  marketList: PropTypes.instanceOf(PropTypes.array).isRequired,
+  offshoreTutorialStep: PropTypes.string,
+  viewStock: PropTypes.func.isRequired,
+  isServiceUnavailable: PropTypes.bool.isRequired,
+  setActiveMarketActivityTabUnderCountry: PropTypes.func.isRequired,
+  selectedCountry: PropTypes.shape({
+    name: PropTypes.string,
+    subject: PropTypes.string,
+    mostActiveValue: PropTypes.string,
+    mostActiveVolume: PropTypes.string,
+    gainer: PropTypes.string,
+    loser: PropTypes.string,
+    market: PropTypes.string
+  }).isRequired,
+  records: PropTypes.instanceOf(PropTypes.array).isRequired,
+  marketActivity: PropTypes.shape({
+    activeTabId: PropTypes.string
+  }).isRequired,
+  isDisplayMarketList: PropTypes.bool,
+  setAssetClassToSearch: PropTypes.func.isRequired,
+  marketStatus: PropTypes.string
+};
+export default OffshoreStockListScreen;

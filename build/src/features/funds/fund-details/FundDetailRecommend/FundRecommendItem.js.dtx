@@ -1,0 +1,150 @@
+import React, { useMemo } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { gainOrLossDisplay, getGainOrLoss } from "../../../../modules/format";
+import {
+  AgencyRating,
+  Header2,
+  Body3,
+  TextOverlineR,
+  Tag,
+  I18nPropTypes,
+  RiskTag as DefaultRiskTag
+} from "../../../../components-2";
+
+const SHADOW_COLOR = "#DFDBEC";
+
+const Card = styled.View(props => ({
+  flex: 1,
+  maxWidth: "136px",
+  marginRight: props.theme.spacingXSmall,
+  backgroundColor: props.theme.backgroundWhite,
+  padding: props.theme.spacingXSmall,
+  paddingBottom: props.theme.spacingMedium,
+  borderRadius: "8px",
+  shadowOffset: {
+    width: 0,
+    height: 2
+  },
+  shadowColor: SHADOW_COLOR,
+  shadowOpacity: 0.3,
+  shadowRadius: 2,
+}));
+
+const Row = styled.View({
+  flexDirection: "row"
+});
+
+const Title = styled(Header2)({});
+
+const Subtitle = styled(Body3)(props => ({
+  color: props.theme.contentColorHigh
+}));
+
+const LabelContainer = styled.View(props => ({
+  flexDirection: "row",
+  marginTop: props.theme.spacingXSmall,
+  flexWrap: "wrap"
+}));
+
+const AgencyRatingContainer = styled.View({});
+
+const RiskTag = styled(DefaultRiskTag)`
+  margin-right: ${props => props.theme.spacingXXSmall};
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const NormalTag = styled(Tag)`
+  margin-right: ${props => props.theme.spacingXXSmall};
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const BottomSection = styled.View(props => ({
+  marginTop: props.theme.spacingMedium,
+  flex: 1,
+  justifyContent: "flex-end"
+}));
+
+const GainLossLabel = styled(Header2)({});
+
+const DurationLabel = styled(TextOverlineR)(props => ({
+  color: props.theme.contentColorMedium
+}));
+
+const FundRecommendItem = props => {
+  const { item, i18n, isOffshore } = props;
+
+  const riskLevel = useMemo(
+    () =>
+      i18n.getLabel("FundDetail.Title.RiskLevel", {
+        riskLevel: item.riskLevel
+      }),
+    [i18n, item]
+  );
+
+  return (
+    <TouchableOpacity onPress={() => props.onPress(props.item)}>
+      <Card>
+        <Title>{item.fundCode}</Title>
+        <Subtitle numberOfLines={1} ellipsizeMode="tail">
+          {item.fundNameEn}
+        </Subtitle>
+
+        <Row>
+          <LabelContainer>
+            <RiskTag size="small" level={item.riskLevel} label={riskLevel} />
+            {!!item.fundTypeTh && <NormalTag size="small" label={item.fundTypeTh} />}
+          </LabelContainer>
+        </Row>
+
+        <Row>
+          <LabelContainer>
+            <AgencyRatingContainer>
+              <AgencyRating
+                number={Number(item.morningStarRating)}
+                text={I18n.t("FundDetail.Title.MorningStarRating")}
+                isOffshore={isOffshore}
+              />
+            </AgencyRatingContainer>
+          </LabelContainer>
+        </Row>
+
+        {!!item.return1year && (
+          <BottomSection>
+            <GainLossLabel
+              textAlign="right"
+              numberOfLines={1}
+              variant={getGainOrLoss(item.return1year, "subdued", "subdued")}
+            >
+              {gainOrLossDisplay({
+                value: Number(item.return1year).toFixed(2),
+                suffix: "%",
+                noDisplayValue: true
+              })}
+            </GainLossLabel>
+            <DurationLabel textAlign="right">1 Year Return</DurationLabel>
+          </BottomSection>
+        )}
+      </Card>
+    </TouchableOpacity>
+  );
+};
+
+FundRecommendItem.defaultProps = {
+  onPress: () => {},
+  item: {},
+  isOffshore: false
+};
+
+FundRecommendItem.propTypes = {
+  onPress: PropTypes.func,
+  // eslint-disable-next-line react/forbid-prop-types
+  item: PropTypes.object,
+  i18n: I18nPropTypes.isRequired,
+  isOffshore: PropTypes.bool
+};
+
+export default FundRecommendItem;

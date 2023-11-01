@@ -1,0 +1,164 @@
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, View } from "react-native";
+import i18n from "react-native-i18n";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import PropTypes from "prop-types";
+import styled, { withTheme } from "styled-components/native";
+import {
+  SignupContainer,
+  HeaderContainer,
+  ContentContainer,
+  ContinueButton,
+  ForeignerButtonContainer,
+  ForeignerButton,
+  ForeignButtonText
+} from "../SignupStyled";
+import { navigationPushWrapHelpButton } from "../../../../redux/onboarding/onboarding-utils";
+import { onboardingNavbarStyle } from "../../../../modules/navigation/defaultStyle";
+import { Icon } from "../../../../components-2";
+import SignUpDetails from "../signup-details";
+import { Spinner } from "../../onboard-styled";
+
+const LoadingScreen = styled.View`
+  flex: 1;
+  justify-content: center;
+`;
+
+const Signup = props => {
+  const {
+    headerComponent,
+    isForeignerButton,
+    showLoading,
+    isSignupEnabled,
+    isRequestingSignup,
+    isEmail,
+    onContinuePressed,
+    selectedOption,
+    idDisabled,
+    showLoadingState,
+    onSelectedOptionChange,
+    referralCode,
+    navigator
+  } = props;
+
+  const ArrowIcon = <Icon color={props.theme.ctaPurple} name="arrow-left" size="icon16" />;
+
+  const onForeignerButtonPress = () => {
+    const navigatorStyle = {
+      ...onboardingNavbarStyle
+    };
+
+    const navigateOption = {
+      screen: "signupForeigner",
+      navigatorStyle,
+      passProps: { referralCode }
+    };
+    navigationPushWrapHelpButton(navigator, navigateOption);
+    onSelectedOptionChange(1);
+  };
+
+  const onNextButtonPress = () => {
+    onContinuePressed();
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={{ flex: 1, backgroundColor: props.theme.backgroundLightColor }}>
+        <SignupContainer
+          contentContainerStyle={{
+            flexGrow: 1,
+            flexDirection: "column"
+          }}
+        >
+          {showLoadingState ? (
+            <>
+              <HeaderContainer>{headerComponent}</HeaderContainer>
+              <LoadingScreen>
+                <Spinner />
+              </LoadingScreen>
+            </>
+          ) : (
+            <KeyboardAwareScrollView
+              automaticallyAdjustContentInsets={false}
+              viewIsInsideTabBar
+              scrollEnabled={false}
+              extraScrollHeight={35}
+            >
+              <HeaderContainer>{headerComponent}</HeaderContainer>
+              <ContentContainer>
+                <SignUpDetails
+                  {...props}
+                  isEmail={isEmail}
+                  idDisabled={idDisabled}
+                  selectedOption={selectedOption}
+                />
+                {isForeignerButton && (
+                  <ForeignerButtonContainer>
+                    <ForeignerButton onPress={onForeignerButtonPress}>
+                      <ForeignButtonText>
+                        {i18n.t("Registration.SignUp.ForeignerButton")}
+                      </ForeignButtonText>
+                      <View style={{ transform: [{ rotateY: "180deg" }] }}>
+                        <View>{ArrowIcon}</View>
+                      </View>
+                    </ForeignerButton>
+                  </ForeignerButtonContainer>
+                )}
+              </ContentContainer>
+            </KeyboardAwareScrollView>
+          )}
+        </SignupContainer>
+        <ContinueButton
+          onPress={onNextButtonPress}
+          isDisabled={showLoading || !isSignupEnabled || isRequestingSignup}
+          testID="ContinueButton"
+          accessibilityLabel="ContinueButton"
+        >
+          {i18n.t("Registration.SignUp.ButtonText.Continue")}
+        </ContinueButton>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+};
+
+export default withTheme(Signup);
+
+Signup.defaultProps = {
+  headerComponent: null,
+  isForeignerButton: false,
+  isSignupEnabled: false,
+  isRequestingSignup: false,
+  isEmail: true,
+  isSsoRegister: false,
+  idDisabled: false,
+  showLoadingState: false,
+  referralCode: null
+};
+
+Signup.propTypes = {
+  headerComponent: PropTypes.node,
+  isForeignerButton: PropTypes.bool,
+  showLoading: PropTypes.bool.isRequired,
+  isAccountAlreadyExist: PropTypes.bool.isRequired,
+  isError: PropTypes.bool.isRequired,
+  navigator: PropTypes.func.isRequired,
+  isSignupEnabled: PropTypes.bool,
+  isRequestingSignup: PropTypes.bool,
+  isSsoRegister: PropTypes.bool,
+  isEmail: PropTypes.bool,
+  selectedIndex: PropTypes.number.isRequired,
+  selectedOption: PropTypes.shape({
+    id: PropTypes.string,
+    value: PropTypes.string
+  }).isRequired,
+  openScbsInvestmentAccount: PropTypes.func.isRequired,
+  backToLoginScreen: PropTypes.func.isRequired,
+  onContinuePressed: PropTypes.func.isRequired,
+  idDisabled: PropTypes.bool,
+  showLoadingState: PropTypes.bool,
+  onSelectedOptionChange: PropTypes.func.isRequired,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object.isRequired,
+  referralCode: PropTypes.string
+};

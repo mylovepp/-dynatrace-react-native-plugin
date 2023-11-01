@@ -1,0 +1,13 @@
+#INFO  [2023-11-01 17:36:03]: Starting instrumentation of React Native application ..
+#INFO  [2023-11-01 17:36:03]: Dynatrace React Native Plugin - Version 2.277.1
+#INFO  [2023-11-01 17:36:03]: Trying to read configuration file: /Users/s87079/projects/frontend/dynatrace/dynatrace.config.js
+#INFO  [2023-11-01 17:36:03]: Starting Android Instrumentation with Dynatrace!
+#INFO  [2023-11-01 17:36:03]: Dynatrace plugin & agent already added to build.gradle
+#WARN  [2023-11-01 17:36:03]: Can't write configuration of Android agent because it is missing!
+#INFO  [2023-11-01 17:36:03]: Finished Android Instrumentation with Dynatrace!
+#INFO  [2023-11-01 17:36:03]: Starting iOS Instrumentation with Dynatrace!
+#ERROR [2023-11-01 17:36:03]: Can't find .plist file in iOS Folder! Try to use plist= custom argument. See documentation for help!
+#INFO  [2023-11-01 17:36:03]: Finished iOS Instrumentation with Dynatrace!
+#INFO  [2023-11-01 17:36:03]: Patching SourceMap generation of Metro .. 
+#INFO  [2023-11-01 17:36:03]: Patching of SourceMap already happened!
+#INFO  [2023-11-01 17:36:03]: Finished instrumentation of React Native application ..

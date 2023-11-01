@@ -1,0 +1,163 @@
+import React, { useMemo, useState } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, Linking } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { validateThaiCitizenID } from "@invx/modules/format";
+import { getConfig } from "@invx/config";
+import { NavigationBar, NumberInput } from "@invx/components-2";
+import {
+  ArrowIcon,
+  CheckCidViewContainer,
+  FooterView,
+  ForeignButtonText,
+  ForeignerButton,
+  InputContainer,
+  Line,
+  LoginButton,
+  Subtitle,
+  SubtitleHighlight
+} from "./CheckCidStyled";
+
+const CheckCid = props => {
+  const {
+    isShowBottomRadius,
+    onSubmit,
+    headerDescription,
+    onForeignerButtonPress,
+    isLoading,
+    onPressBackButton
+  } = props;
+
+  const [cid, setCid] = useState("");
+  const [variant, setVariant] = useState("");
+
+  const clearDataValue = callback => {
+    callback();
+    setCid("");
+    setVariant("");
+  };
+
+  const { SCBS_PRIVACY_NOTICE_TH_URL } = getConfig();
+
+  const isDisabled = useMemo(() => {
+    return cid === "" || variant === "error" || variant === "";
+  }, [cid, variant]);
+
+  const handleCIDChange = () => {
+    if (cid.length < 13 && cid.length > 0) {
+      setVariant("error");
+    } else if (cid.length === 13) {
+      if (validateThaiCitizenID(cid)) {
+        setVariant("valid");
+      } else {
+        setVariant("error");
+      }
+    } else {
+      setVariant("");
+    }
+  };
+
+  function connectText(array, fn) {
+    let result = [];
+    for (let i = 0; i < array.length; i++) {
+      const mapping = fn(array[i], i);
+      result = result.concat(mapping);
+    }
+    result.pop();
+    return result;
+  }
+
+  const PrivacyNoticeRemarkComponent = () => {
+    const openLink = () => {
+      Linking.openURL(SCBS_PRIVACY_NOTICE_TH_URL);
+    };
+    const normalText = I18n.t("Login.CheckCID.PrivacyNotice.NormalText");
+    const hyperText = I18n.t("Login.CheckCID.PrivacyNotice.HyperLink");
+    const resultConnectText = connectText(normalText.split("<HyperlinkText>"), (part, index) => {
+      return [
+        part,
+        <SubtitleHighlight key={index + Math.random()} onPress={openLink}>
+          {hyperText}
+        </SubtitleHighlight>
+      ];
+    });
+    return <Subtitle>{resultConnectText}</Subtitle>;
+  };
+  return (
+    <TouchableWithoutFeedback
+      accessible={false}
+      accessibilityLabel="frmCkCID"
+      onPress={() => Keyboard.dismiss()}
+    >
+      <>
+        <NavigationBar
+          title={I18n.t("Login.CheckCID.NavbarTitle")}
+          onPressBackButton={onPressBackButton}
+          isShowBottomRadius={isShowBottomRadius}
+        />
+        <KeyboardAwareScrollView>
+          <CheckCidViewContainer variant="light">
+            {headerDescription}
+            <InputContainer
+              accessibilityLabel="secCkCID"
+            >
+              <NumberInput
+                label={I18n.t("Login.CheckCID.CitizenID.Label")}
+                placeholder={I18n.t("Login.CheckCID.CitizenID.Placeholder")}
+                variant={variant}
+                initialValue={cid}
+                maxLength={17}
+                precision={0}
+                format="idCard"
+                onValueChange={value => {
+                  setCid(String(value.numericValue));
+                }}
+                onEndEditing={handleCIDChange}
+                helperText={variant === "error" && I18n.t("Registration.SignUp.IDNumber.Error")}
+                hasDynamicInitialValue
+                accessible
+                accessibilityLabel="cidInput"
+                required
+              />
+            </InputContainer>
+            <LoginButton
+              label={I18n.t("Login.CheckCID.ButtonTitle")}
+              onPress={() => clearDataValue(() => onSubmit(cid))}
+              size="large"
+              disable={isDisabled || isLoading}
+              testId="checkCIDButton"
+            />
+            <Line />
+            <ForeignerButton onPress={() => onForeignerButtonPress()}>
+              <ForeignButtonText>{I18n.t("Foreigner.CheckCID.Foreigner.Button")}</ForeignButtonText>
+              <ArrowIcon />
+            </ForeignerButton>
+            <FooterView>
+              <PrivacyNoticeRemarkComponent />
+            </FooterView>
+          </CheckCidViewContainer>
+        </KeyboardAwareScrollView>
+      </>
+    </TouchableWithoutFeedback>
+  );
+};
+
+CheckCid.defaultProps = {
+  isShowBottomRadius: true,
+  isLoading: false,
+  onPressBackButton: () => {
+  }
+};
+
+CheckCid.propTypes = {
+  isShowBottomRadius: PropTypes.bool,
+  onSubmit: PropTypes.func.isRequired,
+  headerDescription: PropTypes.node.isRequired,
+  onPressBackButton: PropTypes.func,
+  onForeignerButtonPress: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool
+};
+
+export default CheckCid;

@@ -1,0 +1,114 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { FlatList } from "react-native";
+import styled from "styled-components/native";
+
+import { DIVIDER_HEIGHT, ONSELECT_OPACITY, SELECT_OPTION_HEIGHT } from "./select-constants";
+import Separator from "../separator/Separator";
+
+const OptionView = styled.View`
+  background-color: ${props =>
+    props.isSelected ? props.theme.selectedOptionBackgroundColor : "transparent"};
+  height: ${props => (props.itemHeight || SELECT_OPTION_HEIGHT)};
+  justify-content: center;
+`;
+
+class SelectOptionsSubDistrict extends React.Component {
+  static getInitialScrollIndex({ keyExtractor, options, selectedOption, optionsHeight, noScroll }) {
+    if (!selectedOption || noScroll) {
+      return 0;
+    }
+
+    const index =
+      options.findIndex(option => keyExtractor(option) === keyExtractor(selectedOption)) || 0;
+    if (index > 0) {
+      const maxItemsWhollyInView = Math.floor(optionsHeight / SELECT_OPTION_HEIGHT);
+      const midPoint = Math.floor(maxItemsWhollyInView / 2);
+      if (maxItemsWhollyInView - 1 >= index) {
+        return 0;
+      } else if (index + midPoint >= options.length) {
+        return options.length - maxItemsWhollyInView;
+      } else if (index - midPoint >= 0) {
+        return index - midPoint;
+      }
+      return index;
+    }
+    return 0;
+  }
+
+  getItemLayout = (data, index) => ({
+    length: SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT,
+    offset: (SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT) * index,
+    index
+  });
+
+  renderSeparator = () => {
+    return (
+      <Separator variant="padding" />
+    );
+  };
+
+  renderOption = ({ item, index }) => {
+    const { keyExtractor, renderRow, selectedOption, itemHeight } = this.props;
+
+    const itemKey = keyExtractor(item);
+    const isSelected = selectedOption && itemKey === keyExtractor(selectedOption);
+    const handleSelect = () => {
+      this.props.onSelect(item);
+    };
+    return (
+      <TouchableOpacity
+        activeOpacity={ONSELECT_OPACITY}
+        key={itemKey}
+        onPress={handleSelect}
+        accessible={false}
+        disabled={item.disabled}
+      >
+        <OptionView isSelected={isSelected} itemHeight={itemHeight}>
+          {renderRow({ ...item, variant: "OPTION", index, isSelected })}
+        </OptionView>
+      </TouchableOpacity>
+    );
+  };
+
+  render() {
+    const { keyExtractor, options, scrollEnabled } = this.props;
+
+    return (
+      <FlatList
+        data={options}
+        getItemLayout={this.getItemLayout}
+        ItemSeparatorComponent={this.renderSeparator}
+        keyExtractor={keyExtractor}
+        ListFooterComponent={this.renderSeparator}
+        renderItem={this.renderOption}
+        scrollEnabled={scrollEnabled}
+        initialScrollIndex={SelectOptionsSubDistrict.getInitialScrollIndex(this.props)}
+      />
+    );
+  }
+}
+
+SelectOptionsSubDistrict.defaultProps = {
+  keyExtractor: item => item.key,
+  renderRow: null,
+  selectedOption: null,
+  optionsHeight: null,
+  itemHeight: "",
+  scrollEnabled: true,
+};
+
+SelectOptionsSubDistrict.propTypes = {
+  keyExtractor: PropTypes.func,
+  options: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onSelect: PropTypes.func.isRequired,
+  renderRow: PropTypes.func,
+  selectedOption: PropTypes.objectOf(PropTypes.any),
+  // eslint-disable-next-line react/no-unused-prop-types
+  optionsHeight: PropTypes.number,
+  itemHeight: PropTypes.string,
+  scrollEnabled: PropTypes.bool,
+};
+
+export default SelectOptionsSubDistrict;

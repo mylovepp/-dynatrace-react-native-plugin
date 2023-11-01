@@ -1,0 +1,127 @@
+// @ts-nocheck
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { TextInput as RNTextInput } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+import { Container, StyledTextInput } from "./StyledTextInput";
+import Icon from "../icon/Icon";
+import InputStatus from "./InputStatus";
+import Colors from "../../theme/colors";
+
+export const StyledPrefixPlaceholder = styled.Text.attrs()`
+  margin-left: ${props => props.theme.spacingXSmall};
+  margin-right: ${props => `-${props.theme.spacingXSmall}`};
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+export const StyledSuffixPlaceholder = styled(TouchableOpacity)`
+  margin-right: ${props => props.theme.spacingXSmall};
+`;
+
+export const StyledSearchInput = styled(StyledTextInput).attrs(props => {
+  return {
+    paddingTop: props.theme.spacingXXSmallValue,
+    paddingBottom: props.theme.spacingXXSmallValue
+  };
+})``;
+
+const INPUT_HEIGHT = 36;
+
+class SearchInput extends PureComponent {
+  state = {
+    isFocused: false
+  };
+
+  onBlur = (...args) => {
+    this.setState({
+      isFocused: false
+    });
+    if (this.props.onBlur) {
+      this.props.onBlur(...args);
+    }
+  };
+
+  onFocus = (...args) => {
+    this.setState({
+      isFocused: true
+    });
+    if (this.props.onFocus) {
+      this.props.onFocus(...args);
+    }
+  };
+
+  focus() {
+    this.input.focus();
+  }
+
+  blur() {
+    this.input.blur();
+  }
+
+  clear() {
+    this.input.clear();
+  }
+
+  isFocused() {
+    if (this.input) {
+      return this.input.isFocused();
+    }
+    return false;
+  }
+
+  render() {
+    const { value, disabled, onClear, onSubmitEditing } = this.props;
+
+    return (
+      <Container>
+        <InputStatus {...this.props} isFocused={this.state.isFocused}>
+          <StyledPrefixPlaceholder testID="icoSearch">
+            <Icon name="search-2" size="icon24" color={Colors.contentColorHigh} />
+          </StyledPrefixPlaceholder>
+          <StyledSearchInput
+            allowFontScaling={false}
+            isFocused={this.state.isFocused}
+            onFocus={this.onFocus}
+            onBlur={this.onBlur}
+            editable={!disabled}
+            height={INPUT_HEIGHT}
+            ref={input => {
+              this.input = input;
+            }}
+            returnKeyType="search"
+            onSubmitEditing={onSubmitEditing}
+            {...this.props}
+          />
+          {!!value && (
+            <StyledSuffixPlaceholder onPress={onClear}>
+              <Icon testId="icoClear" name="close-2" size="icon16" color={Colors.contentColorVeryHigh} />
+            </StyledSuffixPlaceholder>
+          )}
+        </InputStatus>
+      </Container>
+    );
+  }
+}
+
+SearchInput.defaultProps = {
+  value: undefined,
+  placeholder: undefined,
+  required: false,
+  disabled: false,
+  onClear: () => {},
+  onSubmitEditing: null
+};
+
+SearchInput.propTypes = {
+  ...RNTextInput.propTypes,
+  value: PropTypes.string,
+  placeholder: PropTypes.string,
+  required: PropTypes.bool,
+  disabled: PropTypes.bool,
+  onClear: PropTypes.func,
+  onSubmitEditing: PropTypes.func
+};
+
+export default SearchInput;

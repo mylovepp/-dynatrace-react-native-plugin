@@ -1,0 +1,876 @@
+/* eslint-disable camelcase */
+/* eslint-disable react/prop-types */
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image, Dimensions } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import PostConfirmationButton from "./PostConfirmationButton";
+import { Row, Divider } from "../../../components";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import defaultCoinIcon from "../../../../assets/images/digital-assets/icons/default-coin-icon.png";
+import DigitalAssetsPostConfirmationContent from "./DigitalAssetsPostConfirmationContent";
+import { invxCoinValueDisplay } from "../../../modules/i18n/value-display";
+import { SVGIcon } from "../../../components-2";
+import { Text, Header1, Body3, Header2, Header3, Display2 } from "../../../components-2/text/Text";
+import Icon from "../../../components-2/icon/Icon";
+import NumberValue from "../../digital-assets/digital-assets-coin-info-item/NumberValue";
+import PointIcon from "../../../components/icon/digital-assets-icon/trade/PointIcon";
+import { coinWithCommas } from "../../../modules/coin-format";
+// import TCPointWebviewModal from
+// "../../digital-assets/digital-assets-trade-tab/components/Modal/TCPointWebviewModal";
+import TCCoinWebviewModal from "../../digital-assets/digital-assets-trade-tab/components/Modal/TCCoinWebviewModal";
+
+const windowHeight = Dimensions.get("window").height;
+
+const CoinSymbol = styled.View`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+`;
+
+const CoinIcon = styled.View`
+  margin-left: 6px;
+`;
+
+const SubIconBack = styled.View`
+  margin-left: 4px;
+`;
+
+const CoinShort = styled.View`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const BodyContainer = styled.View`
+  padding-left: 7;
+  padding-right: 7;
+`;
+
+const IconContainer = styled.View`
+  align-items: baseline;
+  padding-left: 4px;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  padding-left: 4px;
+`;
+
+const ContentDes = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const SubContentDes = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const OrderDetailTitle = styled(Body3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const ContentDesNumberFormat = styled(NumberValue)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const LinkText = styled(Text)`
+  padding-left: 16px;
+  font-family: Graphik TH;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 17px;
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const ContentRow = styled.View`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const InfoIcon = styled(Icon).attrs({
+  name: "info-2",
+  size: "icon16",
+  color: "#855AFF"
+})``;
+
+const PaddingRow = ({ left, leftStyle, right, rightStyle, noPaddingVertical }) => (
+  <Row
+    noPaddingVertical={noPaddingVertical}
+    left={left}
+    leftStyle={leftStyle}
+    right={right}
+    rightStyle={rightStyle}
+    paddingBottom
+  />
+);
+
+const renderEstimatePoint = point => {
+  if (point !== null) {
+    return `${coinWithCommas(point)} ${I18n.t("DigitalAssets.Point.slip.point")}`;
+  }
+  return I18n.t("DigitalAssets.Point.slip.pointDown");
+};
+
+const BodyBuy = ({
+  i18n,
+  baseAssetSymbol,
+  orderType,
+  price,
+  fee,
+  quantity,
+  quantityDecimal,
+  accountName,
+  instrumentsList,
+  invxCoin,
+  pointEstimate,
+  refCode,
+  isUsePoint,
+  onOpenVisiblePointPrivacy
+}) => {
+  const { quantityExcludeFee, feeTHB } = fee;
+  const instrumentData = symbol => {
+    return instrumentsList.find(
+      insturment => insturment.base.toUpperCase() === symbol.toUpperCase()
+    );
+  };
+
+  const getIconComp = symbol => {
+    const result = instrumentData(symbol);
+    if (result) {
+      return <CoinImageIcon uri={result.icon} width={20} height={20} />;
+    }
+    return (
+      <Image resizeMode="stretch" source={defaultCoinIcon} style={{ height: 20, width: 20 }} />
+    );
+  };
+
+  return (
+    (<BodyContainer>
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionBuy.DACode"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <CoinSymbol>
+            <CoinShort>
+              <CoinIcon>{getIconComp(baseAssetSymbol)}</CoinIcon>
+              <ContentDes>{baseAssetSymbol}</ContentDes>
+            </CoinShort>
+          </CoinSymbol>
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto", paddingRight: 0 }}
+        rightStyle={{ paddingLeft: 0 }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionBuy.PaymentAccount"]}
+          </OrderDetailTitle>
+        }
+        right={<ContentDes testID="da-post-confirmation-account-name">{accountName}</ContentDes>}
+        //   right={
+        //     <ContentDesNumberFormat
+        //       value={parseFloat(quantity?.replace(/,/g, "")) || 0}
+        //       decimal={quantityDecimal}
+        //       numberOfLines={1}
+        //       size="header2"
+        //       testID="da-post-confirmation-quantity"
+        //     />
+        //   }
+        // />
+
+        // <Divider />
+        // <PaddingRow
+        //   left={
+        //     <OrderDetailTitle>
+        //       {i18n.translations["DigitalAssets.PostConfirm.Amount"]}
+        //     </OrderDetailTitle>
+        //   }
+        //   right={
+        //     <ContentDesNumberFormat
+        //       value={parseFloat(price.replace(/,/g, "")) || 0}
+        //       decimal={2}
+        //       numberOfLines={1}
+        //       size="header2"
+        //       testID="da-post-confirmation-amount-to-buy"
+        //     />
+        //   }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OrderType"]}
+          </OrderDetailTitle>
+        }
+        right={<ContentDes testID="da-post-confirmation-order-type">ซื้อ - {orderType}</ContentDes>}
+      />
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionBuy.AmountTitle"]} (
+            {baseAssetSymbol})
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(quantity?.replace(/,/g, "")) || 0}
+            decimal={quantityDecimal}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-quantity"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.Amount"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(price.replace(/,/g, "")) || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-amount-to-buy"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.EstimateFee"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={feeTHB || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            suffix=""
+            testID="da-post-confirmation-fee"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionBuy.AmountToGet"]} (
+            {baseAssetSymbol})
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(quantityExcludeFee.replace(/,/g, "")) || 0}
+            decimal={quantityDecimal}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-amount-to-get"
+          />
+        }
+      />
+      <Divider />
+      <Row
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <>
+            <OrderDetailTitle>{I18n.t("DigitalAssets.Point.slip.pointReceive")}</OrderDetailTitle>
+            {refCode !== "" && (
+              <OrderDetailTitle>{I18n.t("DigitalAssets.Point.slip.refCodeTitle")}</OrderDetailTitle>
+            )}
+            {isUsePoint && (
+              <OrderDetailTitle>
+                {I18n.t("DigitalAssets.Point.slip.pointPromotion")}
+              </OrderDetailTitle>
+            )}
+          </>
+        }
+        right={
+          <>
+            <ContentRow>
+              <SubContentDes>{renderEstimatePoint(pointEstimate)}</SubContentDes>
+              <CoinIcon>
+                <PointIcon />
+              </CoinIcon>
+            </ContentRow>
+            {/* {refCode !== "" && <SubContentDes>{refCode}</SubContentDes>} */}
+            {isUsePoint && (
+              <ContentRow>
+                <SubContentDes>{I18n.t("DigitalAssets.Point.slip.pointCashback")}</SubContentDes>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => onOpenVisiblePointPrivacy()}>
+                  <SubIconBack>
+                    <InfoIcon />
+                  </SubIconBack>
+                </TouchableOpacity>
+              </ContentRow>
+            )}
+          </>
+        }
+      />
+      {invxCoin !== 0 && (
+        <>
+          <Row
+            containerStyle={{ paddingTop: 8 }}
+            leftStyle={{ flex: 0, flexBasis: "auto" }}
+            left={
+              <OrderDetailTitle>
+                {I18n.t("DigitalAssets.Trade.BurnInvxCoin.TradePostConfirm.BurnCoin")}
+              </OrderDetailTitle>
+            }
+            rightStyle={{ paddingLeft: 0 }}
+            right={
+              <RowContainer>
+                <SubContentDes>
+                  {I18n.t("DigitalAssets.Trade.BurnInvxCoin.TradePostConfirm.TransferCoin", {
+                    amount: invxCoinValueDisplay(invxCoin)
+                  })}
+                </SubContentDes>
+                <IconContainer>
+                  <SVGIcon name="TradeCoin" size={16} />
+                </IconContainer>
+              </RowContainer>
+            }
+          />
+          <TouchableOpacity onPress={onOpenVisiblePointPrivacy}>
+            <LinkText>
+              {I18n.t("DigitalAssets.Trade.BurnInvxCoin.TradePostConfirm.TermsAndConditions")}
+            </LinkText>
+          </TouchableOpacity>
+        </>
+      )}
+      <Row />
+    </BodyContainer>)
+  );
+};
+
+const BodySell = ({
+  i18n,
+  baseAssetSymbol,
+  orderType,
+  price,
+  fee,
+  quantity,
+  quantityDecimal,
+  accountName,
+  instrumentsList,
+  pointEstimate
+}) => {
+  const { feeTHB, amountExcludeFee } = fee;
+  const instrumentData = symbol => {
+    return instrumentsList.find(
+      insturment => insturment.base.toUpperCase() === symbol.toUpperCase()
+    );
+  };
+
+  const getIconComp = symbol => {
+    const result = instrumentData(symbol);
+    if (result) {
+      return <CoinImageIcon uri={result.icon} width={20} height={20} />;
+    }
+    return (
+      <Image resizeMode="stretch" source={defaultCoinIcon} style={{ height: 20, width: 20 }} />
+    );
+  };
+
+  return (
+    (<BodyContainer>
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionSell.DACode"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <CoinSymbol>
+            <CoinShort>
+              <CoinIcon>{getIconComp(baseAssetSymbol)}</CoinIcon>
+              <ContentDes>{baseAssetSymbol}</ContentDes>
+            </CoinShort>
+          </CoinSymbol>
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto", paddingRight: 0 }}
+        rightStyle={{ paddingLeft: 0 }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionSell.PaymentAccount"]}
+          </OrderDetailTitle>
+        }
+        right={<ContentDes testID="da-post-confirmation-account-name">{accountName}</ContentDes>}
+        // right={
+        //   <ContentDesNumberFormat
+        //     value={parseFloat(quantity?.replace(/,/g, "")) || 0}
+        //     decimal={quantityDecimal}
+        //     numberOfLines={1}
+        //     size="header2"
+        //     testID="da-post-confirmation-quantity"
+        //   />
+        // }
+      />
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.Amount"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(price.replace(/,/g, "")) || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-amount-to-buy"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OrderType"]}
+          </OrderDetailTitle>
+        }
+        right={<ContentDes testID="da-post-confirmation-order-type">ขาย - {orderType}</ContentDes>}
+      />
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.OptionSell.AmountTitle"]} (
+            {baseAssetSymbol})
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(quantity?.replace(/,/g, "")) || 0}
+            decimal={quantityDecimal}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-quantity"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.Amount"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(price.replace(/,/g, "")) || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-amount-to-buy"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.EstimateFee"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={feeTHB || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            suffix=""
+            testID="da-post-confirmation-fee"
+          />
+        }
+      />
+      <Divider />
+      <PaddingRow
+        leftStyle={{ flex: 0, flexBasis: "auto" }}
+        left={
+          <OrderDetailTitle>
+            {i18n.translations["DigitalAssets.PostConfirm.ValueAfterFee"]}
+          </OrderDetailTitle>
+        }
+        right={
+          <ContentDesNumberFormat
+            value={parseFloat(amountExcludeFee.replace(/,/g, "")) || 0}
+            decimal={2}
+            numberOfLines={1}
+            size="header2"
+            testID="da-post-confirmation-amount-to-get"
+          />
+        }
+      />
+      <>
+        <Divider />
+        <PaddingRow
+          leftStyle={{ flex: 0, flexBasis: "auto" }}
+          left={
+            <>
+              <OrderDetailTitle>{I18n.t("DigitalAssets.Point.slip.pointReceive")}</OrderDetailTitle>
+              {/* {refCode !== "" && (
+            <OrderDetailTitle>{I18n.t("DigitalAssets.Point.slip.refCodeTitle")}</OrderDetailTitle>
+          )}
+          {isUsePoint && (
+            <OrderDetailTitle>
+              {I18n.t("DigitalAssets.Point.slip.pointPromotion")}
+            </OrderDetailTitle>
+          )} */}
+            </>
+          }
+          right={
+            <>
+              <ContentRow>
+                <SubContentDes>{renderEstimatePoint(pointEstimate)}</SubContentDes>
+                <CoinIcon>
+                  <PointIcon />
+                </CoinIcon>
+              </ContentRow>
+              {/* {refCode !== "" && <SubContentDes>{refCode}</SubContentDes>}
+          {isUsePoint && (
+            <ContentRow>
+              <SubContentDes>{I18n.t("DigitalAssets.Point.slip.pointCashback")}</SubContentDes>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  showPointInfo(navigator);
+                }}
+              >
+                <SubIconBack>
+                  <InfoIcon />
+                </SubIconBack>
+              </TouchableOpacity>
+            </ContentRow>
+          )} */}
+            </>
+          }
+        />
+      </>
+    </BodyContainer>)
+  );
+};
+class TradePostConfirmationView extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isVisiblePointPrivacy: false
+    };
+  }
+
+  onOpenVisiblePointPrivacy = () => {
+    this.setState({ isVisiblePointPrivacy: true });
+  };
+
+  onCloseVisiblePointPrivacy = () => {
+    this.setState({ isVisiblePointPrivacy: false });
+  };
+
+  onViewActivity = () => {
+    this.props.onViewActivity();
+  };
+
+  render() {
+    const {
+      i18n,
+      actionType,
+      orderRefNo,
+      screenshotTaken,
+      onImageLoaded,
+      tradingSignListing,
+      instrumentId
+    } = this.props;
+
+    const findLastestTradingSign = () => {
+      const tradingSign = tradingSignListing.filter(t => t.instrument_id === instrumentId);
+      const lastestTradingSign = tradingSign.sort((a, b) =>
+        a.updated_at ? a.updated_at - b.updated_at : a.created_at - b.created_at
+      );
+      return lastestTradingSign[0];
+    };
+
+    const tradingSym = findLastestTradingSign();
+
+    const headerTitle =
+      actionType === "buy"
+        ? i18n.translations["DigitalAssets.PostConfirm.OptionBuy.SendOrderSuccessTitle"]
+        : i18n.translations["DigitalAssets.PostConfirm.OptionSell.SendOrderSuccessTitle"];
+
+    const orderRefNoText =
+      actionType === "buy"
+        ? i18n.getLabel("DigitalAssets.PostConfirm.OptionBuy.OrderNo", { orderId: orderRefNo })
+        : i18n.getLabel("DigitalAssets.PostConfirm.OptionSell.OrderNo", { orderId: orderRefNo });
+
+    const MenuIcon = styled(Icon).attrs(props => ({
+      name: "check-circle",
+      size: "icon24",
+      color: props.oFF ? props.theme.iconDisabled : props.theme.iconCorrect
+    }))``;
+
+    const DrawLineContainer = styled.View`
+      flex: 1;
+      width: 2px;
+      background-color: ${props => (props.isActive ? props.theme.graphGreen : "#CCCFD3")};
+    `;
+
+    const HeaderDetailText = styled(Body3)`
+      color: ${props => props.theme.contentColorHigh};
+    `;
+
+    const ProcessIcon = styled(Icon).attrs(props => ({
+      name: "bullet",
+      size: "icon24",
+      color: props.theme.contentColorLight
+    }))``;
+
+    const HeaderTextInactive = styled(Header1)`
+      color: ${props => props.theme.contentColorHigh};
+    `;
+
+    const dateTimeFormat = datetime => {
+      return `วันที่ ${i18n.localiseDateTime({
+        value: datetime,
+        scope: "datetime.formats.short"
+      })}`;
+    };
+
+    const HeaderMarketContainer = styled.View`
+      justify-content: center;
+      align-items: center;
+    `;
+
+    const HeaderMarketTitle = styled(Display2)`
+      color: ${props => props.theme.contentColorVeryHigh};
+      margin-top: ${props => props.theme.spacingXSmall};
+      margin-bottom: ${props => props.theme.spacingMedium};
+    `;
+
+    const MarketOrderSuccessIcon = styled(Icon).attrs(props => ({
+      name: "check-circle",
+      size: "icon32",
+      color: props.theme.graphGreen
+    }))``;
+
+    return (
+      <>
+        <DigitalAssetsPostConfirmationContent
+          screenshotTaken={screenshotTaken}
+          onImageLoaded={onImageLoaded}
+          header={
+            this.props.orderType === "Market Order" ? (
+              <HeaderMarketContainer>
+                <MarketOrderSuccessIcon />
+
+                <HeaderMarketTitle>{headerTitle}</HeaderMarketTitle>
+
+                <HeaderDetailText variant="light" paragraph>
+                  {dateTimeFormat(Date())}
+                </HeaderDetailText>
+
+                <HeaderDetailText variant="light" paragraph>
+                  {orderRefNoText}
+                </HeaderDetailText>
+              </HeaderMarketContainer>
+            ) : (
+              <>
+                <Row
+                  noPaddingVertical
+                  leftStyle={{ flex: 0, flexBasis: 48, alignItems: "center" }}
+                  rightStyle={{ alignItems: "flex-start", paddingLeft: 0 }}
+                  left={
+                    <>
+                      <MenuIcon />
+                      <DrawLineContainer isActive />
+                    </>
+                  }
+                  right={
+                    <Header1 variant="black" paragraph>
+                      {i18n.translations["DigitalAssets.PostConfirm.SentOrderTitle"]}
+                    </Header1>
+                  }
+                />
+                <Row
+                  noPaddingVertical
+                  leftStyle={{ flex: 0, flexBasis: 48, alignItems: "center" }}
+                  rightStyle={{
+                    alignItems: "flex-start",
+                    paddingLeft: 0,
+                    justifyContent: "flex-start",
+                    height: 45
+                  }}
+                  left={<DrawLineContainer isActive />}
+                  right={
+                    <>
+                      <HeaderDetailText variant="light" paragraph>
+                        {dateTimeFormat(Date())}
+                      </HeaderDetailText>
+                      <HeaderDetailText variant="light" paragraph>
+                        {orderRefNoText}
+                      </HeaderDetailText>
+                    </>
+                  }
+                />
+                <Row
+                  noPaddingVertical
+                  leftStyle={{ flex: 0, flexBasis: 48, alignItems: "center" }}
+                  rightStyle={{ alignItems: "flex-start", paddingLeft: 0 }}
+                  left={
+                    <>
+                      <DrawLineContainer />
+                      <ProcessIcon />
+                      <DrawLineContainer />
+                    </>
+                  }
+                  right={
+                    <HeaderTextInactive>
+                      {i18n.translations["DigitalAssets.PostConfirm.WaitingMatchTitle"]}
+                    </HeaderTextInactive>
+                  }
+                />
+                <Row
+                  noPaddingVertical
+                  leftStyle={{ flex: 0, flexBasis: 48, alignItems: "center" }}
+                  rightStyle={{
+                    alignItems: "flex-start",
+                    paddingLeft: 0,
+                    justifyContent: "flex-start",
+                    height: 35
+                  }}
+                  left={<DrawLineContainer />}
+                  right={
+                    <HeaderDetailText>
+                      {i18n.translations["DigitalAssets.PostConfirm.VerifyStatusDetailTitle"]}
+                    </HeaderDetailText>
+                  }
+                />
+                <Row
+                  noPaddingVertical
+                  leftStyle={{ flex: 0, flexBasis: 48, alignItems: "center" }}
+                  rightStyle={{ alignItems: "flex-start", paddingLeft: 0 }}
+                  left={
+                    <>
+                      <DrawLineContainer />
+                      <ProcessIcon />
+                      <DrawLineContainer style={{ backgroundColor: "#00000000" }} />
+                    </>
+                  }
+                  right={
+                    <HeaderTextInactive variant="light">
+                      {actionType === "buy"
+                        ? i18n.translations["DigitalAssets.PostConfirm.OptionBuy.Title"]
+                        : i18n.translations["DigitalAssets.PostConfirm.OptionSell.Title"]}
+                    </HeaderTextInactive>
+                  }
+                />
+              </>
+            )
+          }
+          body={
+            actionType === "buy" ? (
+              <BodyBuy
+                {...this.props}
+                i18n={i18n}
+                tradingSign={tradingSym}
+                isVisiblePointPrivacy={this.state.isVisiblePointPrivacy}
+                onOpenVisiblePointPrivacy={this.onOpenVisiblePointPrivacy}
+                onCloseVisiblePointPrivacy={this.onCloseVisiblePointPrivacy}
+              />
+            ) : (
+              <BodySell {...this.props} i18n={i18n} tradingSign={tradingSym} />
+            )
+          }
+        />
+
+        <PostConfirmationButton
+          isLast
+          screenshotTaken={screenshotTaken}
+          onPress={this.onViewActivity}
+        >
+          {i18n.translations["DigitalAssets.PostConfirm.ViewActivityButton"]}
+        </PostConfirmationButton>
+
+        <TCCoinWebviewModal
+          isVisible={this.state.isVisiblePointPrivacy}
+          windowHeight={windowHeight}
+          onModalClose={this.onCloseVisiblePointPrivacy}
+          onPress={this.onCloseVisiblePointPrivacy}
+        />
+
+        {/* hideCashbackToBurnCoin
+        <TCPointWebviewModal
+          isVisible={this.state.isVisiblePointPrivacy}
+          windowHeight={windowHeight}
+          onModalClose={this.onCloseVisiblePointPrivacy}
+          onPress={this.onCloseVisiblePointPrivacy}
+        /> */}
+      </>
+    );
+  }
+}
+
+TradePostConfirmationView.defaultProps = {
+  onViewActivity: () => {},
+  invxCoin: 0
+};
+
+TradePostConfirmationView.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  submittedDateTime: PropTypes.string.isRequired,
+  orderRefNo: PropTypes.string.isRequired,
+  fee: PropTypes.shape({
+    feeTHB: PropTypes.string.isRequired,
+    percentage: PropTypes.number.isRequired,
+    feeCrypto: PropTypes.string.isRequired,
+    quantityExcludeFee: PropTypes.string.isRequired,
+    amountExcludeFee: PropTypes.string.isRequired
+  }).isRequired,
+  navigator: PropTypes.shape({
+    setStyle: PropTypes.func,
+    dismissModal: PropTypes.func
+  }).isRequired,
+  onViewActivity: PropTypes.func,
+  baseAssetSymbol: PropTypes.string.isRequired,
+  price: PropTypes.string.isRequired,
+  amount: PropTypes.string.isRequired,
+  quantity: PropTypes.string.isRequired,
+  quantityDecimal: PropTypes.string.isRequired,
+  accountName: PropTypes.string.isRequired,
+  screenshotTaken: PropTypes.bool.isRequired,
+  onImageLoaded: PropTypes.func.isRequired,
+  instrumentId: PropTypes.number.isRequired,
+  orderTypeEnum: PropTypes.number.isRequired,
+  // eslint-disable-next-line react/forbid-prop-types
+  instrumentsList: PropTypes.array.isRequired,
+  orderType: PropTypes.string.isRequired,
+  invxCoin: PropTypes.number
+};
+
+export default TradePostConfirmationView;

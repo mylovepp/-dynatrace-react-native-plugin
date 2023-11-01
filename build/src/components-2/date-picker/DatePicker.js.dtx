@@ -1,0 +1,184 @@
+import React, { Fragment, PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+
+import { getConfig } from "../../Config";
+import { formatDate, DISPLAY_DATE_FORMAT } from "../../modules/format";
+import { Body2, Header3 } from "../text/Text";
+import BottomModal from "../bottom-modal/BottomModal";
+import DateRoller from "../picker/DateRoller";
+import InputStatus from "../input/InputStatus";
+import Icon from "../icon/Icon";
+
+const LabelContainer = styled.View(props => ({
+  paddingBottom: props.theme.spacingXSmall
+}));
+
+const LabelText = styled(Header3)(props => ({
+  color: props.theme.contentColorVeryHigh
+}));
+
+const CalendarIcon = styled(Icon).attrs(props => ({
+  name: "calendar-2",
+  color: props.theme.contentColorVeryHigh,
+  size: "icon24"
+}))({});
+
+const InputContainer = styled.View(props => ({
+  flexDirection: "row",
+  paddingVertical: props.theme.spacingSmall,
+  paddingHorizontal: props.theme.spacingMedium
+}));
+
+const ValueContainer = styled.View({
+  flex: 1
+});
+
+const CALENDAR_TYPE = "buddhist";
+
+class DatePicker extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isModalVisible: false
+    };
+  }
+
+  getCurrentLocal = () => {
+    return getConfig().EN_OVERRIDES_ENABLED === "true" ? "th" : I18n.locale;
+  };
+
+  getBuddhistFormat = date => {
+    const { displayDateFormat } = this.props;
+    if (displayDateFormat.includes("YYYY")) {
+      return displayDateFormat.replace(/YYYY/g, (date.getFullYear() + 543).toString());
+    } else if (displayDateFormat.includes("YY")) {
+      return displayDateFormat.replace(/YY/g, (date.getFullYear() + 543).toString().slice(-2));
+    }
+    return displayDateFormat;
+  };
+
+  getDisplayDate = value => {
+    const { displayDateFormat, calendarType } = this.props;
+    let modifiedFormat = displayDateFormat;
+    if (calendarType === CALENDAR_TYPE) {
+      modifiedFormat = this.getBuddhistFormat(value);
+    }
+    return formatDate(value, modifiedFormat, this.getCurrentLocal());
+  };
+
+  handleOpenPicker = () => {
+    this.setState({ isModalVisible: true });
+  };
+
+  handleClosePicker = () => {
+    this.setState({ isModalVisible: false });
+  };
+
+  handleConfirm = date => {
+    const currentSelectedDate = date || new Date();
+    this.setState({
+      isModalVisible: false
+    });
+    this.props.onConfirm(currentSelectedDate);
+  };
+
+  render() {
+    const {
+      cancelText,
+      disabled,
+      required,
+      label,
+      maximumDate,
+      minimumDate,
+      placeholder,
+      selectText,
+      value,
+      inputStatusProps,
+      calendarType
+    } = this.props;
+    const displayDateString = this.getDisplayDate(value);
+    // There seems to be a bug on android date roller which when a date is change,
+    // The component will crashed. Fast solution is to mount a new one when it change
+    const modalMounted = Platform.OS === "ios" || this.state.isModalVisible;
+    return (
+      <Fragment>
+        {!!label && (
+          <LabelContainer>
+            <LabelText>
+              {label}
+              {required && <Header3 variant="error">*</Header3>}
+            </LabelText>
+          </LabelContainer>
+        )}
+        <TouchableOpacity disabled={disabled} onPress={this.handleOpenPicker}>
+          <InputStatus isFocused={this.state.isModalVisible} {...inputStatusProps}>
+            <InputContainer>
+              <ValueContainer>
+                <Body2>{value ? displayDateString : placeholder}</Body2>
+              </ValueContainer>
+              <CalendarIcon />
+            </InputContainer>
+          </InputStatus>
+        </TouchableOpacity>
+        {modalMounted && (
+          <BottomModal
+            isVisible={this.state.isModalVisible}
+            onModalClose={this.handleClosePicker}
+            swipeDirection={null} // no swipe down to close
+            noPadding
+            isDisabledScrollView
+          >
+            <DateRoller
+              mode="date"
+              calendarType={calendarType}
+              initialDate={value}
+              confirmText={selectText}
+              cancelText={cancelText}
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+              onConfirm={this.handleConfirm}
+              onCancel={this.handleClosePicker}
+            />
+          </BottomModal>
+        )}
+      </Fragment>
+    );
+  }
+}
+
+DatePicker.defaultProps = {
+  displayDateFormat: DISPLAY_DATE_FORMAT,
+  placeholder: "",
+  label: "",
+  disabled: false,
+  required: false,
+  value: new Date(),
+  selectText: "Select",
+  cancelText: "Cancel",
+  minimumDate: undefined,
+  maximumDate: undefined,
+  inputStatusProps: {},
+  calendarType: CALENDAR_TYPE
+};
+
+DatePicker.propTypes = {
+  displayDateFormat: PropTypes.string,
+  placeholder: PropTypes.string,
+  label: PropTypes.string,
+  disabled: PropTypes.bool,
+  required: PropTypes.bool,
+  onConfirm: PropTypes.func.isRequired,
+  value: PropTypes.instanceOf(Date),
+  selectText: PropTypes.string,
+  cancelText: PropTypes.string,
+  minimumDate: PropTypes.instanceOf(Date),
+  maximumDate: PropTypes.instanceOf(Date),
+  inputStatusProps: PropTypes.shape({}),
+  calendarType: PropTypes.string
+};
+
+export default DatePicker;

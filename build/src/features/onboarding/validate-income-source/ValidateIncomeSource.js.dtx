@@ -1,0 +1,364 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import OnboardingFormWrapper from "../form-wrapper";
+import CountryPicker from "../country-picker";
+import GeneralPicker from "../general-picker";
+import { HeaderText, Body2, Header3 } from "../onboard-styled";
+import { BottomModal } from "../../../components";
+import { Icon, Row, Body3, Header1 } from "../../../components-2";
+import theme from "../../../theme";
+import InvestmentSourceOption from "./investment-source-info";
+
+const ChevronIcon = <Icon name="chevron-down" size="icon8" />;
+const CheckIcon = <Icon name="check-2" size="icon24" />;
+
+const Container = styled.View`
+  flex-direction: row;
+  align-items: center;
+  border-radius: ${props => props.theme.spacingXSmall};
+`;
+
+const HeaderContainer = styled.View`
+  justify-content: flex-start;
+`;
+
+const AgreementContainer = styled.View`
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 16;
+`;
+
+const EditInvestmentSourceItem = styled.TouchableOpacity`
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const InvensetmentSourcesSelectedContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const TextGroupContainer = styled.View`
+  flex: 1;
+  margin-left: 11;
+`;
+
+const MainContainer = styled.View`
+  padding-vertical: ${props => props.theme.spacingXSmall};
+`;
+
+const containerStyle = {
+  paddingVertical: 14,
+  paddingHorizontal: 5,
+  borderRadius: theme.spacingXSmallValue,
+  borderWidth: 1,
+  borderColor: theme.contentColorLight
+};
+
+const IconContainer = styled.View`
+  flex-basis: auto;
+`;
+
+const AgreementText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ConfirmInvestmentSourceButtonModal = styled(Header1)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const contentWrapperComponent = styled.View``;
+
+const ValidateIncomeSource = props => {
+  const {
+    incomeSource,
+    investmentSource,
+    investmentSources,
+    purpose,
+    purposes,
+    getIncomeSourcePrefill,
+    isReviewing,
+    showLoading,
+    getInvestmentSource,
+    getInvestmentPurpose,
+    verifyIncomeSource,
+    showLoadingState
+  } = props;
+  const [investmentOptionsDisplayed, setInvestmentOptionsDisplayed] = useState(false);
+  const [incomeSourceSelected, setIncomeSourceSelected] = useState(incomeSource);
+  const [purposeSelected, setPurposeSelected] = useState(purpose);
+  const [investmentSourceSelected, setInvestmentSourceSelected] = useState(investmentSource);
+
+  const handleSubmit = () => {
+    const submitData = {
+      income_source: incomeSourceSelected,
+      investment_sources: investmentSourceSelected,
+      purpose: purposeSelected,
+      accept: true
+    };
+    if (isReviewing) { submitData.is_skip_to_review = true; }
+    verifyIncomeSource(submitData);
+  };
+
+  useEffect(() => {
+    getIncomeSourcePrefill();
+  }, []);
+
+  useEffect(() => {
+    if (incomeSource && Object.keys(incomeSource).length !== 0) {
+      if (incomeSource !== incomeSourceSelected) {
+        setIncomeSourceSelected(incomeSource);
+      }
+    } else {
+      setIncomeSourceSelected(null);
+    }
+    if (investmentSource && investmentSource.length !== 0) {
+      if (investmentSource !== investmentSourceSelected) {
+        setInvestmentSourceSelected(investmentSource);
+      }
+    } else {
+      setInvestmentSourceSelected(null);
+    }
+    if (purpose && Object.keys(purpose).length !== 0) {
+      if (purpose !== purposeSelected) {
+        setPurposeSelected(purpose);
+      }
+    } else {
+      setPurposeSelected(null);
+    }
+  }, [incomeSource, investmentSource, purpose]);
+
+  const onIncomeSourceSelected = option => {
+    setIncomeSourceSelected(option);
+  };
+  const onInvestmentSourceSelected = option => {
+    const itemSelectedList = investmentSourceSelected ? [...investmentSourceSelected] : [];
+    const index = itemSelectedList.findIndex(el => el.code === option.code);
+
+    if (index === -1) {
+      itemSelectedList.push(option);
+    } else {
+      itemSelectedList.splice(index, 1);
+    }
+    setInvestmentSourceSelected(itemSelectedList);
+  };
+  const onPurposeSelected = option => {
+    setPurposeSelected(option);
+  };
+  const onEditInvestmentSource = () => {
+    getInvestmentSource();
+    setInvestmentOptionsDisplayed(true);
+  };
+
+  const getSortedSelectedInvestmentSource = () => {
+    return investmentSourceSelected.sort((a, b) => {
+      return a.code - b.code;
+    });
+  };
+  const getInvestmentSourceSelectedValue = () => {
+    let result = "";
+    const isSelectedInvestmentSource =
+      investmentSourceSelected && investmentSourceSelected.length !== 0;
+    if (isSelectedInvestmentSource) {
+      getSortedSelectedInvestmentSource().forEach((item, index) => {
+        if (index === investmentSourceSelected.length - 1) {
+          result += item.name;
+        } else {
+          result += `${item.name}, `;
+        }
+      });
+    }
+    return isSelectedInvestmentSource ? (
+      result
+    ) : (
+      <Body2 style={{ flex: 1, marginLeft: 11 }} variant="subdued">
+        {i18n.t("Onboarding.VerifyIncomeSource.InvestmentSource.Placeholder")}
+      </Body2>
+    );
+  };
+  const getDefaultSelectItemVariant = itemSelected => {
+    return itemSelected ? "" : "subdued";
+  };
+  const getSortedPurposes = () => {
+    if (purposes) {
+      return purposes.sort((a, b) => {
+        return a.code - b.code;
+      });
+    }
+    return purposes;
+  };
+  const hideOptions = () => {
+    setInvestmentOptionsDisplayed(false);
+  };
+  const enableContinueButton = () => {
+    const isSelectedInvestmentSource =
+      investmentSourceSelected && investmentSourceSelected.length !== 0;
+    return (
+      incomeSourceSelected && isSelectedInvestmentSource && purposeSelected && !showLoadingState
+    );
+  };
+
+  const renderPlaceholder = data => {
+    const left = (
+      <Container>
+        <Body2 style={{ flex: 1, marginLeft: 11 }}>{data.placeholder}</Body2>
+        {ChevronIcon}
+      </Container>
+    );
+    return (
+      <Row noPaddingHorizontal noPaddingVertical left={left} containerStyle={containerStyle} />
+    );
+  };
+  const renderRowItem = data => {
+    return (
+      <Row
+        leftStyle={{ flex: 1 }}
+        left={<Body2>{data.name}</Body2>}
+        rightStyle={{
+          flex: 0,
+          padding: 8,
+          opacity: data.isSelected ? 1 : 0
+        }}
+        right={<IconContainer>{CheckIcon}</IconContainer>}
+      />
+    );
+  };
+
+  const renderRow = data => {
+    switch (data.variant) {
+      case "PLACEHOLDER":
+        return renderPlaceholder(data);
+      default:
+        return renderRowItem(data);
+    }
+  };
+  const renderRightActionButton = (label, action) => {
+    return (
+      <TouchableOpacity onPress={action} style={{ flexBasis: "auto" }}>
+        <ConfirmInvestmentSourceButtonModal>{label}</ConfirmInvestmentSourceButtonModal>
+      </TouchableOpacity>
+    );
+  };
+  const renderModal = () => {
+    return (
+      <BottomModal
+        isVisible={investmentOptionsDisplayed}
+        hideModal={hideOptions}
+        headerComponent={() => (
+          <Row
+            middle={
+              <Header1>
+                {i18n.t("Onboarding.VerifyIncomeSource.InvestmentPurpose.Placeholder")}
+              </Header1>
+            }
+            right={renderRightActionButton(i18n.t("General.Accept"), hideOptions)}
+            action={hideOptions}
+          />
+        )}
+      >
+        {investmentOptionsDisplayed && (
+          <InvestmentSourceOption
+            keyExtractor={item => item.code}
+            selectedOptions={investmentSourceSelected}
+            options={investmentSources}
+            renderRow={renderRow}
+            onSelect={onInvestmentSourceSelected}
+          />
+        )}
+      </BottomModal>
+    );
+  };
+
+  const left = (
+    <InvensetmentSourcesSelectedContainer>
+      <TextGroupContainer>
+        <Body2
+          variant={getDefaultSelectItemVariant(
+            investmentSourceSelected && investmentSourceSelected.length !== 0
+          )}
+        >
+          {getInvestmentSourceSelectedValue()}
+        </Body2>
+      </TextGroupContainer>
+      {ChevronIcon}
+    </InvensetmentSourcesSelectedContainer>
+  );
+  return (
+    <OnboardingFormWrapper
+      buttonText={
+        isReviewing
+          ? i18n.t("Onboarding.Summary.BackToSummary")
+          : i18n.t("Onboarding.VerifyIncomeSource.NextButton")
+      }
+      onButtonPress={handleSubmit}
+      showLoading={showLoading}
+      showLoadingState={showLoadingState}
+      disableButton={!enableContinueButton()}
+      activeStage="STG_03"
+    >
+      <HeaderContainer>
+        <HeaderText>{i18n.t("Onboarding.VerifyIncomeSource.Header")}</HeaderText>
+        <View>
+          <CountryPicker
+            pickerContainerStyle={{ marginVertical: theme.spacingXSmallValue }}
+            label={i18n.t("Onboarding.VerifyIncomeSource.Header")}
+            placeholder={i18n.t("Onboarding.VerifyIncomeSource.IncomeSource.Placeholder")}
+            onSelected={onIncomeSourceSelected}
+            value={incomeSourceSelected}
+          />
+          <MainContainer>
+            <Header3>{i18n.t("Onboarding.VerifyIncomeSource.IncomeSource.Label")}</Header3>
+            <EditInvestmentSourceItem onPress={onEditInvestmentSource}>
+              <Row left={left} containerStyle={containerStyle} />
+              {renderModal()}
+            </EditInvestmentSourceItem>
+          </MainContainer>
+          <GeneralPicker
+            keyExtractor={item => item.code}
+            labelStyle={{ alignItems: "center", paddingLeft: 8 }}
+            contentWrapperComponent={contentWrapperComponent}
+            loadData={!getSortedPurposes(purposes) && getInvestmentPurpose}
+            dataItems={getSortedPurposes(purposes)}
+            onSelected={onPurposeSelected}
+            label={i18n.t("Onboarding.VerifyIncomeSource.InvestmentPurpose.Label")}
+            placeholder={i18n.t("Onboarding.VerifyIncomeSource.InvestmentPurpose.Placeholder")}
+            value={purposeSelected}
+          />
+          <AgreementContainer>
+            <AgreementText>{i18n.t("Onboarding.VerifyIncomeSource.Agreement")}</AgreementText>
+          </AgreementContainer>
+        </View>
+      </HeaderContainer>
+    </OnboardingFormWrapper>
+  );
+};
+
+ValidateIncomeSource.defaultProps = {
+  incomeSource: null,
+  investmentSource: null,
+  investmentSources: null,
+  purpose: null,
+  purposes: null
+};
+
+ValidateIncomeSource.propTypes = {
+  showLoading: PropTypes.bool.isRequired,
+  incomeSource: PropTypes.shape({ id: PropTypes.string, name: PropTypes.string }),
+  investmentSource: PropTypes.arrayOf(
+    PropTypes.shape({ id: PropTypes.string, name: PropTypes.string })
+  ),
+  investmentSources: PropTypes.instanceOf(Array),
+  purpose: PropTypes.shape({ id: PropTypes.string, name: PropTypes.string }),
+  purposes: PropTypes.instanceOf(Array),
+  getInvestmentPurpose: PropTypes.func.isRequired,
+  verifyIncomeSource: PropTypes.func.isRequired,
+  getInvestmentSource: PropTypes.func.isRequired,
+  getIncomeSourcePrefill: PropTypes.func.isRequired,
+  isReviewing: PropTypes.bool.isRequired,
+  showLoadingState: PropTypes.bool.isRequired
+};
+
+export default ValidateIncomeSource;

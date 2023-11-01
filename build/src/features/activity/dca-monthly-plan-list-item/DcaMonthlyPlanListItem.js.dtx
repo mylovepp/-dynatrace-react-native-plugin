@@ -1,0 +1,197 @@
+// @ts-nocheck
+import React, { PureComponent } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+
+import { Container, Column, Row } from "../activity-list-item/styled";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import { DCA_PLAN_MORE_INFO_BUTTON } from "../../../modules/analytics/analytics-constants";
+import { PLAN_DETAIL_SCREED_ID } from "../../../redux/navigation/navigation-constants";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+
+import {
+  Body2,
+  Header2,
+  Separator,
+  Tag,
+  TextOverlineM,
+  TextOverlineR,
+  ViewContainer
+} from "../../../components-2";
+
+const InstrumentListItemContainer = styled(ViewContainer)`
+  border-color: ${props => props.theme.borderLightColor};
+  padding-top: ${props => props.theme.spacingXSmall};
+`;
+
+const BodyContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const Header = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const Title = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const TagContainer = styled.View`
+  padding-right: ${props => props.theme.spacingXXSmall};
+  padding-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const LeftContainer = styled.View`
+  flex-direction: row;
+`;
+
+const RightContainer = styled.View`
+  align-items: flex-end;
+`;
+
+const HeaderLabel = styled(TextOverlineR)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const TitleLabel = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const AmountLabel = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const DetailLabel = styled(TextOverlineM)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const RowContainer = styled(Row)`
+  justify-content: space-between;
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+class DcaMonthlyPlanListItem extends PureComponent {
+  navigateToPlanDetails = () => {
+    const {
+      navigator,
+      patientlyNavigate,
+      accountNo,
+      bankAccount,
+      fundCode,
+      fundNameEn,
+      fundNameTh,
+      frequency,
+      selectDate,
+      amount,
+      unitholderId,
+      planId,
+      effectiveDateFrom,
+      nextInvestmentDate
+    } = this.props;
+    trackEvent(DCA_PLAN_MORE_INFO_BUTTON, {
+      fundCode
+    });
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: PLAN_DETAIL_SCREED_ID,
+        passProps: {
+          screenId: PLAN_DETAIL_SCREED_ID,
+          item: {
+            accountNo,
+            bankAccount,
+            fundCode,
+            fundNameEn,
+            fundNameTh,
+            frequency,
+            selectDate,
+            amount,
+            unitholderId,
+            planId,
+            effectiveDateFrom,
+            nextInvestmentDate
+          }
+        },
+        title: I18n.t("ActivityMain.DcaActivity.NavBarTitle"),
+        backButtonTitle: "",
+        navigatorStyle: {
+          tabBarHidden: true
+        }
+      });
+    });
+  };
+  render() {
+    const { i18n, fundCode, selectDate, amount } = this.props;
+    return (
+      <Container
+        style={{
+          flex: 1
+        }}
+      >
+        <InstrumentListItemContainer>
+          <TouchableWithoutFeedback onPress={() => this.navigateToPlanDetails()}>
+            <BodyContainer>
+              <Header testID="title">
+                <HeaderLabel variant="subdued" />
+                <HeaderLabel variant="subdued">
+                  {i18n.getLabel("ActivityMain.DcaActivity.SelectDate", { selectDate })}
+                </HeaderLabel>
+              </Header>
+              <Title>
+                <TitleLabel>{fundCode}</TitleLabel>
+                <AmountLabel>{i18n.amountValueDisplay(amount, true, true)}</AmountLabel>
+              </Title>
+              <Column>
+                <RowContainer>
+                  <LeftContainer>
+                    <TagContainer>
+                      <Tag
+                        size="small"
+                        variant="primary"
+                        label={I18n.t("ActivityMain.DcaActivity.Pill2")}
+                      />
+                    </TagContainer>
+                    <TagContainer>
+                      <Tag size="small" label={I18n.t("ActivityMain.DcaActivity.Pill1")} />
+                    </TagContainer>
+                  </LeftContainer>
+                  <RightContainer>
+                    <DetailLabel>{`${I18n.t("General.Detail")}`}</DetailLabel>
+                  </RightContainer>
+                </RowContainer>
+                <Separator />
+              </Column>
+            </BodyContainer>
+          </TouchableWithoutFeedback>
+        </InstrumentListItemContainer>
+      </Container>
+    );
+  }
+}
+
+DcaMonthlyPlanListItem.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  accountNo: PropTypes.string.isRequired,
+  bankAccount: PropTypes.string.isRequired,
+  fundCode: PropTypes.string.isRequired,
+  fundNameEn: PropTypes.string.isRequired,
+  fundNameTh: PropTypes.string.isRequired,
+  frequency: PropTypes.string.isRequired,
+  selectDate: PropTypes.string.isRequired,
+  amount: PropTypes.string.isRequired,
+  unitholderId: PropTypes.string.isRequired,
+  planId: PropTypes.string.isRequired,
+  effectiveDateFrom: PropTypes.string.isRequired,
+  nextInvestmentDate: PropTypes.string.isRequired,
+  navigator: PropTypes.shape({
+    switchToTab: PropTypes.func,
+    push: PropTypes.func,
+    addOnNavigatorEvent: PropTypes.func
+  }).isRequired,
+  patientlyNavigate: PropTypes.func.isRequired
+};
+
+export default DcaMonthlyPlanListItem;

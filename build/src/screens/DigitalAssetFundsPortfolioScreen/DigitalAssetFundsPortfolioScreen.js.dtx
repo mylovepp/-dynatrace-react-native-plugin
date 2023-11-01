@@ -1,0 +1,67 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { DIGITAL_ASSET_FUND_ACTIVITY_SCREEN_ID } from "../../redux/navigation/navigation-constants";
+import DigitalAssetFundsPortfolio from "../../features/digital-assets/digital-asset-funds/digital-asset-funds-portfolio";
+import { ViewContainer, NavigationBar, Icon } from "../../components-2";
+
+const HistoryIcon = styled(Icon).attrs(props => ({
+  name: "history",
+  size: "icon24",
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const DigitalAssetFundsPortfolioScreen = props => {
+  const { navigator, patientlyNavigate } = props;
+
+  const popScreen = () => {
+    navigator.pop();
+  };
+
+  const goToActivityScreen = () => {
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: DIGITAL_ASSET_FUND_ACTIVITY_SCREEN_ID,
+        animationType: "slide-horizontal",
+        backButtonTitle: ""
+      });
+    });
+  };
+
+  const historyIcon = (
+    <TouchableOpacity onPress={goToActivityScreen}>
+      <HistoryIcon />
+    </TouchableOpacity>
+  );
+
+  return (
+    <ViewContainer variant="light">
+      <NavigationBar
+        title={I18n.t("DigitalAssetsFunds.Fund.FundManager")}
+        onPressBackButton={popScreen}
+        rightComponent={historyIcon}
+        isShowBottomRadius={false}
+      />
+      <DigitalAssetFundsPortfolio {...props} />
+    </ViewContainer>
+  );
+};
+
+DigitalAssetFundsPortfolioScreen.defaultProps = {
+  fundName: ""
+};
+
+DigitalAssetFundsPortfolioScreen.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func,
+    pop: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  patientlyNavigate: PropTypes.func.isRequired,
+  fundName: PropTypes.string
+};
+
+export default DigitalAssetFundsPortfolioScreen;

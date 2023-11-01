@@ -1,0 +1,124 @@
+import React, { useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import { I18nPropTypes, Row } from "../../../components";
+import { Header1, Header2, Header3, Body3, BottomModal } from "../../../components-2";
+import { formatDate } from "../../../modules/format";
+import { amountValueDisplay } from "../../../modules/i18n/value-display";
+import { trackDAWalletFiat } from "../../../modules/analytics/analytics-utils";
+
+const Container = styled.View`
+  justify-content: center;
+  height: 64px;
+`;
+
+const TransactionTime = styled(Body3)`
+  color: rgba(0, 0, 0, 0.44);
+  margin-bottom: 4px;
+`;
+
+const ModalContentRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 16px;
+`;
+
+const DigitalAssetsFiatTransactionItem = ({ transaction, i18n }) => {
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  const amountColor = transaction.amount > 0 ? "#0cae64" : "#fa2431";
+  const amountDisplay =
+    (transaction.amount > 0 ? "+" : "") + (amountValueDisplay(transaction.amount).trim() || "0.00");
+
+  const transactionDetails = () => {
+    const detail = [];
+
+    switch (transaction.type) {
+      case "Deposit":
+        detail.push({
+          label: "จำนวนเงินที่เติม (บาท)",
+          value: amountValueDisplay(transaction.amount).trim() || "0.00"
+        });
+        break;
+      case "Withdraw":
+        detail.push({
+          label: "จำนวนเงินที่ถอน (บาท)",
+          value: amountValueDisplay(transaction.amount).trim() || "0.00"
+        });
+        break;
+      case "Trade":
+        detail.push({
+          label: "จำนวนเงิน (บาท)",
+          value: amountValueDisplay(transaction.amount).trim() || "0.00"
+        });
+        break;
+      default:
+    }
+
+    detail.push({
+      label: "เวลาทำรายการ",
+      value: formatDate(transaction.timeStamp, "DD/MM/YYYY HH:mm:ss", "th")
+    });
+    return detail;
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => {
+          trackDAWalletFiat("Click", transaction.type);
+          setModalVisible(true);
+        }}
+      >
+        <Container>
+          <TransactionTime>
+            {formatDate(transaction.timeStamp, "DD/MM/YYYY HH:mm:ss", "th")}
+          </TransactionTime>
+          <Row
+            noPaddingVertical
+            noPaddingHorizontal
+            left={<Header2>{transaction.typeLabel}</Header2>}
+            leftStyle={{ flex: 0, flexBasis: "auto" }}
+            right={
+              <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                <Header2 textAlign="right" style={{ color: amountColor }}>
+                  {amountDisplay}
+                </Header2>
+                <Header3 style={{ marginLeft: 4 }}>
+                  {i18n.translations["General.Currencies.THB"]}
+                </Header3>
+              </View>
+            }
+          />
+        </Container>
+      </TouchableOpacity>
+
+      <BottomModal isVisible={isModalVisible} onModalClose={() => setModalVisible(false)}>
+        <ModalContentRow>
+          <Header1>{transaction.typeLabel}</Header1>
+          <Header1 style={{ color: amountColor }}>{amountDisplay}</Header1>
+        </ModalContentRow>
+        {transactionDetails().map(detail => (
+          <ModalContentRow key={detail.label}>
+            <Body3>{detail.label}</Body3>
+            <Header2>{detail.value}</Header2>
+          </ModalContentRow>
+        ))}
+      </BottomModal>
+    </>
+  );
+};
+
+DigitalAssetsFiatTransactionItem.propTypes = {
+  transaction: PropTypes.shape({
+    type: PropTypes.string,
+    typeLabel: PropTypes.string,
+    timeStamp: PropTypes.string,
+    amount: PropTypes.string
+  }).isRequired,
+  i18n: I18nPropTypes.isRequired
+};
+
+export default DigitalAssetsFiatTransactionItem;

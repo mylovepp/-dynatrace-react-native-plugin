@@ -1,0 +1,62 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Icon, SearchInput } from "../../../../../components-2";
+
+const SearchFilterToolbar = ({
+  searchTerm,
+  setSearchTerm,
+  resetSearchTerm,
+  goToActivityFilter
+}) => {
+  return (
+    <Toolbar>
+      <SearchContainer>
+        <SearchInput
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder={I18n.t("DigitalAssetsFunds.Activity.Search.PlaceHolder")}
+          onClear={resetSearchTerm}
+        />
+      </SearchContainer>
+      <TouchableOpacity onPress={goToActivityFilter}>
+        <FilterIcon />
+      </TouchableOpacity>
+    </Toolbar>
+  );
+};
+
+export default SearchFilterToolbar;
+
+SearchFilterToolbar.propTypes = {
+  searchTerm: PropTypes.string.isRequired,
+  setSearchTerm: PropTypes.func.isRequired,
+  resetSearchTerm: PropTypes.func.isRequired,
+  goToActivityFilter: PropTypes.func
+};
+
+SearchFilterToolbar.defaultProps = {
+  goToActivityFilter: () => {}
+};
+
+const Toolbar = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background-color: ${props => props.theme.backgroundWhite};
+  padding: 16px 24px 16px 16px;
+  z-index: 100;
+`;
+
+const SearchContainer = styled.View`
+  flex: 1;
+  margin: 0px 16px 0px 0px;
+`;
+
+const FilterIcon = styled(Icon).attrs(props => ({
+  name: "filter-2",
+  size: "icon24",
+  color: props.theme.contentColorVeryHigh
+}))``;

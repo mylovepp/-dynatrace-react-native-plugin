@@ -1,0 +1,429 @@
+import React, { useState, useMemo } from "react";
+import { TouchableWithoutFeedback, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image, Linking, View } from "react-native";
+import PropTypes from "prop-types";
+import styled, { useTheme, css } from "styled-components/native";
+import { ifProp } from "styled-tools";
+import I18n from "react-native-i18n";
+import HTML from "react-native-render-html";
+
+import OnboardingFormWrapper from "../form-wrapper";
+import { convertToHtml } from "../../../modules/format";
+import {
+  Header2,
+  Body3,
+  Body2,
+  Divider,
+  SVGIcon,
+  TouchableOpacityDebounced,
+  Header3,
+  Icon,
+  BottomSheet
+} from "../../../components-2";
+
+import ndidImage from "../../../../assets/images/ndid/ndid_logo.png";
+
+const NdidImageContainer = styled.View`
+  padding-vertical: 12px;
+  justify-content: center;
+  align-items: center;
+`;
+
+const NdidImage = styled(Image).attrs(() => ({
+  source: ndidImage,
+  resizeMode: "contain"
+}))`
+  height: 100px;
+`;
+
+const WhatIsNDIDContainer = styled.View`
+  background-color: #f3faff;
+  padding: 12px;
+  border-radius: 10px;
+`;
+
+const WhatIsNDIDTitleText = styled(Header2)`
+  padding-vertical: ${props => (props.padding ? 12 : 0)};
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const HeaderContentText = styled(Body2)`
+  margin-vertical: 4px;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const WhatIsNDIDContentText = styled(Body3)`
+  padding-vertical: ${props => (props.padding ? 12 : 0)};
+  color: ${props =>
+    props.veryHigh ? props.theme.contentColorVeryHigh : props.theme.contentColorHigh};
+`;
+
+const WhatIsNDIDContentTextBold = styled(Header3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const HowToUseContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+`;
+
+const HowToUseItemsContainer = styled(TouchableOpacityDebounced)`
+  padding: 16px;
+  border-radius: 10px;
+  border-width: 1px;
+  border-color: ${props => props.theme.backgroundGreySilver};
+  margin-bottom: 7px;
+`;
+
+const HowToUseItemsLeftContainer = styled(HowToUseItemsContainer)`
+  flex: 0.5;
+  margin-right: 3.5px;
+`;
+
+const HowToUseItemsRightContainer = styled(HowToUseItemsContainer)`
+  flex: 0.5;
+  margin-left: 3.5px;
+`;
+
+const HowToUseText = styled(Body3)`
+  margin-top: 5px;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const NumberRadius = styled.View`
+  background-color: #0099ff;
+  height: 20px;
+  width: 20px;
+  margin-right: 10px;
+  border-radius: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-vertical: 4.5px;
+`;
+
+const DotTextContainer = styled.View`
+  padding-right: 5px;
+`;
+
+const NumberText = styled(Header3)`
+  color: ${props => props.theme.contentColorWhite};
+`;
+
+const HowToUseModalHeaderText = styled(Header2)`
+  margin-top: ${props => props.theme.spacingLarge};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const HowToUseModalContainer = styled.View`
+  padding-top: 12px;
+`;
+
+const HowToUseModalMoreDetailText = styled(Header2)`
+  color: ${props => props.theme.contentColorCTAPurple};
+  justify-content: center;
+`;
+
+const HowToUseModalHeaderContainer = styled.View`
+  flex-direction: row;
+  background-color: ${props => props.color};
+  border-radius: 10px;
+  padding: 12px;
+  align-items: center;
+`;
+
+const HowToUseModalFooterContainer = styled(TouchableOpacityDebounced)`
+  align-items: center;
+  margin-top: 10px;
+`;
+
+const HowToUseTextName = styled(Header2)`
+  padding-left: 8px;
+`;
+
+const HowToUseContentHeader = styled(Header2)`
+  padding-vertical: 12px;
+`;
+
+const OrderListContainer = styled.View`
+  flex-direction: row;
+`;
+
+const OrderListNumberContainer = styled.View`
+  align-items: flex-end;
+  width: 20px;
+  margin-right: 5px;
+`;
+
+const OrderListNumber = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  ${ifProp(
+    "bold",
+    css`
+      ${props => props.theme.header2};
+    `
+  )}
+`;
+
+const OrderListChildren = styled.View`
+  flex: 1;
+`;
+
+const NewLine = styled.View`
+  padding-bottom: 12px;
+`;
+
+const NdidInstruction = props => {
+  const [showDetails, setShowDetails] = useState(false);
+  const [modalShow, setModalShow] = useState(false);
+  const [modalData, setModalData] = useState();
+  const theme = useMemo(() => useTheme(), []);
+
+  const acceptNdidInstruction = () => {
+    props.startSdk(true, () => {});
+  };
+
+  const onShowDetails = () => {
+    setShowDetails(!showDetails);
+  };
+
+  const tagsStyles = useMemo(
+    () => ({
+      body: {
+        ...theme.body2,
+        color: theme.contentColorHigh
+      },
+      b: {
+        ...theme.header2
+      }
+    }),
+    []
+  );
+
+  const renderers = useMemo(
+    () => ({
+      // eslint-disable-next-line react/display-name
+      "order-list": (htmlAttribs, children) => {
+        return (
+          <OrderListContainer>
+            <OrderListNumberContainer>
+              <OrderListNumber bold={htmlAttribs.bold}>{htmlAttribs.no}</OrderListNumber>
+            </OrderListNumberContainer>
+            <OrderListChildren>{children}</OrderListChildren>
+          </OrderListContainer>
+        );
+      }
+    }),
+    []
+  );
+
+  const onMoreInfoPressed = url => {
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      }
+    });
+  };
+
+  const showModalHowToUse = ({ iconName, color }) => {
+    setModalData({ iconName, color });
+    setModalShow(true);
+  };
+
+  const modalHowToUse = data => {
+    return (
+      <HowToUseModalContainer>
+        <HowToUseModalHeaderContainer color={data.color}>
+          <SVGIcon name={data.iconName} size="icon32" />
+          <HowToUseTextName>
+            {I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${data.iconName}.Name`)}
+          </HowToUseTextName>
+        </HowToUseModalHeaderContainer>
+        <HowToUseContentHeader>
+          {I18n.t("Onboarding.NdidInstruction.HowToUse.ContentHeaderText", {
+            appName: I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${data.iconName}.AppName`)
+          })}
+        </HowToUseContentHeader>
+        <HTML
+          html={`<body>${convertToHtml(
+            I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${data.iconName}.Step`)
+          )}</body>`}
+          tagsStyles={tagsStyles}
+          renderers={renderers}
+        />
+        <NewLine />
+        <Divider />
+        <HowToUseModalFooterContainer
+          onPress={() =>
+            onMoreInfoPressed(
+              I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${data.iconName}.MoreInfoLink`)
+            )
+          }
+        >
+          <HowToUseModalMoreDetailText>
+            {I18n.t("Onboarding.NdidInstruction.HowToUse.MoreDetailText")}
+          </HowToUseModalMoreDetailText>
+        </HowToUseModalFooterContainer>
+      </HowToUseModalContainer>
+    );
+  };
+
+  const renderHowToUse = () => {
+    const howToUse = [
+      [
+        { iconName: "SCB", color: "#F1EFF8" },
+        { iconName: "KBANK", color: "#E8FAED" }
+      ],
+      [
+        { iconName: "BBL", color: "#EAF4FC" },
+        { iconName: "BAY", color: "#F8F4ED" }
+      ],
+      [
+        { iconName: "TTB", color: "#F6F6F6" },
+        { iconName: "KKP", color: "#F1EFF8" }
+      ],
+      [
+        { iconName: "CIMBT", color: "#FFF0EF" },
+        { iconName: "GSB", color: "#FFEFFB" }
+      ],
+      [{ iconName: "GHB", color: "#FFF3DF" }]
+    ];
+
+    return (
+      <>
+        <HowToUseModalHeaderText>
+          {I18n.t("Onboarding.NdidInstruction.HowToUse.HeaderText")}
+        </HowToUseModalHeaderText>
+        {howToUse.map(value => (
+          <HowToUseContainer key={value.keys()}>
+            <HowToUseItemsLeftContainer onPress={() => showModalHowToUse(value[0])}>
+              <SVGIcon name={value[0].iconName} size="icon32" />
+              <HowToUseText>
+                {I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${value[0].iconName}.Name`)}
+              </HowToUseText>
+            </HowToUseItemsLeftContainer>
+            {value[1] ? (
+              <HowToUseItemsRightContainer onPress={() => showModalHowToUse(value[1])}>
+                <SVGIcon name={value[1].iconName} size="icon32" />
+                <HowToUseText>
+                  {I18n.t(`Onboarding.NdidInstruction.HowToUse.Content.${value[1].iconName}.Name`)}
+                </HowToUseText>
+              </HowToUseItemsRightContainer>
+            ) : null}
+          </HowToUseContainer>
+        ))}
+        <BottomSheet
+          isDisableCloseButton
+          isVisible={modalShow}
+          onModalClose={() => setModalShow(false)}
+          noMarginTop
+          noContentMarginTop
+        >
+          {modalData && modalHowToUse(modalData)}
+        </BottomSheet>
+      </>
+    );
+  };
+
+  const renderWhatIsNDID = () => {
+    const data = [
+      {
+        no: 1,
+        bulletData: I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HowToUseItem.1.BulletData")
+      },
+      {
+        no: 2,
+        contentText: (
+          <WhatIsNDIDContentText>
+            {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HowToUseItem.2.ContentText")}
+          </WhatIsNDIDContentText>
+        )
+      },
+      {
+        no: 3,
+        contentText: (
+          <Text>
+            {/* eslint-disable-next-line max-len */}
+            <WhatIsNDIDContentText>
+              {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HowToUseItem.3.ContentText")}
+            </WhatIsNDIDContentText>
+            <WhatIsNDIDContentTextBold>
+              {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HowToUseItem.3.ContentTextBold")}
+            </WhatIsNDIDContentTextBold>
+          </Text>
+        )
+      }
+    ];
+
+    return (<>
+      <WhatIsNDIDContentText padding>
+        {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.ContentText")}
+      </WhatIsNDIDContentText>
+      <Divider />
+      <WhatIsNDIDTitleText padding>
+        {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HowToUseText")}
+      </WhatIsNDIDTitleText>
+      {data.map(value => (
+        <View key={`whatIsNdid.HowTo.${value.no}`} style={{ flexDirection: "row" }}>
+          <NumberRadius>
+            <NumberText>{value.no}</NumberText>
+          </NumberRadius>
+          <View style={{ flexDirection: "column", flex: 1 }}>
+            <HeaderContentText>
+              {I18n.t(`Onboarding.NdidInstruction.WhatIsNdid.HowToUseItem.${value.no}.TitleText`)}
+            </HeaderContentText>
+            {!!value.bulletData &&
+              value.bulletData?.map(bullet => (
+                // eslint-disable-next-line react/jsx-key
+                (<View style={{ flexDirection: "row" }}>
+                  <DotTextContainer>
+                    <Body3>{I18n.t("Onboarding.NdidInstruction.WhatIsNdid.Bullet")}</Body3>
+                  </DotTextContainer>
+                  <View>
+                    <WhatIsNDIDContentText veryHigh>{bullet.TitleText}</WhatIsNDIDContentText>
+                    <WhatIsNDIDContentText>{bullet.DetailText}</WhatIsNDIDContentText>
+                  </View>
+                </View>)
+              ))}
+            {!!value.contentText && value.contentText}
+          </View>
+        </View>
+      ))}
+    </>);
+  };
+
+  return (
+    <OnboardingFormWrapper
+      buttonText={I18n.t("Onboarding.NdidInstruction.AcceptText")}
+      onButtonPress={acceptNdidInstruction}
+      isNext={false}
+      noPaddingTop
+    >
+      <NdidImageContainer>
+        <NdidImage />
+      </NdidImageContainer>
+      <WhatIsNDIDContainer>
+        <TouchableWithoutFeedback onPress={onShowDetails}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ flex: 0.9 }}>
+              <WhatIsNDIDTitleText>
+                {I18n.t("Onboarding.NdidInstruction.WhatIsNdid.HeaderText")}
+              </WhatIsNDIDTitleText>
+            </View>
+            <View style={{ flex: 0.1, justifyContent: "center" }}>
+              <Icon name={showDetails ? "chevron-up-2" : "chevron-down-2"} size="icon24" />
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+        {showDetails && renderWhatIsNDID()}
+      </WhatIsNDIDContainer>
+      {renderHowToUse()}
+    </OnboardingFormWrapper>
+  );
+};
+
+NdidInstruction.propTypes = {
+  startSdk: PropTypes.func.isRequired
+};
+
+export default NdidInstruction;

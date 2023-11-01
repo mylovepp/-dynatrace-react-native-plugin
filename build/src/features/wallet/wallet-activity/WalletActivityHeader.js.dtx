@@ -1,0 +1,161 @@
+import React, { Fragment } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Navigation } from "react-native-navigation";
+import { Header1, Body3, Icon, Header3, Separator } from "../../../components-2";
+import theme from "../../../theme";
+import { tutorialModalStyle } from "../../../modules/navigation/defaultStyle";
+import { getMonthItems } from "../../activity/activity-utils";
+
+const RefreshIcon = styled(Icon).attrs({
+  name: "update",
+  size: "icon16"
+})``;
+
+const FilterText = styled(Header3)`
+  color: ${prop => prop.theme.contentColorHigh};
+`;
+const Divider = styled.View`
+  margin-right: 10;
+  margin-left: 10;
+  border-right-width: 0.5;
+  border-right-color: ${props => props.theme.portfolioTotallyNeutral};
+`;
+
+const HeaderText = styled(Header1)`
+  line-height: ${props => props.theme.spacingLarge};
+  justify-content: flex-end;
+`;
+
+const LastUpdateText = styled(Body3)`
+  color: ${props => props.theme.textPrimaryColor};
+`;
+
+const LeftSectionContainer = styled.View`
+  margin-left: ${props => props.theme.spacingSmall};
+`;
+const RefreshContainer = styled.View`
+  flex-direction: row;
+`;
+
+const ContainerFilter = styled.View`
+  flex-direction: row;
+  margin-top: 6;
+`;
+
+const IconRefreshContainer = styled.View`
+  margin-right: 5;
+  margin-top: 5;
+`;
+
+const IconBackGround = styled.View`
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+  padding-horizontal: 12;
+  padding-vertical: 5;
+  border-radius: 20;
+`;
+
+const RightSectionContainer = styled.View`
+  margin-right: ${props => props.theme.spacingSmall};
+  margin-bottom: ${props => props.theme.spacingSmall};
+  margin-top: 5;
+`;
+
+const ListHeaderContainer = styled.View`
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 3px;
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const openModal = (selectedValue, selectedMonth, items) => {
+  Navigation.showModal({
+    screen: "walletPickerRoller",
+    passProps: {
+      pickerData: items,
+      selectedValue,
+      cancelText: I18n.t("ActivityMain.Activity.Filter.Cancel"),
+      confirmText: I18n.t("ActivityMain.Activity.Filter.ConfirmText"),
+      itemFontSize: 20,
+      hideModal: () => {
+        Navigation.dismissModal({ animationType: "none" });
+      },
+      onCancel: () => {
+        Navigation.dismissModal({ animationType: "none" });
+      },
+      onConfirm: value => {
+        selectedMonth(value);
+        Navigation.dismissModal({ animationType: "none" });
+      },
+      rollerWidth: 100
+    },
+    navigatorStyle: tutorialModalStyle,
+    animationType: "none"
+  });
+};
+
+const getSelectedValue = (value, items) => {
+  return items.find(data => data.value === value).selectedLabel;
+};
+
+const onRefresh = selectedMonth => {
+  selectedMonth("THISMONTH");
+};
+
+const WalletActivityHeader = ({ title, selectedValue, selectedMonth, feedTime }) => {
+  const items = getMonthItems();
+  return (
+    <Fragment>
+      <ListHeaderContainer>
+        <LeftSectionContainer>
+          <HeaderText>{title}</HeaderText>
+          <ContainerFilter>
+            <FilterText>{getSelectedValue(selectedValue, items)}</FilterText>
+            <TouchableWithoutFeedback onPress={() => onRefresh(selectedMonth)}>
+              <RefreshContainer>
+                <Divider />
+                <IconRefreshContainer>
+                  <RefreshIcon />
+                </IconRefreshContainer>
+                <LastUpdateText variant="light">
+                  {I18n.t("Wallet.Profile.FeedTimeDescription", { feedTime })}
+                </LastUpdateText>
+              </RefreshContainer>
+            </TouchableWithoutFeedback>
+          </ContainerFilter>
+        </LeftSectionContainer>
+        <RightSectionContainer>
+          <TouchableWithoutFeedback onPress={() => openModal(selectedValue, selectedMonth, items)}>
+            <RefreshContainer>
+              <IconBackGround>
+                <Icon name="filter-2" color={theme.tabBarSelectedButtonColor} size="icon16" />
+              </IconBackGround>
+            </RefreshContainer>
+          </TouchableWithoutFeedback>
+        </RightSectionContainer>
+      </ListHeaderContainer>
+      <Separator variant="section" />
+    </Fragment>
+  );
+};
+
+WalletActivityHeader.defaultProps = {
+  selectedValue: "",
+  feedTime: "",
+  selectedMonth: () => {}
+};
+
+WalletActivityHeader.propTypes = {
+  title: PropTypes.string.isRequired,
+  selectedValue: PropTypes.string,
+  feedTime: PropTypes.string,
+  selectedMonth: PropTypes.func,
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired
+};
+
+export default WalletActivityHeader;

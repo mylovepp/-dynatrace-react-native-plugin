@@ -1,0 +1,68 @@
+import React, { PureComponent } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, Image } from "react-native";
+import { Navigation } from "react-native-navigation";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { ViewContainer } from "../../../components";
+import { WixScreenTearingWorkaround } from "../../../modules/navigation/defaultStyle";
+
+const marginOS = () => {
+  return Platform.OS === "ios" ? -6 : 15;
+};
+
+const Container = styled(ViewContainer)`
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+`;
+
+export const StickyWrapper = styled.View`
+  position: absolute;
+  left: ${props => (props.left != null ? `${props.left}px` : "auto")};
+  right: ${props => (props.right != null ? `${props.right}px` : "auto")};
+  bottom: ${props => props.bottom || 0}px;
+  margin-bottom: ${props => props.marginBottom || 0}px;
+`;
+
+export const FloatWrapper = styled.View`
+  position: absolute;
+  left: ${props => props.left || 0}px;
+  top: ${props => (props.top || 0) + WixScreenTearingWorkaround.paddingTop + marginOS()}px;
+  margin-top: ${props => props.marginTop || 0}px;
+`;
+
+export const TutorialImage = styled(Image).attrs({})`
+  width: ${props => props.width || 0}px;
+  height: undefined;
+`;
+
+export const closeTutorial = () => {
+  Navigation.dismissAllModals({ animationType: "none" });
+};
+
+class WalletTutorial extends PureComponent {
+  render = () => {
+    const { children, onPress } = this.props;
+
+    return (
+      <TouchableWithoutFeedback onPress={onPress}>
+        <Container>{children}</Container>
+      </TouchableWithoutFeedback>
+    );
+  };
+}
+
+WalletTutorial.defaultProps = {
+  children: null,
+  onPress: () => {}
+};
+
+WalletTutorial.propTypes = {
+  children: PropTypes.arrayOf(PropTypes.element),
+  onPress: PropTypes.func
+};
+
+export default WalletTutorial;

@@ -1,0 +1,129 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { Platform } from "react-native";
+import I18n from "react-native-i18n";
+import { connect } from "react-redux";
+import styled from "styled-components/native";
+import { Display3, Icon, TextButtonS } from "../../components-2";
+import NavbarArrowLeftButton from "../../components/navbar/ArrowLeftButton";
+import { HELP_BUTTON_CLICK_SCREEN } from "../../modules/analytics/analytics-constants";
+import { trackEvent } from "../../modules/analytics/AnalyticsService";
+import { helpContacts as helpContactsAction } from "../../redux/onboarding/onboarding-actions";
+
+const NavBarContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  margin-right: ${props => (Platform.OS === "ios" ? 0 : props.theme.spacingMedium)};
+`;
+const TitleContainer = styled.View`
+  flex: 3;
+  justify-content: center;
+`;
+const BackButtonContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+`;
+const HelpButtonContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: flex-end;
+`;
+const TitleHeader = styled(Display3)`
+  text-align: center;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+const HelpRightButton = styled(TextButtonS)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const NavbarArrowLeftButtonAndroid = styled(Icon).attrs(props => ({
+  name: "arrow-left",
+  color: props.theme.ctaPurple,
+  size: "icon16"
+}))``;
+
+function HelpButtonNavbar(props) {
+  const {
+    isShowBackButton,
+    onPressBack,
+    screenName,
+    errorCode,
+    helpContacts,
+    isRegistration,
+    navBarTitle
+  } = props;
+  let title = "Registration.SignUp.Title";
+  if (isRegistration) {
+    title = "Registration.SignUp.Register";
+  }
+
+  const onPressHelp = () => {
+    helpContacts();
+    const parameter = {
+      screen_name: screenName
+    };
+    if (errorCode) {
+      parameter.error_code = errorCode;
+    }
+    trackEvent(HELP_BUTTON_CLICK_SCREEN, parameter);
+  };
+
+  const pressBackHandler = () => {
+    onPressBack();
+  };
+
+  const BackButton = () => {
+    return Platform.OS === "ios" ? (
+      <NavbarArrowLeftButton buttonOnPress={pressBackHandler} />
+    ) : (
+      <TouchableOpacity onPress={pressBackHandler}>
+        <NavbarArrowLeftButtonAndroid />
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <NavBarContainer>
+      <BackButtonContainer>{isShowBackButton && <BackButton />}</BackButtonContainer>
+      <TitleContainer>
+        <TitleHeader>{navBarTitle || I18n.t(title)}</TitleHeader>
+      </TitleContainer>
+      <HelpButtonContainer>
+        <TouchableOpacity onPress={onPressHelp}>
+          <HelpRightButton>{I18n.t("Onboarding.HelpContact.NavButton")}</HelpRightButton>
+        </TouchableOpacity>
+      </HelpButtonContainer>
+    </NavBarContainer>
+  );
+}
+
+HelpButtonNavbar.defaultProps = {
+  onPressBack: () => {},
+  errorCode: undefined,
+  isRegistration: false,
+  navBarTitle: undefined
+};
+
+HelpButtonNavbar.propTypes = {
+  onPressBack: PropTypes.func,
+  errorCode: PropTypes.string,
+  helpContacts: PropTypes.func.isRequired,
+  screenName: PropTypes.string.isRequired,
+  isShowBackButton: PropTypes.bool.isRequired,
+  isRegistration: PropTypes.bool,
+  navBarTitle: PropTypes.string
+};
+
+const mapDispatchToProps = {
+  helpContacts: helpContactsAction
+};
+
+const mapStateToProps = ({ help }) => ({
+  screenName: help.screenName,
+  screenKey: help.screenKey,
+  errorCode: help.errorCode
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(HelpButtonNavbar);

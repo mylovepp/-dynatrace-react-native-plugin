@@ -1,0 +1,90 @@
+import { View } from "react-native";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import React from "react";
+import PropTypes from "prop-types";
+import { Icon, Header3, Separator } from "../../../../components-2";
+
+const InputContainer = styled.View`
+  margin-top: ${props => props.theme.spacingMedium};
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const AddEditButton = styled(TouchableOpacity)`
+  flex-basis: auto;
+  flex-direction: row;
+  align-items: center;
+  border-width: 1;
+  height: ${props => props.theme.spacingLarge};
+  padding-horizontal: ${props => props.theme.spacingXSmall};
+  border-color: ${props => props.theme.radioItemSelectedButton};
+  border-radius: 30;
+`;
+
+const EditIcon = styled(Icon).attrs(props => ({
+  name: "pencil",
+  size: "icon16",
+  color: props.theme.iconMobilePinCode
+}))``;
+
+const AddIcon = styled(Icon).attrs(props => ({
+  name: "nudge-plus",
+  size: "icon16",
+  color: props.theme.iconMobilePinCode
+}))``;
+
+const AddEditText = styled(Header3)`
+  font-size: ${props => props.theme.spacingSmall};
+  color: ${props => props.theme.radioItemSelectedButton};
+  margin-left: ${props => props.theme.spacingXXSmall};
+`;
+
+const AddressTextContainer = styled.View`
+  flex: 1;
+  max-width: 80%;
+`;
+
+const AddressDivider = styled(Separator)`
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const Address = props => {
+  const { title, address, onButtonPress, hasDivider = true } = props;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <InputContainer>
+        <Header3>{title}</Header3>
+        {address ? (
+          <AddEditButton onPress={onButtonPress}>
+            <EditIcon />
+            <AddEditText>{i18n.t("Onboarding.Address.EditButton")}</AddEditText>
+          </AddEditButton>
+        ) : (
+          <AddEditButton onPress={onButtonPress}>
+            <AddIcon />
+            <AddEditText>{i18n.t("Onboarding.Address.AddButton")}</AddEditText>
+          </AddEditButton>
+        )}
+      </InputContainer>
+      {address && <AddressTextContainer>{address}</AddressTextContainer>}
+      {hasDivider ? <AddressDivider /> : null}
+    </View>
+  );
+};
+
+export default Address;
+
+Address.defaultProps = {
+  address: null,
+  hasDivider: true
+};
+
+Address.propTypes = {
+  title: PropTypes.string.isRequired,
+  address: PropTypes.node,
+  onButtonPress: PropTypes.func.isRequired,
+  hasDivider: PropTypes.bool
+};

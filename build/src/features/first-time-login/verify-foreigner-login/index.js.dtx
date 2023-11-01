@@ -1,0 +1,150 @@
+import React, { useState, useMemo } from "react";
+import { TouchableOpacity, TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, ScrollView } from "react-native";
+import styled, { useTheme } from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import {
+  PrimaryButton,
+  ViewContainer,
+  SectionBackground,
+  NavigationBar,
+  TextButtonL,
+  ComboTabs
+} from "../../../components-2";
+import ForeignerRegister from "./foreigner-register";
+import AlienRegister from "./alien-register";
+import { PASSPORT, getTabsSelectList } from "./constant";
+
+const HeaderContainer = styled(SectionBackground)`
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const ContentContainer = styled.View`
+  padding-bottom: ${props => props.theme.spacingSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const LoginButton = styled(PrimaryButton)`
+  margin: ${props => props.theme.spacingMedium};
+`;
+
+export const ForeignerButton = styled(TouchableOpacity)`
+  flex-direction: row;
+  justify-content: flex-end;
+  padding: ${props => props.theme.spacingMedium};
+  align-items: center;
+`;
+
+export const ForeignButtonText = styled(TextButtonL)`
+  color: ${props => props.theme.ctaPurple};
+  margin-right: ${props => props.theme.spacingXSmall};
+`;
+
+const initState = {
+  idNumber: null,
+  countryCode: null,
+  birthDate: null,
+  cardType: PASSPORT
+};
+
+const VerifyForeignerLogin = props => {
+  const {
+    title,
+    buttonLabel,
+    headerDescription,
+    isShowBottomRadius,
+    onSubmit,
+    navigator,
+    isForgotPin
+  } = props;
+
+  const [state, setState] = useState(initState);
+  const theme = useTheme();
+
+  const isDisabled = useMemo(() => {
+    return state.cardType === PASSPORT
+      ? state.idNumber === null ||
+      state.countryCode === null ||
+      (isForgotPin && state.birthDate === null)
+      : state.idNumber === null || (isForgotPin && state.birthDate === null);
+  }, [state]);
+
+  const handleTabChange = id => setState({ ...initState, cardType: id });
+  const handleChange = (type, value) => setState({ ...state, [type]: value });
+
+  return (
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <ViewContainer variant="light">
+        <NavigationBar
+          title={title}
+          onPressBackButton={() => navigator.pop()}
+          isShowBottomRadius={isShowBottomRadius}
+        />
+        <ScrollView>
+          <HeaderContainer>
+            {headerDescription}
+            <ContentContainer>
+              <ComboTabs
+                tabBackgroundColor={{ selected: theme.ctaPurple }}
+                tabTextColor={{ selected: theme.textReversedColor, normal: theme.textNewGreyDark }}
+                selectedTab={state.cardType}
+                tabs={getTabsSelectList()}
+                onTabPress={id => handleTabChange(id)}
+              />
+            </ContentContainer>
+          </HeaderContainer>
+          {state.cardType === PASSPORT ? (
+            <ForeignerRegister
+              isForgotPin={isForgotPin}
+              data={state}
+              onIdNumberChange={value => handleChange("idNumber", value)}
+              onCountryChange={value => handleChange("countryCode", value)}
+              onBirthDateChange={value => handleChange("birthDate", value)}
+            />
+          ) : (
+            <AlienRegister
+              isForgotPin={isForgotPin}
+              data={state}
+              onIdNumberChange={value => handleChange("idNumber", value)}
+              onBirthDateChange={value => handleChange("birthDate", value)}
+            />
+          )}
+        </ScrollView>
+        <LoginButton
+          label={buttonLabel || I18n.t("Login.VerifyForeignerLogin.SubmitButton")}
+          onPress={() => onSubmit(state)}
+          size="large"
+          disable={isDisabled}
+          accessible
+          accessibilityLabel="checkForeignerButton"
+        />
+      </ViewContainer>
+    </TouchableWithoutFeedback>
+  );
+};
+
+VerifyForeignerLogin.defaultProps = {
+  title: null,
+  buttonLabel: "",
+  headerDescription: null,
+  isShowBottomRadius: true,
+  isForgotPin: false
+};
+
+VerifyForeignerLogin.propTypes = {
+  title: PropTypes.string,
+  buttonLabel: PropTypes.string,
+  headerDescription: PropTypes.node,
+  isShowBottomRadius: PropTypes.bool,
+  onSubmit: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  isForgotPin: PropTypes.bool
+};
+
+export default VerifyForeignerLogin;

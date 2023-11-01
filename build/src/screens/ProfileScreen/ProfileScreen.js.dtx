@@ -1,0 +1,678 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity, TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
+import { SvgXml } from "react-native-svg";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { openCISSSOWebView } from "@invx/modules/navigation";
+import { pushNextScreen } from "@invx/redux/login/utils";
+import { getConfig } from "@invx/config";
+import { TouchableOpacityDebounced, ViewContainer } from "../../components";
+import {
+  Body3,
+  BottomModal,
+  Display3,
+  Header1,
+  Header2,
+  PrimaryButton,
+  Icon,
+  TextOverlineM,
+  SVGIcon
+} from "../../components-2";
+import MoreOptions from "../../features/more-options";
+import {
+  CONTACT_US_BUTTON,
+  CONTACT_US_PAGE,
+  HELP_AND_SUPPORT_BUTTON,
+  HELP_AND_SUPPORT_PAGE,
+  PRIVACY_SETTING_BUTTON,
+  PRIVACY_SETTING_PAGE,
+  SETTING_BUTTON,
+  SETTING_PAGE,
+  THEME_PREVIEW_PAGE,
+  MY_STATEMENT_PAGE,
+  MY_STATEMENT_BUTTON,
+  TUTORIAL_REPLAY_BUTTON,
+  TUTORIAL_REPLAY_PAGE
+} from "../../modules/analytics/analytics-constants";
+import { trackCurrentScreen, trackEvent } from "../../modules/analytics/AnalyticsService";
+import { pointToInvestNavigatorStyle } from "../../modules/navigation/defaultStyle";
+import {
+  ACCOUNT_SCREEN_ID,
+  CONTACT_US_SCREEN_ID,
+  HELP_AND_SUPPORT_SCREEN_ID,
+  MY_STATEMENT_SCREEN_ID,
+  POINT_SCREEN_ID,
+  PRIVACY_SETTING_SCREEN_ID,
+  SETTINGS_SCREEN_ID,
+  THEME_PREVIEW_MAIN_SCREEN_ID,
+  TUTORIAL_REPLAY_SCREEN_ID
+} from "../../redux/navigation/navigation-constants";
+import UnderConstruction from "../../../assets/images/under-construction/UnderConstruction.png";
+import userCircle from "../../../assets/images/icon/user-circle.svg";
+import switchIcon from "../../../assets/images/icon/switch.svg";
+import theme from "../../theme";
+import { getCredentialData } from "../../modules/biometric";
+
+/** ******************************************* */
+// Styles utils
+/** ******************************************* */
+
+/** ******************************************* */
+// Styles
+/** ******************************************* */
+
+const RootContainer = styled(ViewContainer).attrs({
+  variant: "light"
+})``;
+
+const MenuIcon = styled(Icon).attrs(props => ({
+  name: props.name,
+  color: props.disabled ? props.theme.contentColorDisabled : props.theme.contentColorMedium
+}))``;
+
+const Container = styled.View(props => ({
+  flexDirection: "column",
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXSmallValue * 13}px`
+      : `${props.theme.spacingXSmallValue}px`,
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  ...(!props.hideRadius
+    ? {
+        borderBottomLeftRadius: props.theme.spacingMedium,
+        borderBottomRightRadius: props.theme.spacingMedium
+      }
+    : {}),
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const HeaderContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center"
+}));
+
+const RiskLevelContainer = styled.View(props => ({
+  flexDirection: "row",
+  alignItems: "center",
+  minHeight: 87,
+  backgroundColor: props.theme.backgroundWhite,
+  marginTop: `-${props.theme.spacingMediumLarge}`,
+  marginLeft: props.theme.spacingMedium,
+  marginRight: props.theme.spacingMedium,
+  padding: `${props.theme.spacingXSmallValue + 1}px ${props.theme.spacingMedium}`,
+  boxShadow: "0px 2px 2px rgba(223, 219, 236, 0.3)",
+  borderWidth: 1,
+  borderColor: "#EAEAEA",
+  borderRadius: props.theme.spacingXSmall
+}));
+
+const LeftColumn = styled.View(() => ({
+  flex: 4
+}));
+
+const CenterColumn = styled.View(() => ({
+  flex: 1,
+  alignItems: "center"
+}));
+
+const RightColumn = styled.View(() => ({
+  flex: 4
+}));
+
+const HeaderTitle = styled(Header1).attrs()(props => ({
+  textAlign: "center",
+  width: "100%",
+  marginLeft: props.isBack ? "-24px" : "0px"
+}));
+
+const BackIcon = styled(Icon).attrs(props => ({
+  color: props.iconColor ? props.iconColor : props.theme.ctaPurple,
+  size: "icon24",
+  name: "chevron-left-2"
+}))``;
+
+const Stick = styled.View(() => ({
+  width: 63,
+  height: 0,
+  border: "0.7px solid #E8E8E8",
+  transform: "rotate(90deg)",
+  flex: "none",
+  flexGrow: 0
+}));
+
+const SvgContainer = styled.View(() => ({
+  marginTop: 4
+}));
+
+const ProfileContainer = styled.View(props => ({
+  flexDirection: "row",
+  paddingVertical: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingSmall,
+  marginVertical: props.theme.spacingMedium,
+  borderRadius: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundLightColor,
+  alignItems: "center"
+}));
+
+const RiskContainer = styled.View(props => ({
+  flexDirection: "row",
+  paddingTop: props.theme.spacingXSmallValue
+}));
+
+const NavContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "flex-end",
+  marginTop: -20
+}));
+
+const ErrorContainer = styled.View`
+  flex: 1;
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const ImageContainer = styled.View`
+  margin-top: 20px;
+`;
+
+const UnderConstructionImage = styled.Image.attrs(() => ({
+  source: UnderConstruction
+}))`
+  width: 182px;
+  height: 78px;
+`;
+
+const HeaderText = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const ButtonContainer = styled.View`
+  width: 100%;
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+export const SwitchButton = styled(TouchableOpacityDebounced).attrs({})`
+  flex-direction: row;
+  justify-content: flex-end;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  align-items: center;
+  flex: 3;
+`;
+
+export const SwitchButtonText = styled(Body3)`
+  color: ${props => props.theme.scbSecondaryBlue};
+`;
+
+export const ProfileName = styled(Header2)`
+  flex: 4;
+`;
+
+const ProfileScreen = props => {
+  const [refreshOnceTime, setRefreshOnceTime] = useState(0);
+  const [userFirstName, setUserFirstName] = useState(null);
+  const [backButton, setBackButton] = useState(false);
+
+  const { navigator, isFreemiumMode, userInfo, onWrapperPress, isBack, loggedIn } = props;
+
+  useEffect(() => {
+    if (!isFreemiumMode) {
+      props.fetchInitialPoint();
+      const { deeplinkParam } = props;
+      if (deeplinkParam.redirectScreen === "pointToInvest") {
+        setBackButton(true);
+        setTimeout(() => {
+          onPressViewPoint({ deeplinkParam });
+        }, 300);
+      }
+    }
+
+    (async () => {
+      const credentials = await getCredentialData().then();
+      if (credentials) {
+        const { thaiName, engName } = credentials;
+        if (!!thaiName && !!engName) {
+          setUserFirstName(thaiName.firstName || engName.firstName);
+        } else if (!!userInfo?.firstNameTH && !!userInfo?.firstName) {
+          setUserFirstName(userInfo?.firstNameTH || userInfo?.firstName);
+        }
+      }
+    })();
+  }, [userInfo]);
+
+  const viewMenu = ({
+    screenName = "",
+    title = "",
+    passProps = {},
+    tabBarHidden = false,
+    navStyle
+  }) => {
+    navigator.push({
+      screen: screenName,
+      title,
+      passProps,
+      backButtonTitle: "",
+      navigatorStyle: {
+        tabBarHidden,
+        ...navStyle
+      }
+    });
+  };
+
+  if (props.pointToInvestX && !props.pointError && !props.pointLoading && refreshOnceTime === 1) {
+    setRefreshOnceTime(0);
+  }
+
+  const menuList = [
+    {
+      name: "MY_STATEMENT",
+      label: i18n.t("Profile.MyStatement.Title"),
+      testID: "SETTINGS",
+      icon: <MenuIcon name="my-statement" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        trackEvent(MY_STATEMENT_BUTTON);
+        trackCurrentScreen(MY_STATEMENT_PAGE);
+        viewMenu({
+          screenName: MY_STATEMENT_SCREEN_ID,
+          title: i18n.t("Profile.MyStatement.Title"),
+          passProps: { screenId: MY_STATEMENT_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "MY_ACCOUNT",
+      label: i18n.t("MyAccount.Title"),
+      testID: "MY_ACCOUNT",
+      icon: <MenuIcon name="my-accounts" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        viewMenu({
+          screenName: ACCOUNT_SCREEN_ID,
+          title: i18n.t("MyAccount.Title"),
+          passProps: { screenId: ACCOUNT_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "MY_POINT",
+      label: i18n.t("MyPoint.Title"),
+      testID: "MY_POINT",
+      icon: <MenuIcon name="wishlist" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        viewMenu({
+          screenName: POINT_SCREEN_ID,
+          title: i18n.t("MyPoint.Title"),
+          passProps: {
+            screenId: POINT_SCREEN_ID,
+            pointError: props.pointError,
+            pointToInvestX: props.pointToInvestX.toLocaleString("en-US")
+          },
+          tabBarHidden: true,
+          navStyle: pointToInvestNavigatorStyle
+        });
+      }
+    },
+    {
+      name: "SUBMIT_SUIT_KYC",
+      label: i18n.t("Profile.UpdateKYC.Title"),
+      testID: "SUBMIT_SUIT_KYC",
+      icon: <MenuIcon name="submit-suit-kyc" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        // trackEvent(MY_STATEMENT_BUTTON);
+        // trackCurrentScreen(MY_STATEMENT_PAGE);
+        openCISSSOWebView();
+      }
+    },
+    {
+      name: "SETTINGS",
+      label: i18n.t("Settings.Title"),
+      testID: "SETTINGS",
+      icon: <MenuIcon name="setting-2" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        trackEvent(SETTING_BUTTON);
+        trackCurrentScreen(SETTING_PAGE);
+        viewMenu({
+          screenName: SETTINGS_SCREEN_ID,
+          title: i18n.t("Settings.Title"),
+          passProps: { screenId: SETTINGS_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "PRIVACY_SETTING",
+      label: i18n.t("Profile.PrivacySetting.Title"),
+      testID: "PRIVACY_SETTING",
+      icon: <MenuIcon name="privacy-policy" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        trackEvent(PRIVACY_SETTING_BUTTON);
+        trackCurrentScreen(PRIVACY_SETTING_PAGE);
+        viewMenu({
+          screenName: PRIVACY_SETTING_SCREEN_ID,
+          title: i18n.t("Profile.PrivacySetting.Title"),
+          passProps: { screenId: PRIVACY_SETTING_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "HELP_SUPPORT",
+      label: i18n.t("Profile.HelpAndSupport.Title"),
+      testID: "HELP_SUPPORT",
+      icon: <MenuIcon name="question-mark" size="icon24" />,
+      onPress: () => {
+        trackEvent(HELP_AND_SUPPORT_BUTTON);
+        trackCurrentScreen(HELP_AND_SUPPORT_PAGE);
+        viewMenu({
+          screenName: HELP_AND_SUPPORT_SCREEN_ID,
+          title: i18n.t("Profile.HelpAndSupport.Title"),
+          passProps: { screenId: HELP_AND_SUPPORT_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "TUTORIAL_REPLAY",
+      label: i18n.t("Profile.TutorialReplay.Title"),
+      testID: "TUTORIAL_REPLAY",
+      icon: <SVGIcon name="TutorialReplayProfile" size="icon24" disabled={isFreemiumMode} />,
+      disabled: isFreemiumMode,
+      onPress: () => {
+        trackEvent(TUTORIAL_REPLAY_BUTTON);
+        trackCurrentScreen(TUTORIAL_REPLAY_PAGE);
+        viewMenu({
+          screenName: TUTORIAL_REPLAY_SCREEN_ID,
+          title: i18n.t("Profile.TutorialReplay.Title"),
+          passProps: { screenId: TUTORIAL_REPLAY_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    },
+    {
+      name: "CONTACT_US",
+      label: i18n.t("ContactUs.Title"),
+      testID: "CONTACT_US",
+      icon: <MenuIcon name="info-2" size="icon24" />,
+      onPress: () => {
+        trackEvent(CONTACT_US_BUTTON);
+        trackCurrentScreen(CONTACT_US_PAGE);
+        viewMenu({
+          screenName: CONTACT_US_SCREEN_ID,
+          title: i18n.t("ContactUs.Title"),
+          passProps: { screenId: CONTACT_US_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    }
+  ];
+
+  if (__DEV__) {
+    menuList.push({
+      name: "THEME_PREVIEW",
+      label: "Theme Preview",
+      testID: "THEME_PREVIEW",
+      icon: <MenuIcon name="info-2" size="icon24" />,
+      onPress: () => {
+        trackEvent(CONTACT_US_BUTTON);
+        trackCurrentScreen(THEME_PREVIEW_PAGE);
+        viewMenu({
+          screenName: THEME_PREVIEW_MAIN_SCREEN_ID,
+          title: "Theme Preview",
+          passProps: { screenId: THEME_PREVIEW_MAIN_SCREEN_ID },
+          tabBarHidden: true
+        });
+      }
+    });
+  }
+
+  const riskLevelIconMapping = user => {
+    switch (user.riskLevel) {
+      case 1:
+        return "VeryLow";
+      case 2:
+        return "Low";
+      case 3:
+        return "Medium";
+      case 4:
+        return "High";
+      case 5:
+        return "VeryHigh";
+      default:
+        return "";
+    }
+  };
+
+  const onPressViewPoint = (options = {}) => {
+    viewMenu({
+      screenName: POINT_SCREEN_ID,
+      title: i18n.t("MyPoint.Title"),
+      passProps: {
+        screenId: POINT_SCREEN_ID,
+        fetchInitialPoint: props.fetchInitialPoint,
+        pointError: props.pointError,
+        pointToInvestX: props.pointToInvestX.toLocaleString("en-US"),
+        ...options
+      },
+      tabBarHidden: true,
+      navStyle: pointToInvestNavigatorStyle
+    });
+  };
+
+  const formatPoint = point => {
+    if (point || point === 0) {
+      if (point >= 10000000) {
+        if (point < 1e3) {
+          return point.toLocaleString("en-US");
+        }
+        if (point >= 1e3 && point < 1e6) {
+          return `${(+(point / 1e3).toFixed(1)).toLocaleString("en-US")}K`;
+        }
+        if (point >= 1e6) {
+          const number = `${(+(point / 1e3)).toLocaleString("en-US")}`;
+          const preparePoint = number.split(".", 1);
+          return `${preparePoint}K`;
+        }
+      }
+      return point.toLocaleString("en-US");
+    }
+    return point || "";
+  };
+
+  const gotoSwitchAccountScreen = () => {
+    pushNextScreen({ screen: "switchAccountScreen" });
+  };
+
+  const profile = () => {
+    return (
+      <Container hideRadius={isFreemiumMode && !loggedIn}>
+        <HeaderContainer>
+          {(isBack || backButton) && (
+            <TouchableOpacity
+              accessibilityLabel="btnBack"
+              testID="btnBack"
+              style={{ zIndex: 1 }}
+              onPress={() => navigator.pop()}
+            >
+              <BackIcon />
+            </TouchableOpacity>
+          )}
+          <TouchableWithoutFeedback
+            accessibilityLabel="btnProfile"
+            testID="btnProfile"
+            onPress={onWrapperPress}
+          >
+            <HeaderTitle isBack={isBack}>
+              <Display3>{i18n.t("Profile.Title")}</Display3>
+            </HeaderTitle>
+          </TouchableWithoutFeedback>
+        </HeaderContainer>
+        {!!userFirstName && (
+          <ProfileContainer>
+            <SvgXml xml={userCircle} />
+            <ProfileName variant="black" style={{ marginLeft: 5 }} numberOfLines={1}>
+              {i18n.t("Profile.Welcome.Greeting", {
+                name: userFirstName
+              })}
+            </ProfileName>
+            {getConfig().NUMBER_OF_SWITCH_USER > 1 && (
+              <SwitchButton onPress={gotoSwitchAccountScreen}>
+                <SwitchButtonText>{i18n.t("Profile.SwitchAccount.Button")}</SwitchButtonText>
+                <SvgXml xml={switchIcon} />
+              </SwitchButton>
+            )}
+          </ProfileContainer>
+        )}
+      </Container>
+    );
+  };
+
+  const profileBanner = () => {
+    return (
+      <>
+        {!isFreemiumMode && userInfo && (
+          <RiskLevelContainer>
+            <LeftColumn>
+              <Body3 variant="black">{i18n.t("Profile.PointToInvest.Risk")}</Body3>
+              <RiskContainer>
+                {userInfo.riskLevel && userInfo.riskLevel !== "" && (
+                  <SVGIcon name={riskLevelIconMapping(userInfo)} size="icon24" />
+                )}
+                <Header2 variant="black" style={{ marginLeft: 5 }}>
+                  {userInfo.riskLevel && userInfo.riskLevel !== ""
+                    ? i18n.t("Profile.Welcome.RiskLevel", { riskLevel: userInfo.riskLevel })
+                    : i18n.t("Profile.Welcome.WaitingRiskLevel")}
+                </Header2>
+              </RiskContainer>
+            </LeftColumn>
+            <CenterColumn>
+              <Stick />
+            </CenterColumn>
+            <RightColumn>
+              <TouchableOpacityDebounced
+                onPress={onPressViewPoint}
+                disabled={props.pointError && refreshOnceTime === 0}
+              >
+                <Body3 variant="black">{i18n.t("Profile.PointToInvest.PointInnovestX")}</Body3>
+                <RiskContainer>
+                  {props.pointError && !props.pointLoading ? (
+                    <>
+                      <SvgContainer>
+                        <Icon name="exclamation-circle" size="icon16" color="#E9424A" />
+                      </SvgContainer>
+                      <TextOverlineM variant="error" style={{ marginTop: 3, marginLeft: 5 }}>
+                        {i18n.t("Profile.PointToInvest.Error.Title")}
+                      </TextOverlineM>
+                    </>
+                  ) : (
+                    <>
+                      <SvgContainer>
+                        <SVGIcon name="PointBlue" size="icon16" />
+                      </SvgContainer>
+                      <Header2 variant="black" style={{ marginLeft: 5 }}>
+                        {formatPoint(props.pointToInvestX)}
+                      </Header2>
+                    </>
+                  )}
+                  {props.pointLoading && <Body3 variant="black">Loading ...</Body3>}
+                </RiskContainer>
+
+                <NavContainer>
+                  <Icon name="chevron-right-2" size="icon24" color={theme.textSubduedColor} />
+                </NavContainer>
+              </TouchableOpacityDebounced>
+            </RightColumn>
+          </RiskLevelContainer>
+        )}
+      </>
+    );
+  };
+
+  const bottomModal = () => {
+    return (
+      <>
+        {!isFreemiumMode &&
+          userInfo &&
+          props.pointError &&
+          !props.pointLoading &&
+          refreshOnceTime === 0 && (
+            <BottomModal isVisible={props.pointError && !props.pointLoading}>
+              <ErrorContainer>
+                <ImageContainer>
+                  <UnderConstructionImage />
+                </ImageContainer>
+                <HeaderText>{i18n.t("Profile.PointToInvest.Error.Title3")}</HeaderText>
+                <ButtonContainer>
+                  <PrimaryButton
+                    size="large"
+                    label={i18n.t("Profile.PointToInvest.Refresh")}
+                    onPress={() => {
+                      setRefreshOnceTime(1);
+                      props.fetchInitialPoint();
+                    }}
+                  />
+                </ButtonContainer>
+              </ErrorContainer>
+            </BottomModal>
+          )}
+      </>
+    );
+  };
+
+  return (
+    <RootContainer>
+      {profile()}
+      {profileBanner()}
+      <MoreOptions isBack={isBack} navigator={navigator} menuList={menuList} />
+      {bottomModal()}
+    </RootContainer>
+  );
+};
+
+ProfileScreen.defaultProps = {
+  userInfo: {},
+  isBack: false,
+  pointToInvestX: "",
+  pointError: false,
+  pointLoading: false,
+  loggedIn: false,
+  deeplinkParam: {
+    redirectScreen: "",
+    channelOrCampaign: "",
+    inApp: false
+  }
+};
+
+ProfileScreen.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func,
+    pop: PropTypes.func
+  }).isRequired,
+  userInfo: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  pointToInvestX: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  pointLoading: PropTypes.bool,
+  pointError: PropTypes.bool,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  onWrapperPress: PropTypes.func.isRequired,
+  isBack: PropTypes.bool,
+  fetchInitialPoint: PropTypes.func.isRequired,
+  loggedIn: PropTypes.bool,
+  deeplinkParam: PropTypes.shape({
+    redirectScreen: PropTypes.string,
+    channelOrCampaign: PropTypes.string,
+    inApp: PropTypes.bool
+  })
+};
+
+export default ProfileScreen;

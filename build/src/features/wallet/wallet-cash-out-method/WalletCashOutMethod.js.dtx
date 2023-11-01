@@ -1,0 +1,138 @@
+import React, { Component } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Body2, Body3 } from "../../../components-2";
+import RadioButton from "../../../components-2/button/RadioButton";
+import { CHO_PERIOD, CHO_REAL_TIME } from "../wallet-utils/wallet-utils-constants";
+import Section from "../../wallet/wallet-section";
+
+const RadioSelectionForm = styled(View)`
+  background-color: ${props => props.theme.backgroundWhite};
+  margin-left: ${props => props.theme.spacingXSmall};
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const TitleLabel = styled(Body2)`
+  margin-left: ${props => props.theme.spacingXSmall};
+`;
+
+const SubLabel = styled(Body3)`
+  margin-left: ${props => props.theme.spacingXSmall};
+  color: ${prop => prop.theme.contentColorHigh};
+`;
+
+const SelectorContainer = styled(View)`
+  flex-direction: row;
+  padding: ${props => props.theme.spacingSmall};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+  border: 2px ${props => (props.isSelected ? props.theme.ctaPurple : props.theme.contentColorLight)};
+  border-radius: ${props => props.theme.spacingXSmall};
+`;
+
+const RadioContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RadioLabelContainer = styled(View)`
+  flex-direction: column;
+  align-items: flex-start;
+`;
+
+class WalletCashOutMethod extends Component {
+  onPressNoFee = () => {
+    const { onChange, disableNoFee } = this.props;
+    if (disableNoFee) { return; }
+    onChange(CHO_PERIOD);
+  };
+
+  onPressRealTime = () => {
+    const { onChange, disableRT } = this.props;
+    if (disableRT) { return; }
+    onChange(CHO_REAL_TIME);
+  };
+
+  renderNoFee = () => {
+    const { disableNoFee, currentKind } = this.props;
+    const params = {
+      objValue: CHO_PERIOD,
+      label: I18n.t("Wallet.Cashout.NoFee.Label"),
+      subLabel: I18n.t("Wallet.Cashout.NoFee.Fee"),
+      onPress: () => this.onPressNoFee(),
+      isSelect: currentKind === CHO_PERIOD,
+      disable: disableNoFee
+    };
+
+    return this.renderRadioButton(params);
+  };
+
+  renderRealTime = () => {
+    const { feeAmt, disableRT, currentKind } = this.props;
+    const params = {
+      objValue: CHO_REAL_TIME,
+      label: I18n.t("Wallet.Cashout.RealTime.Label"),
+      subLabel: I18n.t("Wallet.Cashout.RealTime.Fee", { fee: feeAmt }),
+      onPress: () => this.onPressRealTime(),
+      isSelect: currentKind === CHO_REAL_TIME,
+      disable: disableRT
+    };
+
+    return this.renderRadioButton(params);
+  };
+
+  renderRadioButton = params => {
+    return (
+      <TouchableWithoutFeedback onPress={params.onPress}>
+        <SelectorContainer isSelected={params.isSelect}>
+          <RadioContainer>
+            <RadioButton
+              obj={{ value: params.objValue }}
+              isSelected={params.isSelect}
+              disabled={params.disable}
+            />
+            <RadioLabelContainer>
+              <TitleLabel>{params.label}</TitleLabel>
+              <SubLabel>{params.subLabel}</SubLabel>
+            </RadioLabelContainer>
+          </RadioContainer>
+        </SelectorContainer>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  render() {
+    const { title } = this.props;
+    return (
+      <Section title={title} noPadding noTopBorder noBottomBorder noShadowBorder>
+        <RadioSelectionForm>
+          {this.renderNoFee()}
+          {this.renderRealTime()}
+        </RadioSelectionForm>
+      </Section>
+    );
+  }
+}
+
+WalletCashOutMethod.defaultProps = {
+  onChange: () => {},
+  currentKind: "",
+  title: "",
+  feeAmt: "",
+  disableRT: false,
+  disableNoFee: false
+};
+
+WalletCashOutMethod.propTypes = {
+  onChange: PropTypes.func,
+  currentKind: PropTypes.string,
+  title: PropTypes.string,
+  feeAmt: PropTypes.string,
+  disableRT: PropTypes.bool,
+  disableNoFee: PropTypes.bool
+};
+
+export default WalletCashOutMethod;

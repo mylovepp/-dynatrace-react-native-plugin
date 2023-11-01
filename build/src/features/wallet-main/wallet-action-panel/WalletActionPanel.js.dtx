@@ -1,0 +1,67 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Body3, Icon } from "../../../components-2";
+import theme from "../../../theme";
+
+const IconButtonStyle = styled(TouchableOpacity).attrs({
+  activeOpacity: 0.2,
+  underlayColor: "transparent"
+})`
+  flex: 1;
+  align-items: center;
+  flex-direction: column;
+`;
+
+const Label = styled(Body3)`
+  margin-top: ${props => props.theme.spacingXXSmall};
+  text-align: center;
+`;
+
+const Container = styled.View`
+  padding-vertical: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingLarge};
+  flex-direction: row;
+`;
+
+const BackgroundIcon = styled.View`
+  padding: ${props => props.theme.spacingXSmall};
+  border-radius: ${props => props.theme.spacingXXXLarge};
+`;
+
+class WalletActionPanel extends PureComponent {
+  renderActionIcon = () => {
+    const { iconActions } = this.props;
+
+    return iconActions.map(item => {
+      const bgColor = item.disabled ? theme.contentColorDisabled : theme.backgroundSecondaryPurple;
+      const iconColor = item.disabled ? theme.contentColorMedium : theme.contentColorCTAPurple;
+      const textColor = item.disabled ? theme.contentColorMedium : theme.contentColorVeryHigh;
+      return (
+        <IconButtonStyle key={item.key} onPress={item.onPress} disabled={item.disabled}>
+          {item.icon && (
+            <BackgroundIcon style={{ backgroundColor: bgColor }}>
+              <Icon name={item.icon} color={iconColor} size={item.size} />
+            </BackgroundIcon>
+          )}
+          {item.text && (
+            <Label style={{ color: textColor }} accessibilityLabel={`btn-${item.text}`}>
+              {item.text}
+            </Label>
+          )}
+        </IconButtonStyle>
+      );
+    });
+  };
+
+  render() {
+    return <Container>{this.renderActionIcon()}</Container>;
+  }
+}
+
+WalletActionPanel.propTypes = {
+  iconActions: PropTypes.arrayOf().isRequired
+};
+
+export default WalletActionPanel;

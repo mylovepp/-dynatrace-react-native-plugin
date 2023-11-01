@@ -1,0 +1,267 @@
+import React, { useState, useEffect, useLayoutEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, BackHandler, Dimensions } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled, { useTheme } from "styled-components/native";
+
+import { getStatusBarHeight } from "../../../modules/navigation/defaultStyle";
+import {
+  Button,
+  Header1,
+  Header3,
+  Body2,
+  Body3,
+  TextOverlineR,
+  PinNumberInput,
+  ViewContainer,
+  TouchableOpacityDebounced,
+  Icon
+} from "../../../components-2";
+
+const OTP_LENGTH = 6;
+
+const EmailVerificationViewContainer = styled(ViewContainer)`
+  padding-left: ${props => props.theme.spacingMedium};
+  padding-right: ${props => props.theme.spacingMedium};
+  padding-bottom: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.sectionBackgroundColor};
+`;
+
+const getReduceMarginTop = () => {
+  const { height } = Dimensions.get("screen");
+  return height <= 700 ? 50 : 0;
+};
+
+const HeaderContainer = styled.View`
+  align-items: center;
+  margin-top: ${88.5 - getStatusBarHeight() - getReduceMarginTop()};
+`;
+const BodyContainer = styled.View`
+  margin-top: ${props => props.theme.spacingMediumLargeValue};
+  height: 90px;
+`;
+const FooterContainer = styled.View`
+  align-items: center;
+`;
+const HeaderText = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+const DescriptionText = styled(Body2)`
+  text-align: center;
+  color: ${props => props.theme.contentColorHigh};
+`;
+const FooterText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+const ResendContainer = styled.View`
+  flex-direction: row;
+`;
+const ResendLink = styled(Body3)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+const ReferenceText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+const InvalidCode = styled(Header3).attrs({
+  variant: "error"
+})`
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const ContentContainer = styled.View`
+  flex: 1;
+`;
+
+const MarginedButtonView = styled.View`
+  background-color: ${props => props.theme.backgroundLightColor};
+  flex-direction: column;
+  justify-content: flex-end;
+`;
+
+const BackButtonContainer = styled.View`
+  flex-direction: row;
+  justify-content: flex-end;
+  margin: ${props => props.theme.spacingMedium};
+  margin-top: ${getStatusBarHeight()};
+`;
+
+const OTPVerification = props => {
+  const {
+    title,
+    onChangeVerificationCode,
+    submitVerificationCodeText,
+    canSubmitVerificationCode,
+    isRequestingVerificationCode,
+    requestNewCodeText,
+    noResponseText,
+    errorCode,
+    getErrorMessage,
+    instructionalReference,
+    instructionalText,
+    verificationCode,
+    onRequestNewCode,
+    navigator,
+    onSubmitVerificationCode
+  } = props;
+  const [variant, setVariant] = useState("default");
+  const errorMessage = getErrorMessage(errorCode);
+  const theme = useTheme();
+
+  useLayoutEffect(() => {
+    navigator.addOnNavigatorEvent(event => {
+      if (event.id === "willAppear") {
+        // set the code back to empty
+        onChangeVerificationCode("");
+        setVariant("default");
+      }
+    });
+  }, []);
+
+  const onBack = () => {
+    navigator.pop();
+  };
+
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      navigator.setButtons({
+        rightButtons: [
+          {
+            component: "closeButton",
+            id: "close-button",
+            testID: "close_button",
+            passProps: {
+              buttonOnPress: onBack,
+              color: theme.contentColorVeryHigh
+            }
+          }
+        ],
+        animated: true
+      });
+    } else {
+      navigator.setButtons({
+        leftButtons: [{}],
+        animated: true
+      });
+      navigator.setStyle({
+        navBarCustomView: "otpCustomNavbar",
+        navBarCustomViewInitialProps: {
+          onPressBack: onBack,
+          color: theme.contentColorVeryHigh
+        },
+        navBarComponentAlignment: "fill"
+      });
+
+      BackHandler.addEventListener("hardwareBackPress", onBack);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (Platform.OS === "android") {
+        BackHandler.removeEventListener("hardwareBackPress", onBack);
+      }
+    };
+  }, []);
+
+  const onPressSubmitVerificationCode = () => {
+    onSubmitVerificationCode(verificationCode);
+  };
+
+  const onOTPChanged = () => {
+    setVariant("typing");
+  };
+
+  const onPressRequestNewCode = () => {
+    onRequestNewCode();
+    onChangeVerificationCode("");
+  };
+
+  const backToPreviousScreen = () => {
+    navigator.pop();
+  };
+
+  return (
+    <EmailVerificationViewContainer>
+      <ContentContainer>
+        <BackButtonContainer>
+          <TouchableOpacityDebounced onPress={() => backToPreviousScreen(navigator)}>
+            <Icon name="close-2" />
+          </TouchableOpacityDebounced>
+        </BackButtonContainer>
+        <HeaderContainer>
+          <HeaderText>{title}</HeaderText>
+          <DescriptionText>{instructionalText}</DescriptionText>
+        </HeaderContainer>
+
+        <BodyContainer>
+          <PinNumberInput
+            code={verificationCode}
+            codeLength={OTP_LENGTH}
+            onChangeCode={code => {
+              onChangeVerificationCode(code);
+              onOTPChanged();
+            }}
+            variant={errorMessage ? "error" : variant}
+          />
+        </BodyContainer>
+
+        <FooterContainer>
+          {errorMessage && (
+            <InvalidCode>{I18n.t("Onboarding.OTP.Mobile.Reference.Invalid")}</InvalidCode>
+          )}
+          <ResendContainer>
+            <FooterText>{noResponseText}</FooterText>
+            <TouchableOpacity onPress={isRequestingVerificationCode ? null : onPressRequestNewCode}>
+              <ResendLink disable={isRequestingVerificationCode}>{requestNewCodeText}</ResendLink>
+            </TouchableOpacity>
+          </ResendContainer>
+          <ReferenceText>{instructionalReference}</ReferenceText>
+        </FooterContainer>
+      </ContentContainer>
+      <MarginedButtonView>
+        <Button
+          size="large"
+          label={submitVerificationCodeText}
+          onPress={onPressSubmitVerificationCode}
+          disable={!canSubmitVerificationCode}
+          accessibilityLabel={submitVerificationCodeText}
+        />
+      </MarginedButtonView>
+    </EmailVerificationViewContainer>
+  );
+};
+
+export default OTPVerification;
+
+OTPVerification.defaultProps = {
+  onChangeVerificationCode: () => {},
+  onSubmitVerificationCode: () => {},
+  canSubmitVerificationCode: true,
+  isRequestingVerificationCode: false,
+  onRequestNewCode: () => {},
+  errorCode: undefined
+};
+
+OTPVerification.propTypes = {
+  title: PropTypes.string.isRequired,
+  verificationCode: PropTypes.string.isRequired,
+  instructionalText: PropTypes.string.isRequired,
+  instructionalReference: PropTypes.string.isRequired,
+  onChangeVerificationCode: PropTypes.func,
+  getErrorMessage: PropTypes.func.isRequired,
+  submitVerificationCodeText: PropTypes.string.isRequired,
+  onSubmitVerificationCode: PropTypes.func,
+  canSubmitVerificationCode: PropTypes.bool,
+  isRequestingVerificationCode: PropTypes.bool,
+  noResponseText: PropTypes.string.isRequired,
+  requestNewCodeText: PropTypes.string.isRequired,
+  onRequestNewCode: PropTypes.func,
+  errorCode: PropTypes.string,
+  navigator: PropTypes.shape({
+    setButtons: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    addOnNavigatorEvent: PropTypes.func.isRequired
+  }).isRequired
+};

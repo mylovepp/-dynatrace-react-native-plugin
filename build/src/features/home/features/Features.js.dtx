@@ -1,0 +1,264 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useState, useEffect } from "react";
+import { Image } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Body3, SVGIcon, ShortcutIconBadge } from "../../../components-2";
+import { ADVISORY_ONBOARD_INTRODUCTION_SCREEN_ID } from "../../../redux/navigation/navigation-constants";
+import { Feature } from "./feature-constants";
+import { RECOMMENDED, TRACK_FEATURE_ON } from "../../../modules/analytics/analytics-constants";
+import { trackEvent, appsFlyerTrackEvent } from "../../../modules/analytics/AnalyticsService";
+import theme from "../../../theme";
+import { formatUserMode } from "../../../modules/analytics/analytics-utils";
+import { ShortcutMenu } from "../../../redux/home-feature/home-feature-constants";
+import { getDefaultShortcutMenus } from "../../../redux/home-feature/home-feature-service";
+import { withPreventDoublePress } from "../../../modules/hoc";
+import { startTabBasedApp } from "../../../modules/navigation";
+
+const Container = styled.View`
+  padding-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const RowContainer = styled.View(() => ({
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "wrap"
+}));
+
+const FeatureText = styled(Body3)(props => ({
+  textAlign: "center",
+  paddingTop: props.theme.spacingXXSmall
+}));
+
+const FeatureImage = styled(Image)(() => ({
+  width: 48,
+  height: 48
+}));
+
+const FeatureContainer = withPreventDoublePress(
+  styled(TouchableOpacity)(props => ({
+    width: "25%",
+    padding: 0,
+    paddingTop: props.theme.spacingXSmall,
+    justifyContent: "flex-start",
+    alignItems: "center"
+  }))
+);
+
+const Features = props => {
+  const {
+    isFreemiumMode,
+    popupLoginScreen,
+    navigator,
+    getSectionOrderResponse,
+    navigateToDAWalletTab,
+    setAnalyticsTrackChannel,
+    pressFeatureMenu,
+    featureMenuHistory,
+    externalCustomerId,
+    isDigitalAssetAccountExist
+  } = props;
+
+  const { userId } = getSectionOrderResponse?.result || 0;
+
+  const [displayedMenus, setDisplayedMenus] = useState([]);
+
+  const compareSort = (a, b) => (b.isShortcut === true) - (a.isShortcut === true);
+
+  useEffect(() => {
+    const { features } = getSectionOrderResponse?.result || {};
+    const defaultShortcutMenus = getDefaultShortcutMenus();
+    let shortcutMenus = [];
+
+    if (features && features.length > 0) {
+      features.sort(compareSort).forEach(i => {
+        const shortcut = defaultShortcutMenus.filter(i2 => i2.featureName === i.featureName)?.[0];
+        if (shortcut) {
+          let { badgeName } = i;
+          if (featureMenuHistory.items && featureMenuHistory.items.includes(i.featureName)) {
+            badgeName = undefined;
+          }
+          shortcutMenus.push({ ...shortcut, ...i, badgeName });
+        }
+      });
+
+      const featureNames = shortcutMenus.map(i => i.featureName);
+      defaultShortcutMenus
+        .filter(item => !featureNames.includes(item.featureName))
+        .forEach(item => {
+          const index = defaultShortcutMenus.indexOf(item);
+          shortcutMenus.splice(index, 0, { ...item });
+        });
+    } else {
+      shortcutMenus = [...defaultShortcutMenus.sort(compareSort)];
+    }
+
+    const newDisplayedMenus = shortcutMenus.filter(i => i.isShortcut).slice(0, 7);
+    const viewMenuAll = { ...ShortcutMenu.VIEW_MENU_ALL };
+    const otherUserMenu = shortcutMenus.filter(
+      i =>
+        !i.isShortcut &&
+        i.badgeName &&
+        (!featureMenuHistory.items || !featureMenuHistory.items.includes(i.featureName))
+    )[0];
+    if (otherUserMenu) {
+      viewMenuAll.badgeName = otherUserMenu.badgeName;
+    }
+
+    newDisplayedMenus.push(viewMenuAll);
+    setDisplayedMenus(newDisplayedMenus);
+  }, [isFreemiumMode, getSectionOrderResponse, featureMenuHistory]);
+
+  const handleOnPress = item => {
+    switch (item.key) {
+      case Feature.Advisory:
+        navigator.setStyle({
+          navBarBackgroundColor: theme.backgroundSecondaryPurple
+        });
+        navigator.push({
+          title: "ADVISORY INTRODUCTION",
+          screen: ADVISORY_ONBOARD_INTRODUCTION_SCREEN_ID,
+          backButtonTitle: "",
+          navigatorStyle: {
+            tabBarHidden: true,
+            navBarBackgroundColor: theme.backgroundSecondaryPurple
+          }
+        });
+        break;
+      default:
+        if (item.trackEvents) {
+          item.trackEvents.forEach(event => {
+            const allowToTrack = !event.trackOn || event.trackOn === TRACK_FEATURE_ON.HOME_SCREEN;
+            if (event.name && event.feature && allowToTrack) {
+              trackEvent(event.name, {
+                screen_name: event.trackOn,
+                userMode: formatUserMode(isFreemiumMode),
+                externalCustomerId,
+                Feature: event.feature
+              });
+            } else if (event.name && !event.feature) {
+              trackEvent(event.name);
+            }
+          });
+        }
+        if (item.appsFlyerTrackEvents) {
+          item.appsFlyerTrackEvents.forEach(event => {
+            if (event.name) {
+              appsFlyerTrackEvent(event.name);
+            }
+          });
+        }
+        if (item.analyticsTrackChannel) {
+          setAnalyticsTrackChannel(RECOMMENDED);
+        }
+        if (item.requireLogin && isFreemiumMode) {
+          popupLoginScreen();
+          return;
+        }
+        if (item.requireDaAccount && !isDigitalAssetAccountExist) {
+          navigator.push({
+            screen: "digitalAssetsOpenAccountCardScreen",
+            backButtonTitle: ""
+          });
+          return;
+        }
+        if (item.navigateToDAWallet) {
+          navigateToDAWalletTab(item.navigateToDAWallet);
+        }
+        break;
+    }
+    if (item.navigate) {
+      let { title } = item.navigate;
+      if (title) {
+        try {
+          title = i18n.t(title);
+        } catch (err) {
+          title = "";
+        }
+      }
+      navigator.push({ ...item.navigate, title });
+      if (userId) {
+        pressFeatureMenu({ featureName: item.featureName, userId });
+      }
+    }
+    if (item.navigateTab) {
+      startTabBasedApp(item.navigateTab.index, item.navigateTab.propParams);
+      if (userId) {
+        pressFeatureMenu({ featureName: item.featureName, userId });
+      }
+    }
+  };
+
+  const renderIcon = item => {
+    if (item.iconSvg) {
+      return <SVGIcon name={item.iconSvg} size="icon48" />;
+    }
+    return <FeatureImage source={item.icon} />;
+  };
+
+  const renderFeatures = items => {
+    return items.map((item, index) => {
+      return (
+        <FeatureContainer
+          key={index.toString()}
+          onPress={() => handleOnPress(item)}
+          isLast={index === items.length - 1}
+        >
+          {renderIcon(item)}
+          <ShortcutIconBadge
+            badgeName={item.badgeName}
+            badgeMessage={item.badgeMessage}
+            badgeBgColor={item.badgeBgColor}
+          />
+          <FeatureText>{i18n.t(item.label)}</FeatureText>
+        </FeatureContainer>
+      );
+    });
+  };
+
+  return (
+    <Container>
+      <RowContainer>{renderFeatures(displayedMenus)}</RowContainer>
+    </Container>
+  );
+};
+
+Features.propTypes = {
+  isFreemiumMode: PropTypes.bool.isRequired,
+  popupLoginScreen: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    setTitle: PropTypes.func,
+    push: PropTypes.func,
+    pop: PropTypes.func,
+    switchToTab: PropTypes.func,
+    addOnNavigatorEvent: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  getSectionOrderResponse: PropTypes.shape({
+    isFetching: PropTypes.bool,
+    isError: PropTypes.bool,
+    statusCode: PropTypes.string,
+    message: PropTypes.string,
+    result: PropTypes.shape({
+      userId: PropTypes.oneOfType(PropTypes.string, PropTypes.number),
+      features: PropTypes.arrayOf(
+        PropTypes.shape({
+          featureName: PropTypes.string,
+          order: PropTypes.number,
+          isShortcut: PropTypes.bool
+        })
+      )
+    })
+  }).isRequired,
+  navigateToDAWalletTab: PropTypes.func.isRequired,
+  setAnalyticsTrackChannel: PropTypes.func.isRequired,
+  pressFeatureMenu: PropTypes.func.isRequired,
+  featureMenuHistory: PropTypes.shape({
+    items: PropTypes.arrayOf(PropTypes.string)
+  }).isRequired,
+  externalCustomerId: PropTypes.string.isRequired,
+  isDigitalAssetAccountExist: PropTypes.bool.isRequired
+};
+
+export default Features;

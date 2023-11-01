@@ -1,0 +1,78 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+
+import {
+  ViewContainer,
+  Display3,
+  Body1,
+  PrimaryButton,
+  ErrorSevereBanner,
+  TextButtonL
+} from "../../../../../components-2";
+
+const OnboardError = ({ goToDaHomeScreen, goToOnboardLandingScreen = () => {} }) => {
+  return (
+    <>
+      <Container variant="light">
+        <ErrorSevereBanner />
+        <TitleText>{I18n.t("DigitalAssetsFunds.Onboarding.Error.Title")}</TitleText>
+        <BodyText>{I18n.t("DigitalAssetsFunds.Onboarding.Error.Body")}</BodyText>
+      </Container>
+      <Footer>
+        <RetryButton
+          label={I18n.t("DigitalAssetsFunds.Onboarding.Error.Retry")}
+          onPress={goToOnboardLandingScreen}
+        />
+        <RetryLaterButton onPress={goToDaHomeScreen}>
+          <RetryLaterButtonText>
+            {I18n.t("DigitalAssetsFunds.Onboarding.Error.RetryLater")}
+          </RetryLaterButtonText>
+        </RetryLaterButton>
+      </Footer>
+    </>
+  );
+};
+
+export default OnboardError;
+
+OnboardError.propTypes = {
+  goToDaHomeScreen: PropTypes.func.isRequired,
+  goToOnboardLandingScreen: PropTypes.func.isRequired
+};
+
+const Container = styled(ViewContainer).attrs({
+  variant: "light"
+})`
+  justify-content: center;
+  align-items: center;
+  padding: 0px 24px;
+`;
+
+const TitleText = styled(Display3)`
+  margin-top: 32px;
+`;
+
+const BodyText = styled(Body1).attrs(() => ({ textAlign: "center" }))`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const Footer = styled.View`
+  padding: 16px;
+`;
+
+const RetryButton = styled(PrimaryButton).attrs(() => ({
+  size: "large"
+}))``;
+
+const RetryLaterButton = styled(TouchableOpacity)`
+  align-items: center;
+  padding: 11px 0px;
+  margin-bottom: 16px;
+`;
+
+const RetryLaterButtonText = styled(TextButtonL)`'
+  color: ${props => props.theme.contentColorCTAPurple}
+`;

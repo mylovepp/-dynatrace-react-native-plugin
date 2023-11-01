@@ -1,0 +1,971 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { View, Platform } from "react-native";
+import styled from "styled-components/native";
+import _ from "lodash";
+import { BigNumber } from "bignumber.js";
+
+import { validate, findCurrency } from "da-address-validator/dist/wallet-address-validator";
+
+import { ScrollViewContainer } from "../../../components";
+import {
+  coinWithCommas,
+  toRealNumber,
+  getDecDigit,
+  getDecimalValue
+} from "../../../modules/coin-format";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+
+import {
+  Icon,
+  Button,
+  BottomModal,
+  CustomTextInput,
+  MockTextInput,
+  Header3,
+  Display2,
+  Body3,
+  Body2,
+  LoadingIndicator,
+  SectionBackground,
+  ViewContainer
+} from "../../../components-2";
+import PickerRoller from "../../../components-2/picker/PickerRoller";
+import {
+  trackCryptoWithdrawInfoClick,
+  trackCryptoWithdrawInfoSelect
+} from "../../../modules/analytics/analytics-utils";
+import { trackDACurrentScreen } from "../../../modules/analytics/AnalyticsService";
+import { DA_WITHDRAW_PRE_CONFIRM } from "../../../modules/analytics/analytics-constants";
+import {} from "../../../components-2/text/Text";
+
+const onPressWithdraw = (
+  onPressDigitalAssetWithdraw,
+  receiveAmount,
+  receiveAddress,
+  receiveTag,
+  networkSelected,
+  providerId,
+  digitalAssetCode,
+  digitalAssetID,
+  amountBeforeFee,
+  transactionFee,
+  decimalPlaces,
+  maxCoinValidated,
+  iconSvg,
+  isBCP,
+  templateType,
+  tagLabel,
+  dtFieldName
+) => {
+  trackCryptoWithdrawInfoClick(digitalAssetCode, "Review");
+  trackDACurrentScreen(DA_WITHDRAW_PRE_CONFIRM);
+  onPressDigitalAssetWithdraw({
+    receiveAmount,
+    receiveAddress,
+    receiveTag,
+    networkSelected,
+    providerId,
+    digitalAssetCode,
+    digitalAssetID,
+    amountBeforeFee,
+    transactionFee,
+    decimalPlaces,
+    maxCoinValidated,
+    iconSvg,
+    isBCP,
+    templateType,
+    tagLabel,
+    dtFieldName
+  });
+};
+
+const isIOS = () => Platform.OS === "ios";
+
+const BorderLine = styled(View)`
+  background-color: rgb(204, 207, 211);
+  padding-bottom: 1;
+`;
+
+const HeaderInfo = styled(View)`
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  margin-top: 7.8;
+  margin-left: 16;
+  margin-right: 16;
+  margin-bottom: 16;
+  padding-top: 16;
+  padding-left: 16;
+  padding-bottom: 16;
+  padding-right: 16;
+  border-radius: 15;
+`;
+
+const HeaderInfoAmountRow = styled(View)`
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-end;
+  margin-top: ${isIOS() ? 0 : 5};
+`;
+
+const Body = styled(View)`
+  padding-top: 16;
+  padding-left: 16;
+  padding-bottom: 16;
+  padding-right: 16;
+  border-radius: 15;
+`;
+
+const CurvIconContainer = styled(View)`
+  min-width: 25px;
+  flex-direction: row;
+  justify-content: center;
+  text-align: center;
+  margin-right: 16px;
+  padding-top: 5px;
+`;
+
+const CurvText = styled(Body2)`
+  font-size: 15;
+  line-height: 15;
+  color: #0a0b0d;
+`;
+
+const WarningText = styled(Body3)`
+  margin: 24px 2px 2px;
+  font-weight: normal;
+  font-style: normal;
+  text-align: left;
+  color: #7e7e7e;
+`;
+
+const Container = styled(ViewContainer)`
+  flex-direction: column;
+  justify-content: space-between;
+`;
+
+const BodyContainer = styled(ScrollViewContainer)``;
+
+const FooterContainer = styled.View`
+  box-shadow: 0px -2px 7px rgba(223, 219, 236, 0.4);
+  margin: 12px 16px 20px;
+`;
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
+
+const DigitalAssetsSpotWithdraw = ({
+  i18n,
+  availableBalance,
+  balance,
+  digitalAssetCode,
+  onPressDigitalAssetWithdraw,
+  networkInfo,
+  isBCP,
+  accountId,
+  digitalAssetID,
+  getNetworkList,
+  getNetworkFee,
+  networkList,
+  networkFee,
+
+  getWithdrawFee,
+  withdrawFee,
+  getWithdrawTemplate,
+  loadingWithdrawTemplate,
+
+  instruments,
+  getLV1Info,
+  loadingLv1Info,
+  lv1Info,
+  qrCode,
+  iconSvg,
+  decimalPlaces,
+  isLoading,
+
+  getAMLWithdrawAmountCoin,
+  loadingAMLWithdrawAmount,
+  AMLWithdrawAmount,
+
+  getAMLCalDiffPercent,
+  loadingAMLCalDiffPercenAmount,
+  AMLCalDiffPercenAmount,
+  navigator,
+  handleConfirmPress
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoadingBar, setIsLoadingBar] = useState(true);
+
+  const [amount, setAmount] = useState("");
+  const [amountInit, setAmountInit] = useState(true);
+  const [amountValidStat, setAmountValidStat] = useState(false);
+  const [amountValidMsg, setAmountValidMsg] = useState("");
+  const [amountVariant, setAmountVariant] = useState("");
+
+  const [calculatedFee, setCalculatedFee] = useState(0);
+
+  const [address, setAddress] = typeof qrCode === "undefined" ? useState("") : useState(qrCode);
+  const [addressValidStat, setAddressValidStat] =
+    typeof qrCode === "undefined" ? useState(false) : useState(true);
+  const [addressValidMsg, setAddressValidMsg] = useState("");
+  const [addressVariant, setAddressVariant] = useState("");
+
+  const [tag, setTag] = useState("");
+  const [tagValidStat, setTagValidStat] = useState(false);
+
+  const [displayNetworkModal, setDisplayNetworkModal] = useState(false);
+  const [selectedNetwork, setSelectedNetwork] = useState("กรุณาเลือกเครือข่าย");
+  const [networkValidStat, setNetworkValidStat] = useState(false);
+  const [providerId, setProviderId] = useState(-1);
+  const [templateType, setTemplateType] = useState("");
+
+  const [tagLabel, setTagLabel] = useState("");
+  const [dtFieldName, setDtFieldName] = useState("");
+
+  const calBCPWithdrawFee = () => {
+    if (typeof networkFee !== "undefined" && providerId !== -1) {
+      if (networkFee.calType === "FLAT") {
+        setCalculatedFee(networkFee.amount);
+      } else if (networkFee.calType === "PERCENT") {
+        const percentFee = (amount * networkFee.amount) / 100;
+        setCalculatedFee(percentFee);
+      } else {
+        setCalculatedFee(0);
+      }
+    } else {
+      setCalculatedFee(0);
+    }
+  };
+
+  const calreceiveAmount = () => {
+    if (amount > calculatedFee) {
+      const receiveAmount = BigNumber(amount).minus(BigNumber(calculatedFee));
+      return Number(receiveAmount);
+    }
+    return Number(0);
+  };
+
+  // ===================================
+  // TODO: Please move all wording to translation file
+  // ===================================
+
+  const validateAmount = validAmount => {
+    // handle valid here
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+    if (validAmount === 0) {
+      validStat = false;
+      validMsg = "กรุณากรอก จำนวนที่ต้องการถอน";
+      variant = "warning";
+    } else if (validAmount <= Number(calculatedFee)) {
+      validStat = false;
+      validMsg = `จำนวนเหรียญที่ถอนต้องมากกว่าค่าธรรมเนียม (${coinWithCommas(
+        calculatedFee
+      )} ${digitalAssetCode})`;
+      variant = "error";
+    } else if (validAmount > Number(availableBalance)) {
+      validStat = false;
+      validMsg = "คุณมีจำนวนเหรียญไม่เพียงพอ";
+      variant = "error";
+    }
+    setAmountValidStat(validStat);
+    setAmountValidMsg(validMsg);
+    setAmountVariant(variant);
+  };
+
+  const setMaxAmount = () => {
+    trackCryptoWithdrawInfoClick(digitalAssetCode, "Max");
+    setIsEditing(false);
+    setAmountInit(false);
+    const maxAmount = Number(networkInfo.maxAmount);
+    let usingAmount = toRealNumber(availableBalance);
+    if (availableBalance > maxAmount) {
+      usingAmount = maxAmount;
+    }
+
+    usingAmount = Math.floor(usingAmount * 10 ** decimalPlaces) / 10 ** decimalPlaces;
+    const usingAmountStr = String(usingAmount);
+    setAmount(usingAmountStr);
+    validateAmount(usingAmount);
+  };
+
+  const validateAddress = addr => {
+    if (findCurrency(digitalAssetCode)) {
+      const valid = validate(addr, digitalAssetCode, "both");
+      return valid;
+    }
+    return true;
+  };
+
+  const handleAddressInput = ({ nativeEvent }) => {
+    setIsEditing(true);
+    const { text } = nativeEvent;
+    const validStat = true;
+    const validMsg = "";
+    const variant = "";
+
+    setAddress(text);
+    setAddressValidStat(validStat);
+    setAddressValidMsg(validMsg);
+    setAddressVariant(variant);
+  };
+
+  const handleAddressOnComplete = () => {
+    setIsEditing(false);
+
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+    if (address.length <= 0) {
+      validStat = false;
+      validMsg = "กรุณากรอก Address";
+      variant = "warning";
+    } else if (!validateAddress(address)) {
+      validStat = false;
+      validMsg = "ที่อยู่ปลายทางไม่ถูกต้อง";
+      variant = "error";
+    }
+
+    setAddressValidStat(validStat);
+    setAddressValidMsg(validMsg);
+    setAddressVariant(variant);
+  };
+
+  const handleTagInput = ({ nativeEvent }) => {
+    setIsEditing(true);
+    const { text } = nativeEvent;
+    setTag(text);
+    setTagValidStat(false);
+  };
+
+  const handleTagOnComplete = () => {
+    if (tag) {
+      setIsEditing(false);
+      setTagValidStat(true);
+    }
+  };
+
+  const handleAmountInput = ({ nativeEvent }) => {
+    setIsEditing(true);
+    setAmountInit(false);
+    const { text } = nativeEvent;
+    const replacedCommas = text.split(",").join("");
+    const validStat = true;
+    const validMsg = "";
+    const variant = "";
+    const intLength = replacedCommas.split(".")[0].length;
+    let usingValue = String(replacedCommas);
+
+    const regex = new RegExp("^[0-9]*\\.?[0-9]*$");
+
+    if (!Number.isNaN(Number(usingValue)) && intLength <= 7) {
+      if (replacedCommas.match(regex) && intLength > 0) {
+        const numericValue = Number(replacedCommas);
+
+        // handle valid here
+        if (replacedCommas.includes(".")) {
+          const dec = replacedCommas.split(".")[1].length;
+          if (dec > 0 && dec <= decimalPlaces) {
+            usingValue = numericValue.toFixed(dec);
+          } else if (dec > decimalPlaces) {
+            usingValue = amount;
+          }
+        }
+        setAmountValidStat(validStat);
+        setAmountValidMsg(validMsg);
+        setAmountVariant(variant);
+      }
+      setAmount(usingValue);
+    }
+  };
+
+  const handleAmountOnComplete = () => {
+    setIsEditing(false);
+    setAmountInit(false);
+    const text = amount;
+    const textNum = text.replace(/,/g, "");
+    const numbericValue = Number(textNum);
+
+    validateAmount(numbericValue);
+  };
+
+  const getMaxCoinValidated = () => {
+    let maxCoinValidated;
+    const verifyTHB = 5000000;
+    const withdrawMAX = +AMLWithdrawAmount || verifyTHB;
+    const percentRate = +AMLCalDiffPercenAmount || 3;
+    if (isBCP) {
+      maxCoinValidated = networkInfo.maxCoinThatMustBeValidated;
+    } else {
+      const bestOffer = lv1Info.lv1Info.LastTradedPx;
+      if (bestOffer && bestOffer !== 0) {
+        const rate = bestOffer - (bestOffer * percentRate) / 100;
+        maxCoinValidated = withdrawMAX / rate;
+      } else {
+        maxCoinValidated = withdrawMAX;
+      }
+    }
+    return maxCoinValidated;
+  };
+
+  const getNetworkByName = networkName => {
+    const daNetwork = networkList.find(network => network.network === networkName);
+    return daNetwork;
+  };
+
+  const handleSelectNetwork = value => {
+    const curNetwork = getNetworkByName(value);
+    setProviderId(curNetwork.id);
+    if (value === null || curNetwork.id === -1) {
+      setTemplateType("");
+      setSelectedNetwork("กรุณาเลือกเครือข่าย");
+      setNetworkValidStat(false);
+    } else {
+      if (value !== selectedNetwork) {
+        trackCryptoWithdrawInfoSelect(digitalAssetCode, "Network", value);
+      }
+      setTemplateType(curNetwork.TemplateType);
+      setSelectedNetwork(value);
+      setNetworkValidStat(true);
+
+      if (curNetwork?.tagLabel !== undefined && curNetwork?.tagLabel !== "") {
+        setTagLabel(curNetwork?.tagLabel);
+        setDtFieldName(curNetwork?.dtFieldName);
+        setTagValidStat(false);
+      } else {
+        setTagLabel("");
+        setDtFieldName("");
+        setTagValidStat(true);
+      }
+    }
+    setDisplayNetworkModal(false);
+  };
+
+  const showNetworkModal = () => {
+    setDisplayNetworkModal(true);
+  };
+
+  const getInstrument = () => {
+    return _.find(instruments, { Product1: digitalAssetID, Product2: 1 });
+  };
+
+  const setQRonAddress = qr => {
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+
+    if (qr) {
+      let usingText = qr;
+      if (usingText.includes(":")) {
+        usingText = usingText.substring(usingText.indexOf(":") + 1, usingText.length);
+      }
+
+      if (!validateAddress(usingText)) {
+        validStat = false;
+        validMsg = "ที่อยู่ไม่ถูกต้อง";
+        variant = "error";
+      }
+
+      setAddress(usingText);
+      setAddressValidStat(validStat);
+      setAddressValidMsg(validMsg);
+      setAddressVariant(variant);
+    }
+  };
+
+  const setQRonTag = qr => setTag(qr);
+
+  const goToQRScanner = (afterScan, actionName) => {
+    if (actionName !== undefined && actionName !== "") {
+      trackCryptoWithdrawInfoClick(digitalAssetCode, actionName);
+    }
+    const passProps = {
+      digitalAssetCode,
+      digitalAssetID,
+      accountId,
+      availableBalance,
+      isBCP,
+      iconSvg,
+      afterScan
+    };
+
+    handleConfirmPress(
+      "digitalAssetQRCameraScreen",
+      "",
+      { navBarHidden: true, navBarTransparent: true },
+      {
+        screen: "digitalAssetsWithdraw",
+        title: `${i18n.translations["DigitalAssets.Wallet.Main.WithdrawTitle"]} ${digitalAssetCode}`,
+        navigatorStyle: {
+          navBarCustomViewInitialProps: {
+            title: `${i18n.translations["DigitalAssets.Wallet.Main.WithdrawTitle"]} ${digitalAssetCode}`
+          }
+        },
+        passProps
+      }
+    );
+  };
+
+  const loadScreen = async () => {
+    if (isBCP) {
+      await getNetworkList(digitalAssetID);
+    } else {
+      const instrumentId = getInstrument()?.InstrumentId;
+      getLV1Info({ instrumentId });
+      await getWithdrawTemplate({ accountId, productId: digitalAssetID });
+      getAMLWithdrawAmountCoin();
+      getAMLCalDiffPercent();
+    }
+  };
+
+  const initNavBar = () => {
+    navigator.setStyle({
+      backButtonHidden: true,
+      overrideBackPress: true,
+      navBarCustomView: "digitalAssetNavBarWithCoinIcon",
+      navBarCustomViewInitialProps: {
+        onPressBack: () => {
+          trackCryptoWithdrawInfoClick(digitalAssetCode, "Back");
+          navigator.pop();
+        },
+        showBackButton: true,
+        showIcon: true,
+        title: `ถอน ${digitalAssetCode}`,
+        icon: iconSvg
+      }
+    });
+    setIsLoadingBar(false);
+  };
+
+  useEffect(() => {
+    loadScreen();
+    initNavBar(digitalAssetCode);
+    return () => {};
+  }, []);
+
+  useEffect(() => {
+    if (providerId !== -1) {
+      if (isBCP) {
+        calBCPWithdrawFee();
+      } else {
+        // eslint-disable-next-line max-len
+        getWithdrawFee({
+          accountId,
+          productId: digitalAssetID,
+          amount: Number(amount),
+          providerId
+        });
+      }
+    } else {
+      setCalculatedFee(0);
+    }
+  }, [amount, selectedNetwork]);
+
+  useEffect(() => {
+    if (providerId !== -1 && isBCP) {
+      getNetworkFee(providerId);
+    }
+  }, [selectedNetwork]);
+
+  useEffect(() => {
+    if (isBCP) {
+      calBCPWithdrawFee();
+    }
+  }, [networkFee]);
+
+  useEffect(() => {
+    if (!isBCP) {
+      if (typeof withdrawFee.FeeAmount !== "undefined" && providerId !== -1) {
+        setCalculatedFee(withdrawFee.FeeAmount);
+      } else {
+        setCalculatedFee(0);
+      }
+    }
+  }, [withdrawFee]);
+
+  useEffect(() => {
+    if (!amountInit) {
+      handleAmountOnComplete();
+    }
+  }, [calculatedFee]);
+
+  if (
+    isLoading ||
+    isLoadingBar ||
+    loadingWithdrawTemplate ||
+    loadingLv1Info ||
+    loadingAMLWithdrawAmount ||
+    loadingAMLCalDiffPercenAmount
+  ) {
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <LoadingContainer>
+          <LoadingIndicator size="large" />
+        </LoadingContainer>
+      </ViewContainer>
+    );
+  }
+  return (
+    <Container isFullScreen variant="light">
+      <BottomModal isVisible={displayNetworkModal} swipeDirection={null}>
+        <PickerRoller
+          cancelText={<Icon name="close" size="icon16" />}
+          confirmText="Done"
+          selectedValue={selectedNetwork}
+          pickerData={networkList.map(({ network }) => network)}
+          onConfirm={handleSelectNetwork}
+          onCancel={() => {
+            setDisplayNetworkModal(false);
+          }}
+          itemFontSize={isIOS() ? 23 : 21}
+        />
+      </BottomModal>
+
+      <KeyboardAwareScrollView
+        automaticallyAdjustContentInsets={false}
+        viewIsInsideTabBar
+        extraScrollHeight={50}
+      >
+        <BodyContainer>
+          <View>
+            <SectionBackground variant="secondary">
+              <HeaderInfo>
+                <Header3 style={{ fontSize: isIOS() ? 15 : 13, color: "#000000" }}>
+                  {i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.AvailableDABalance"]}
+                </Header3>
+                <HeaderInfoAmountRow>
+                  <Display2>
+                    <Display2
+                      style={{
+                        fontSize: isIOS() ? 24 : 20,
+                        color: "#000000"
+                      }}
+                    >
+                      {`${coinWithCommas(availableBalance, decimalPlaces)}`}
+                    </Display2>
+                    <Header3
+                      style={{
+                        fontSize: isIOS() ? 13 : 11,
+                        color: "#000000"
+                      }}
+                    >
+                      {` ${digitalAssetCode}`}
+                    </Header3>
+                  </Display2>
+                </HeaderInfoAmountRow>
+                <Body3 style={{ fontSize: isIOS() ? 13 : 11, color: "#7E7E7E" }}>
+                  {`${i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.DABalance"]} `}
+                  {`${coinWithCommas(balance, decimalPlaces)} ${digitalAssetCode}`}
+                </Body3>
+              </HeaderInfo>
+            </SectionBackground>
+
+            <Body>
+              <View style={{ marginBottom: 18 }}>
+                <CustomTextInput
+                  label={
+                    i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Input.Address.Label"]
+                  }
+                  placeholder={
+                    i18n.translations[
+                      "DigitalAssets.Wallet.DA.WithdrawPage.Input.Address.Placeholder"
+                    ]
+                  }
+                  variant={addressVariant}
+                  helperText={addressValidMsg}
+                  value={address}
+                  onEndEditing={handleAddressOnComplete}
+                  onBlur={handleAddressOnComplete}
+                  onChange={handleAddressInput}
+                  onFocus={() => trackCryptoWithdrawInfoClick(digitalAssetCode, "Address")}
+                  rightComponent={
+                    <>
+                      <TouchableOpacity
+                        onPress={() => {
+                          goToQRScanner(setQRonAddress, "ScanAddress");
+                        }}
+                      >
+                        <CurvIconContainer>
+                          <Icon name="qrcode-scanner" size="icon24" />
+                        </CurvIconContainer>
+                      </TouchableOpacity>
+                    </>
+                  }
+                />
+              </View>
+
+              <View style={{ marginBottom: 1 }}>
+                <MockTextInput
+                  label={
+                    i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Input.Network.Label"]
+                  }
+                  clickFunction={showNetworkModal}
+                  value={selectedNetwork}
+                  rightComponent={
+                    <CurvIconContainer>
+                      <Icon name="chevron-down" size="icon8" />
+                    </CurvIconContainer>
+                  }
+                />
+              </View>
+
+              {tagLabel !== "" || isBCP ? (
+                <View style={{ marginBottom: 2, marginTop: 24 }}>
+                  <CustomTextInput
+                    label={
+                      i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Input.Tag.Label"]
+                    }
+                    placeholder={
+                      i18n.translations[
+                        "DigitalAssets.Wallet.DA.WithdrawPage.Input.Tag.Placeholder"
+                      ]
+                    }
+                    value={tag}
+                    onEndEditing={handleTagOnComplete}
+                    onBlur={handleTagOnComplete}
+                    onChange={handleTagInput}
+                    onFocus={() => trackCryptoWithdrawInfoClick(digitalAssetCode, "Tag")}
+                    rightComponent={
+                      <>
+                        <TouchableOpacity
+                          onPress={() => {
+                            goToQRScanner(setQRonTag, "ScanTag");
+                          }}
+                        >
+                          <CurvIconContainer>
+                            <Icon name="qrcode-scanner" size="icon24" />
+                          </CurvIconContainer>
+                        </TouchableOpacity>
+                      </>
+                    }
+                  />
+                </View>
+              ) : (
+                <></>
+              )}
+
+              <WarningText style={{ fontSize: isIOS() ? 12 : 10, marginBottom: 24 }}>
+                {
+                  i18n.translations[
+                    "DigitalAssets.Wallet.DA.WithdrawPage.Input.Network.Description1"
+                  ]
+                }
+              </WarningText>
+
+              <View>
+                <CustomTextInput
+                  label={
+                    i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Input.Amount.Label"]
+                  }
+                  placeholder="0.00"
+                  variant={amountVariant}
+                  helperText={amountValidMsg}
+                  value={amount === "" ? "" : coinWithCommas(amount, decimalPlaces, false)}
+                  onEndEditing={handleAmountOnComplete}
+                  onBlur={handleAmountOnComplete}
+                  onChange={handleAmountInput}
+                  onFocus={() => trackCryptoWithdrawInfoClick(digitalAssetCode, "Amount")}
+                  keyboardType="numeric"
+                  rightComponent={
+                    <>
+                      <CurvIconContainer>
+                        <CurvText style={{ color: "#A5A5A5" }}>{digitalAssetCode}</CurvText>
+                      </CurvIconContainer>
+                      <CurvIconContainer>
+                        <TouchableOpacity onPress={() => setMaxAmount()}>
+                          <CurvText style={{ color: "#6119f0" }}>
+                            {
+                              i18n.translations[
+                                "DigitalAssets.Wallet.DA.WithdrawPage.Input.Amount.AmountMax"
+                              ]
+                            }
+                          </CurvText>
+                        </TouchableOpacity>
+                      </CurvIconContainer>
+                    </>
+                  }
+                />
+              </View>
+            </Body>
+          </View>
+        </BodyContainer>
+      </KeyboardAwareScrollView>
+      <BorderLine />
+      <FooterContainer>
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 10
+          }}
+        >
+          <Display2
+            style={{
+              fontSize: isIOS() ? 20 : 16,
+              lineHeight: 30,
+              color: "rgba(0, 0, 0, 0.68)"
+            }}
+          >
+            {i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.Receive"]}
+          </Display2>
+          <View style={{ flexDirection: "row" }}>
+            <Display2 style={{ fontSize: isIOS() ? 20 : 16, lineHeight: 30, color: "#6119f0" }}>
+              {calreceiveAmount() >= getDecimalValue(decimalPlaces) ||
+              providerId === -1 ||
+              Number(calreceiveAmount()) === 0
+                ? `${coinWithCommas(calreceiveAmount(), decimalPlaces)}`
+                : `≈ ${coinWithCommas(getDecimalValue(decimalPlaces))}`}
+            </Display2>
+            <Body2 style={{ fontSize: isIOS() ? 20 : 16, lineHeight: 30, color: "#6119f0" }}>
+              {` ${digitalAssetCode}`}
+            </Body2>
+          </View>
+        </View>
+        <View style={{ display: "flex", flexDirection: "row" }}>
+          <Body3 style={{ fontSize: isIOS() ? 12 : 10, color: "rgba(0, 0, 0, 0.68)" }}>
+            {getDecDigit(calculatedFee) > decimalPlaces
+              ? `${i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.NetworkFee"]} ≈ `
+              : `${i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.NetworkFee"]} `}
+            {(calculatedFee >= getDecimalValue(decimalPlaces) || Number(calculatedFee) === 0) &&
+            providerId !== -1
+              ? `${coinWithCommas(calculatedFee)} ${digitalAssetCode}`
+              : "-"}
+          </Body3>
+        </View>
+        <Button
+          style={{ marginTop: 15 }}
+          label={i18n.translations["DigitalAssets.Wallet.DA.WithdrawPage.WithdrawButton"]}
+          variant="Primary"
+          size="large"
+          onPress={() =>
+            onPressWithdraw(
+              onPressDigitalAssetWithdraw,
+              calreceiveAmount(),
+              address,
+              tag,
+              selectedNetwork,
+              providerId,
+              digitalAssetCode,
+              digitalAssetID,
+              amount,
+              calculatedFee,
+              decimalPlaces,
+              getMaxCoinValidated(),
+              iconSvg,
+              isBCP,
+              templateType,
+              tagLabel,
+              dtFieldName
+            )
+          }
+          disable={
+            isEditing === true ||
+            amountValidStat === false ||
+            addressValidStat === false ||
+            networkValidStat === false ||
+            tagValidStat === false
+          }
+        />
+      </FooterContainer>
+    </Container>
+  );
+};
+
+DigitalAssetsSpotWithdraw.defaultProps = {
+  getNetworkList: () => {},
+  getNetworkFee: () => {},
+  isBCP: false,
+  networkInfo: {
+    minAmount: "",
+    maxAmount: "",
+    maxCoinThatMustBeValidated: ""
+  },
+  getWithdrawFee: () => {},
+  withdrawFee: {},
+  getWithdrawTemplate: () => {},
+  // withdrawTemplate: {},
+  loadingWithdrawTemplate: false,
+  loadingLv1Info: false,
+  isLoading: false,
+  qrCode: undefined,
+  loadingAMLWithdrawAmount: false,
+  AMLWithdrawAmount: "",
+  loadingAMLCalDiffPercenAmount: false,
+  AMLCalDiffPercenAmount: "",
+  iconSvg: null,
+  decimalPlaces: 8
+};
+
+DigitalAssetsSpotWithdraw.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  getNetworkList: PropTypes.func,
+  getNetworkFee: PropTypes.func,
+  networkList: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      network: PropTypes.string
+    })
+  ).isRequired,
+  networkFee: PropTypes.arrayOf(
+    PropTypes.shape({
+      amount: PropTypes.string,
+      calType: PropTypes.string
+    })
+  ).isRequired,
+  networkInfo: PropTypes.shape({
+    minAmount: PropTypes.string,
+    maxAmount: PropTypes.string,
+    maxCoinThatMustBeValidated: PropTypes.string
+  }),
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  digitalAssetCode: PropTypes.string.isRequired,
+  availableBalance: PropTypes.number.isRequired,
+  balance: PropTypes.number.isRequired,
+  // hold: PropTypes.number.isRequired,
+  onPressDigitalAssetWithdraw: PropTypes.func.isRequired,
+  isBCP: PropTypes.bool,
+  getWithdrawFee: PropTypes.func,
+  getWithdrawTemplate: PropTypes.func,
+  // withdrawTemplate: PropTypes.func,
+  loadingWithdrawTemplate: PropTypes.bool,
+  withdrawFee: PropTypes.shape({
+    FeeAmount: PropTypes.string
+  }),
+  accountId: PropTypes.number.isRequired,
+  digitalAssetID: PropTypes.number.isRequired,
+  instruments: PropTypes.arrayOf(PropTypes.any).isRequired,
+  getLV1Info: PropTypes.func.isRequired,
+  lv1Info: PropTypes.shape({
+    lv1Info: PropTypes.shape({
+      BestOffer: PropTypes.number.isRequired,
+      LastTradedPx: PropTypes.number.isRequired
+    }).isRequired
+  }).isRequired,
+  loadingLv1Info: PropTypes.bool,
+  isLoading: PropTypes.bool,
+  handleConfirmPress: PropTypes.func.isRequired,
+  qrCode: PropTypes.string,
+  // products: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  iconSvg: PropTypes.string,
+  decimalPlaces: PropTypes.number,
+  getAMLWithdrawAmountCoin: PropTypes.func.isRequired,
+  loadingAMLWithdrawAmount: PropTypes.bool,
+  AMLWithdrawAmount: PropTypes.string,
+  getAMLCalDiffPercent: PropTypes.func.isRequired,
+  loadingAMLCalDiffPercenAmount: PropTypes.bool,
+  AMLCalDiffPercenAmount: PropTypes.string
+};
+
+export default DigitalAssetsSpotWithdraw;

@@ -1,0 +1,185 @@
+/* eslint-disable react/no-unused-prop-types */
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { activityAmtColor, activitySign, activityStatus } from "../wallet-utils";
+import ViewContainer from "../../../components/view/ViewContainer";
+import { Column } from "../../activity/activity-list-item/styled";
+import { Header2, Body3, Header3, Separator } from "../../../components-2";
+import Tag from "../../../components-2/tag/Tag";
+
+const InstrumentListItemContainer = styled(ViewContainer)`
+  border-color: ${props => props.theme.borderLightColor};
+  padding-top: ${props => props.theme.spacingSmall};
+`;
+
+const BodyContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingSmall};
+`;
+
+const Header = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const Title = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: ${props => props.theme.spacingSmallValue};
+`;
+
+const AmountContainer = styled.View`
+  flex-direction: row;
+`;
+
+const TextName = styled(Header2)`
+  color: ${prop => prop.theme.contentColorVeryHigh};
+  flex-shrink: 1;
+  flex: 1;
+  line-height: 25;
+`;
+
+const AmountValue = styled(Header2)`
+  color: ${props => props.colorAmt};
+`;
+const AmountText = styled(Header3)`
+  margin-top: 2;
+  margin-left: 2;
+`;
+const BodyDate = styled(Body3)`
+  color: ${prop => prop.theme.contentColorHigh};
+`;
+
+const Container = styled.View``;
+
+const onPress = props => {
+  const {
+    tlogId,
+    tlogItemId,
+    txnCode,
+    userId,
+    userProfile,
+    activityType,
+    disableOnPress,
+    getActivityDetail
+  } = props;
+
+  if (!disableOnPress) {
+    if (activityType === "COIN") {
+      getActivityDetail(tlogId, txnCode, userId, tlogItemId);
+    } else {
+      getActivityDetail(tlogId, txnCode, userId, userProfile.walletIdEncrypted);
+    }
+  }
+};
+const TagComponent = styled(Tag).attrs()(props => {
+  return { marginRight: props.theme.spacingXSmall };
+});
+
+const statusText = (txnStatus, showStatusText) => {
+  if (showStatusText) {
+    return activityStatus(txnStatus);
+  }
+  return "";
+};
+
+const WalletActivityListItem = props => {
+  const {
+    txnDttm,
+    txnCode,
+    amount,
+    drCrSign,
+    txnStatus,
+    colorAmt,
+    ccyCode,
+    variant,
+    testID,
+    accessibilityLabel,
+    showStatusText
+  } = props;
+
+  return (
+    <TouchableWithoutFeedback onPress={() => onPress({ ...props })}>
+      <Container
+        style={{
+          flex: 1
+        }}
+      >
+        <InstrumentListItemContainer
+          variant={variant}
+          testID={testID}
+          accessibilityLabel={accessibilityLabel}
+        >
+          <BodyContainer>
+            <Header testID="title">
+              <BodyDate>{txnDttm}</BodyDate>
+              {statusText(txnStatus, showStatusText) !== "" && (
+                <TagComponent
+                  label={statusText(txnStatus, showStatusText)}
+                  variant="secondary"
+                  size="small"
+                />
+              )}
+            </Header>
+            <Title>
+              <TextName>{I18n.t(`Wallet.TransactionCode.${txnCode}`)}</TextName>
+              <AmountContainer>
+                <AmountValue colorAmt={activityAmtColor(colorAmt)}>
+                  {activitySign(drCrSign)}
+                  {amount}
+                </AmountValue>
+                <AmountText>{I18n.t(`Wallet.Currency.${ccyCode}`)}</AmountText>
+              </AmountContainer>
+            </Title>
+            <Column>
+              <Separator variant="full" />
+            </Column>
+          </BodyContainer>
+        </InstrumentListItemContainer>
+      </Container>
+    </TouchableWithoutFeedback>
+  );
+};
+
+WalletActivityListItem.defaultProps = {
+  tlogId: "",
+  tlogItemId: "",
+  txnDttm: "",
+  txnCode: "",
+  amount: "",
+  drCrSign: "",
+  txnStatus: "",
+  colorAmt: "",
+  ccyCode: "THB",
+  variant: "light",
+  accessibilityLabel: "listItem",
+  testID: "listItem",
+  activityType: "WALLET",
+  showStatusText: false,
+  disableOnPress: false
+};
+
+WalletActivityListItem.propTypes = {
+  tlogId: PropTypes.string,
+  tlogItemId: PropTypes.string,
+  txnDttm: PropTypes.string,
+  txnCode: PropTypes.string,
+  amount: PropTypes.string,
+  drCrSign: PropTypes.string,
+  txnStatus: PropTypes.string,
+  colorAmt: PropTypes.string,
+  ccyCode: PropTypes.string,
+  userId: PropTypes.string.isRequired,
+  variant: PropTypes.oneOf(["light", "light-disabled"]),
+  accessibilityLabel: PropTypes.string,
+  testID: PropTypes.string,
+  showStatusText: PropTypes.bool,
+  disableOnPress: PropTypes.bool,
+  userProfile: PropTypes.isRequired,
+  activityType: PropTypes.string,
+  getActivityDetail: PropTypes.func.isRequired
+};
+
+export default WalletActivityListItem;

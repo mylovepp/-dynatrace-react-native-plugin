@@ -1,0 +1,160 @@
+import React, { PureComponent, createRef } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { WebView } from "react-native-webview";
+import Pdf from "react-native-pdf";
+import I18n from "react-native-i18n";
+import { Dimensions, Platform, Modal, StyleSheet, View } from "react-native";
+import PropTypes from "prop-types";
+import styled, { withTheme } from "styled-components/native";
+
+import { ViewContainer, Icon, LoadingScreen, Header1, ClickBackBanner } from "../../components-2";
+
+const WebViewContainer = styled(WebView)`
+  flex: 1;
+`;
+
+const LoadingContainer = styled(ViewContainer)`
+  flex: 1;
+  justify-content: center;
+  width: 100%;
+`;
+
+const HeroBannerContainer = styled.View`
+  flex-direction: row;
+  min-height: 55px;
+  background-color: ${props => props.theme.navigation};
+`;
+
+const ButtonContainer = styled.View`
+  flex: 1;
+  margin-top: 8px;
+  min-width: 14px;
+  align-self: flex-start;
+`;
+
+const LeftButton = styled(TouchableOpacity)`
+  width: 50px;
+  border-width: 0;
+  border-radius: 0;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+const MessageBox = styled.View(props => ({
+  backgroundColor: props.theme.backgroundWhite,
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  paddingBottom: "15%"
+}));
+
+const MessageTitle = styled(Header1)(props => ({
+  marginTop: props.theme.spacingLarge
+}));
+
+const styles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  pdf: {
+    flex: 1,
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height
+  }
+});
+
+class NotificationInBoxWebViewScreen extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.webViewRef = createRef();
+    this.state = {
+      showWebView: true
+    };
+  }
+
+  closeModalWebView = () => {
+    this.setState({ showWebView: false });
+  };
+  renderModalWebView = () => {
+    if (this.state.showWebView) {
+      return (
+        <View style={styles.centeredView}>
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showWebView}
+            onRequestClose={() => {
+              this.setState({ showWebView: false });
+            }}
+          >
+            <HeroBannerContainer>
+              <ButtonContainer>
+                <LeftButton onPress={() => this.closeModalWebView()}>
+                  <Icon name="close-2" size="icon24" />
+                </LeftButton>
+              </ButtonContainer>
+            </HeroBannerContainer>
+            {this.props.webViewCode === "pdf" ? (
+              <Pdf source={{ uri: this.props.url, cache: true }} style={styles.pdf} />
+            ) : (
+              <WebViewContainer
+                allowFileAccess={false}
+                source={{ uri: this.props.url }}
+                ref={this.webViewRef}
+                javaScriptEnabled
+                dataDetectorTypes="none"
+              />
+            )}
+          </Modal>
+        </View>
+      );
+    }
+    return (
+      <MessageBox>
+        <ClickBackBanner />
+        <MessageTitle>{I18n.t("NotificationInBox.WebView.BackCapion")}</MessageTitle>
+      </MessageBox>
+    );
+  };
+
+  render() {
+    if (this.props.url === "") {
+      return (
+        <LoadingContainer>
+          <LoadingScreen />
+        </LoadingContainer>
+      );
+    }
+    if (Platform.OS === "ios") {
+      return (
+        <WebViewContainer
+          allowFileAccess={false}
+          source={{ uri: this.props.url }}
+          ref={this.webViewRef}
+          javaScriptEnabled
+          dataDetectorTypes="none"
+        />
+      );
+    }
+
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        {this.renderModalWebView()}
+      </ViewContainer>
+    );
+  }
+}
+
+NotificationInBoxWebViewScreen.defaultProps = {
+  url: "",
+  webViewCode: ""
+};
+
+NotificationInBoxWebViewScreen.propTypes = {
+  url: PropTypes.string,
+  webViewCode: PropTypes.string
+};
+
+export default withTheme(NotificationInBoxWebViewScreen);

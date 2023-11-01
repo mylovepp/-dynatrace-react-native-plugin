@@ -1,0 +1,68 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import { Body2, Body3 } from "../text/Text";
+import RadioButton from "../button/RadioButton";
+
+const ItemContainer = styled(TouchableOpacity)`
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  align-items: center;
+  border-radius: 8px;
+  background-color: ${props => props.theme.contentColorWhite};
+  border-width: ${props => (props.selected ? 2 : 1)}px;
+  border-color: ${props =>
+    // eslint-disable-next-line no-nested-ternary
+    props.disabled
+      ? props.theme.contentColorDisabled
+      : props.selected
+      ? props.theme.contentColorCTAPurple
+      : props.theme.contentColorLight};
+  padding-horizontal: ${props => (props.selected ? 14 : 15)}px;
+`;
+
+const Title = styled(Body2)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorMedium : props.theme.contentColorVeryHigh};
+`;
+
+const SubTitle = styled(Body3)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorLight : props.theme.contentColorHigh};
+`;
+
+class SelectTextRowRadio extends PureComponent {
+  render() {
+    const { disabled, title, subtitle, onPress, selected } = this.props;
+    return (
+      <ItemContainer disabled={disabled} onPress={() => onPress(!selected)} selected={selected}>
+        <RadioButton disabled={disabled} isSelected={selected} onPress={() => onPress(!selected)} />
+        <View>
+          <Title>{title}</Title>
+          {subtitle ? <SubTitle>{subtitle}</SubTitle> : null}
+        </View>
+      </ItemContainer>
+    );
+  }
+}
+
+export default SelectTextRowRadio;
+
+SelectTextRowRadio.defaultProps = {
+  disabled: false,
+  selected: false,
+  title: "",
+  subtitle: "",
+  onPress: () => {}
+};
+
+SelectTextRowRadio.propTypes = {
+  disabled: PropTypes.bool,
+  selected: PropTypes.bool,
+  title: PropTypes.string,
+  subtitle: PropTypes.string,
+  onPress: PropTypes.func
+};

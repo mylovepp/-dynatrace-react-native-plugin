@@ -1,0 +1,75 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { SafeAreaView } from "react-native";
+import styled, { withTheme } from "styled-components/native";
+import i18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { SectionBackground, Icon, Header2, ApplicationBanner } from "@invx/components-2";
+
+const Container = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big",
+})`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  padding-vertical: ${props => props.theme.spacingXSmall};
+`;
+
+const HeaderWrapper = styled.View`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const TextContainer = styled.View`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+const HeaderTitle = styled(Header2)(props => ({
+  color: props.theme.scbPrimaryPurple
+}));
+
+const BannerWrapper = styled.View`
+  padding-left: 5px;
+`;
+
+const WebviewHeader = ({
+  navigator,
+  theme
+}) => {
+  const handleOnClose = () => {
+    navigator.pop();
+  };
+
+  return (
+    <Container>
+      <SafeAreaView>
+        <HeaderWrapper>
+          <BannerWrapper>
+            <ApplicationBanner height={37} />
+          </BannerWrapper>
+          <TextContainer>
+            <HeaderTitle>{i18n.t("Insurance.Webview.Title")}</HeaderTitle>
+            <TouchableOpacity
+              onPress={() => handleOnClose()}
+            >
+              <Icon name="close-2" size="icon24" color={theme.scbPrimaryPurple} />
+            </TouchableOpacity>
+          </TextContainer>
+        </HeaderWrapper>
+      </SafeAreaView>
+    </Container>
+  );
+};
+
+WebviewHeader.defaultProps = {
+  navigator: {},
+};
+WebviewHeader.propTypes = {
+  navigator: PropTypes.shape(),
+  theme: PropTypes.shape().isRequired
+};
+export default withTheme(WebviewHeader);

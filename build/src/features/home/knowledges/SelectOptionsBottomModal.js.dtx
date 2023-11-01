@@ -1,0 +1,94 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback } from "react";
+import { FlatList } from "react-native";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Row } from "../../../components";
+import { Body2, BottomModal, Header1, Icon, Separator } from "../../../components-2";
+
+const SELECT_OPTION_HEIGHT = 64;
+const DIVIDER_HEIGHT = 1;
+
+const Title = styled(Header1)(props => ({
+  marginBottom: props.theme.spacingMedium,
+  color: props.theme.contentColorVeryHigh,
+  textAlign: "center"
+}));
+
+const Body = styled(Body2)(props => ({
+  color: props.theme.contentColorVeryHigh
+}));
+
+const SelectOptionsBottomModal = props => {
+  const { isVisible, onModalClose, onModalHide, options, onSelect, keyExtractor } = props;
+
+  const handleOnSelect = useCallback(
+    item => {
+      onSelect(item);
+    },
+    [onSelect]
+  );
+
+  const renderItem = useCallback(knowledge => {
+    const { item } = knowledge;
+    return (
+      <TouchableOpacity onPress={() => handleOnSelect(item)}>
+        <Row
+          noPaddingHorizontal
+          left={<Body>{item.title}</Body>}
+          right={item.isSelected && <Icon name="check-2" size="icon16" />}
+        />
+      </TouchableOpacity>
+    );
+  }, []);
+
+  const renderSeperator = () => <Separator variant="full" />;
+
+  const getItemLayout = useCallback(
+    (data, index) => ({
+      length: SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT,
+      offset: (SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT) * index,
+      index
+    }),
+    []
+  );
+
+  return (
+    <BottomModal isVisible={isVisible} onModalClose={onModalClose} onModalHide={onModalHide}>
+      <Title>{I18n.t("Knowledge.ModalHeader")}</Title>
+      <FlatList
+        scrollEnabled
+        data={options}
+        getItemLayout={getItemLayout}
+        keyExtractor={keyExtractor}
+        ItemSeparatorComponent={renderSeperator}
+        renderItem={renderItem}
+        initialScrollIndex={0}
+      />
+    </BottomModal>
+  );
+};
+
+SelectOptionsBottomModal.propTypes = {
+  keyExtractor: PropTypes.func,
+  isVisible: PropTypes.bool,
+  onModalClose: PropTypes.func,
+  options: PropTypes.arrayOf(PropTypes.shape({
+    title: PropTypes.string,
+    value: PropTypes.string,
+    isSelected: PropTypes.bool
+  })),
+  onSelect: PropTypes.func.isRequired,
+  onModalHide: PropTypes.func
+};
+
+SelectOptionsBottomModal.defaultProps = {
+  keyExtractor: item => item.value,
+  isVisible: false,
+  options: [],
+  onModalClose: () => { },
+  onModalHide: () => { }
+};
+
+export default SelectOptionsBottomModal;

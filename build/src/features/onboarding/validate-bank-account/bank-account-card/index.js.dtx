@@ -1,0 +1,62 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { memo, useCallback } from "react";
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { ifProp } from "styled-tools";
+import { Body3, Header2, Icon, SVGIcon } from "../../../../components-2";
+import { getBankAccountInfo } from "../../../../redux/onboarding/onboarding-utils";
+
+export const CardContainer = styled(TouchableOpacity)`
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  border-width: 1px;
+  border-color: ${props =>
+    ifProp({ selected: true }, props.theme.primaryColor, props.theme.inputBorderColor)};
+  padding-vertical: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  margin-vertical: ${props => props.theme.spacingXXSmall};
+  border-radius: 10px;
+  height: 64px;
+`;
+const ContentContainer = styled(View)`
+  margin-left: ${props => props.theme.spacingXSmall};
+  flex: 1;
+  justify-content: center;
+`;
+const BankName = styled(Body3)`
+  color: ${props => props.theme.textLabel};
+`;
+const BankAccount = styled(Header2)``;
+
+const BankAccountCard = ({ account, selected, onSelectAccount }) => {
+  const getIcon = useCallback(({ iconName }) => {
+    return <SVGIcon name={iconName} size="icon32" />;
+  }, []);
+
+  const bankAccountInfo = getBankAccountInfo(account.bank_code);
+  return (
+    <CardContainer selected={selected} disabled={selected} onPress={() => onSelectAccount(account)}>
+      {getIcon(bankAccountInfo)}
+      <ContentContainer>
+        <BankName>{bankAccountInfo.bankName}</BankName>
+        <BankAccount>{account.account}</BankAccount>
+      </ContentContainer>
+      {selected && account.bank_code !== "014" && <Icon name="check-2" size="icon24" />}
+    </CardContainer>
+  );
+};
+
+BankAccountCard.propTypes = {
+  account: PropTypes.shape({
+    id: PropTypes.number,
+    account: PropTypes.string,
+    account_ref: PropTypes.string,
+    bank_code: PropTypes.string
+  }).isRequired,
+  selected: PropTypes.bool.isRequired,
+  onSelectAccount: PropTypes.func.isRequired
+};
+
+export default memo(BankAccountCard);

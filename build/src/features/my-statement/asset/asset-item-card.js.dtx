@@ -1,0 +1,147 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { Header3, TextOverlineR } from "../../../components-2";
+import { getColorByValue } from "../../../features/new-portfolio/portfolio-constants";
+import { formatNumber, valueTypeMapper } from "../../../features/new-portfolio/portfolio-helpers";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import {
+  DIGITAL_ADVISOR_TYPE,
+  STRUCTURE_NOTE_TYPE,
+  OFFSHORE_SN_TYPE,
+  ALGO_ADVISOR_TYPE,
+  PRIVATE_FUND_TYPE
+} from "../constants";
+import { formatDate } from "../../../modules/format";
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const TitleContainer = styled.View`
+  flex-direction: row;
+`;
+
+const Container = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+  padding-bottom: ${props => props.isLastComponent ? "0px" : props.theme.spacingMedium};
+  border-bottom-width: ${props => props.isLastComponent ? "0px" : "1px"};
+  border-color: ${props => props.theme.dividerColor};
+`;
+
+const SecurityTitle = styled(Header3)`
+  color: ${props => props.theme.textPrimaryColor};
+`;
+
+const SubheadBold = styled(Header3)`
+`;
+
+const UnrealizedPLText = styled(TextOverlineR)`
+  margin-top: 3;
+  margin-left: 1;
+  color: ${props => props.color};
+`;
+
+const AssetNameText = styled(TextOverlineR).attrs({
+  numberOfLines: 1
+})`
+  margin-top: 3;
+  width: 55%;
+`;
+
+const AssetItemCard = props => {
+  const {
+    i18n,
+    asset,
+    securityCode,
+    marketValueThb,
+    securityNameEn,
+    unrealizedValueThb,
+    unrealizedPercentThb,
+    isLastComponent,
+    hiddenUnrealizedPL,
+    dataDate
+  } = props;
+
+  const marketValue = marketValueThb;
+  const currencyDisplay = i18n.translations["General.Currencies.THB"];
+  const unrealizedPLValueText = valueTypeMapper(
+    unrealizedValueThb ? formatNumber(unrealizedValueThb) : "0.00"
+  );
+  const unrealizedPLPercentageText = `${valueTypeMapper(
+    unrealizedPercentThb ? formatNumber(unrealizedPercentThb) : "0.00"
+  )}%`;
+  const unrealizedPLColor = getColorByValue(unrealizedValueThb);
+  const mvAmountText = marketValue ? formatNumber(marketValue) : "-";
+  const onPressCard = () => {
+    props.onPressAsset(props);
+  };
+
+  const displayUnrealized = () => {
+    return [
+      DIGITAL_ADVISOR_TYPE,
+      OFFSHORE_SN_TYPE,
+      STRUCTURE_NOTE_TYPE
+    ].indexOf(asset) === -1;
+  };
+
+  const displaySecuritiesNameEn = () => {
+    let result = "";
+    if (asset === ALGO_ADVISOR_TYPE) {
+      result = "";
+    } else if (asset === PRIVATE_FUND_TYPE) {
+      result = i18n.getLabel("FundDetail.FieldLabel.Allocation.InfomationDate", {
+        topHoldingDate: formatDate(new Date(dataDate), "DD/MM/YYYY")
+      });
+    } else {
+      result = securityNameEn;
+    }
+    return result;
+  };
+
+  return (
+    <Container isLastComponent={isLastComponent}>
+      <TouchableOpacity onPress={onPressCard}>
+        <RowContainer>
+          <TitleContainer>
+            <SecurityTitle>{securityCode}</SecurityTitle>
+          </TitleContainer>
+          <SubheadBold>{mvAmountText} {currencyDisplay}</SubheadBold>
+        </RowContainer>
+        {!hiddenUnrealizedPL && (
+          <RowContainer>
+            <AssetNameText>{displaySecuritiesNameEn()}</AssetNameText>
+            {displayUnrealized() && (
+              <UnrealizedPLText color={unrealizedPLColor}>
+                {unrealizedPLValueText} ({unrealizedPLPercentageText})
+              </UnrealizedPLText>
+            )}
+          </RowContainer>
+        )}
+      </TouchableOpacity>
+    </Container>
+  );
+};
+
+AssetItemCard.defaultProps = {
+  isLastComponent: false
+};
+
+AssetItemCard.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  securityCode: PropTypes.string.isRequired,
+  securityNameEn: PropTypes.string.isRequired,
+  unrealizedPercentThb: PropTypes.number.isRequired,
+  marketValueThb: PropTypes.number.isRequired,
+  unrealizedValueThb: PropTypes.number.isRequired,
+  isLastComponent: PropTypes.bool,
+  onPressAsset: PropTypes.func.isRequired,
+  asset: PropTypes.string.isRequired,
+  hiddenUnrealizedPL: PropTypes.bool.isRequired,
+  dataDate: PropTypes.string.isRequired,
+};
+
+export default AssetItemCard;

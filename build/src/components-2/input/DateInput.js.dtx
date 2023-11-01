@@ -1,0 +1,221 @@
+import React, { Fragment, PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import DateRoller from "../picker/DateRoller";
+import { DISPLAY_DATE_FORMAT, formatDate } from "../../modules/format";
+import Row from "../row/Row";
+import { Body2 } from "../text/Text";
+import Icon from "../icon/Icon";
+import BottomModal from "../bottom-modal/BottomModal";
+
+const InputContainer = styled(TouchableOpacity)`
+  border-color: ${props =>
+          props.disabled ? props.theme.separatorGrey : props.theme.contentColorLight};
+  border-width: 1px;
+  background-color: ${props => (props.disabled ? props.theme.textDisableLightColor : props.theme.backgroundWhite)};
+  border-radius: 8px;
+  height: 48px;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const TextDate = styled(Body2)`
+  color: ${props => {
+    if (props.disabled) {
+      return props.theme.contentColorDisabled;
+    } else if (!props.isSelectedValue && !props.isDisplayText) {
+      return props.theme.contentColorHigh;
+    }
+    return props.theme.contentColorVeryHigh;
+  }}
+`;
+
+const IconCalendar = styled(Icon)
+  .attrs(props => ({
+    color: props.theme.contentColorHigh,
+    name: "calendar",
+    size: "icon16"
+  }))``;
+
+class DateInput extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      displayModal: false,
+      displayText: props.resetDateValue?.displayText || null,
+      selectedValue: null
+    };
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (nextProps.resetDateValue) {
+      this.setState({
+        displayText: nextProps.resetDateValue?.displayText || null
+      });
+    }
+    if (nextProps?.isClear) {
+      this.setState({ selectedValue: null });
+    }
+  }
+
+  onCancel = () => {
+    const { onCancel } = this.props;
+    this.setState({ displayModal: false });
+    onCancel();
+  };
+
+  onSelectedDate = value => {
+    const { onConfirm } = this.props;
+    this.setState({ displayModal: false, selectedValue: value });
+    onConfirm(value);
+  };
+
+  modifyFormat = (selectedValue, format) => {
+    const { calendarType } = this.props;
+    if (calendarType === "buddhist" && selectedValue) {
+      if (format.includes("YYYY")) {
+        return format.replace(/YYYY/g, (selectedValue.getFullYear() + 543).toString());
+      } else if (format.includes("YY")) {
+        return format.replace(/YY/g, (selectedValue.getFullYear() + 543).toString()
+          .slice(-2));
+      }
+    }
+    return format;
+  };
+
+  modifyFormatDisplay = (formatDisplayText, format) => {
+    const { calendarType } = this.props;
+    if (calendarType === "buddhist" && formatDisplayText) {
+      if (format.includes("YYYY")) {
+        return format.toString().replace(/YYYY/g, (formatDisplayText.getFullYear() + 543).toString());
+      } else if (format.includes("YY")) {
+        return format.replace(/YY/g, (formatDisplayText.getFullYear() + 543).toString()
+          .slice(-2));
+      }
+    }
+    return format;
+  };
+
+  renderInput = () => {
+    const { testId, placeholder, format, displayLanguage, disabled } = this.props;
+    const { selectedValue, displayText } = this.state;
+    const calendar = <IconCalendar />;
+    const formatDisplayText = new Date(displayText);
+    const modifyFormatDisplay = this.modifyFormatDisplay(formatDisplayText, format);
+    const modifiedFormat = this.modifyFormat(selectedValue, format);
+    const displayDateString = !displayText || selectedValue
+      ? formatDate(selectedValue, modifiedFormat, displayLanguage) ||
+      placeholder : formatDate(formatDisplayText, modifyFormatDisplay, displayLanguage);
+    const date = (
+      <TextDate
+        accessible
+        accessibilityLabel={testId}
+        testID={testId}
+        disabled={disabled}
+        isSelectedValue={!!selectedValue}
+        isDisplayText={!!displayText}
+      >
+        {displayDateString}
+      </TextDate>
+    );
+    return <Row left={date} right={calendar} noPaddingVertical />;
+  };
+
+  render() {
+    const { displayModal } = this.state;
+    const {
+      calendarType,
+      cancelText,
+      confirmText,
+      disabled,
+      initialDate,
+      isDisabledScrollView,
+      maximumDate,
+      minimumDate,
+      rollerWidth,
+      locale,
+      isUseNewComponent
+    } = this.props;
+    return (
+      <Fragment>
+        <InputContainer
+          disabled={disabled}
+          onPress={() => {
+            this.setState({ displayModal: true });
+          }}
+        >
+          {this.renderInput()}
+        </InputContainer>
+        <BottomModal
+          isVisible={displayModal}
+          onBackdropPress={() => this.setState({ displayModal: false })}
+          swipeDirection={null}
+          isDisabledScrollView={isDisabledScrollView}
+          noPadding
+        >
+          <DateRoller
+            calendarType={calendarType}
+            confirmText={confirmText}
+            cancelText={cancelText}
+            onConfirm={this.onSelectedDate}
+            initialDate={initialDate}
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
+            onCancel={this.onCancel}
+            rollerWidth={rollerWidth}
+            locale={locale}
+            isUseNewComponent={isUseNewComponent}
+          />
+        </BottomModal>
+      </Fragment>
+    );
+  }
+}
+
+DateInput.defaultProps = {
+  testId: undefined,
+  calendarType: "buddhist",
+  cancelText: "Cancel",
+  confirmText: "Done",
+  disabled: false,
+  displayLanguage: "en",
+  format: DISPLAY_DATE_FORMAT,
+  isDisabledScrollView: false,
+  locale: "th",
+  maximumDate: new Date(2099, 11, 31),
+  minimumDate: new Date(new Date().getFullYear() - 100, 1, 1),
+  onCancel: () => {
+  },
+  placeholder: "",
+  rollerWidth: 100,
+  resetDateValue: undefined,
+  isClear: false,
+  isUseNewComponent: false
+};
+
+DateInput.propTypes = {
+  testId: PropTypes.string,
+  calendarType: PropTypes.oneOf(["buddhist", "gregorian"]),
+  cancelText: PropTypes.string,
+  confirmText: PropTypes.string,
+  disabled: PropTypes.bool,
+  displayLanguage: PropTypes.string,
+  format: PropTypes.string,
+  initialDate: PropTypes.instanceOf(Date).isRequired,
+  isDisabledScrollView: PropTypes.bool,
+  locale: PropTypes.oneOf(["th", "en"]),
+  maximumDate: PropTypes.instanceOf(Date),
+  minimumDate: PropTypes.instanceOf(Date),
+  onCancel: PropTypes.func,
+  onConfirm: PropTypes.func.isRequired,
+  placeholder: PropTypes.string,
+  rollerWidth: PropTypes.number,
+  resetDateValue: PropTypes.shape({
+    displayText: PropTypes.string
+  }),
+  isClear: PropTypes.bool,
+  isUseNewComponent: PropTypes.bool
+};
+
+export default DateInput;

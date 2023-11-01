@@ -1,0 +1,106 @@
+import React, { useCallback } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import { debounce } from "lodash";
+import I18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+
+import { Icon, Body2, TextButtonL } from "@invx/components-2";
+import { SearchTab } from "@invx/redux/search/search-constants";
+
+const getMarginTop = () => {
+  if (Platform.OS === "android") {
+    return -2;
+  }
+  if (isIphoneX()) {
+    return 1;
+  }
+  return 0;
+};
+
+const Bar = styled.View`
+  border-radius: ${props => props.theme.spacingXSmall};
+  height: ${props => props.theme.spacingXXLarge};
+  background-color: ${props => props.theme.backgroundWhite};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+const Container = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+`;
+const SearchIcon = styled(Icon).attrs({
+  name: "search-2"
+})``;
+const SearchStartText = styled(Body2)`
+  margin-left: ${props => props.theme.spacingXSmall};
+`;
+
+const TextWithColor = styled(TextButtonL)`
+  color: ${props => props.theme.textBlueColor};
+  margin-top: ${getMarginTop()};
+`;
+
+const SearchBar = ({ assetClassToSearch, setAssetClassToSearch, callback }) => {
+  const handleOnPress = useCallback(() => {
+    if (assetClassToSearch) {
+      setAssetClassToSearch(assetClassToSearch);
+    }
+    Navigation.handleDeepLink({
+      link: "App.openSearch"
+    });
+    // eslint-disable-next-line no-unused-expressions
+    callback?.();
+  }, []);
+
+  const debounceHandleOnPress = debounce(handleOnPress, 1500, {
+    leading: true,
+    trailing: false
+  });
+
+  const textTranslated = useCallback(() => {
+    const searchBarTranslated = I18n.translate("Invest.SearchBar.Asset");
+    switch (assetClassToSearch) {
+      case SearchTab.BONDS:
+        return searchBarTranslated.Bonds;
+      case SearchTab.DIGITAL_ASSETS:
+        return searchBarTranslated.DigitalAssets;
+      case SearchTab.FUNDS:
+        return searchBarTranslated.Funds;
+      case SearchTab.STOCKS:
+        return searchBarTranslated.OffshoreStocks;
+      case SearchTab.OFFSHORE_FUNDS:
+        return searchBarTranslated.OffshoreFunds;
+      default:
+        return searchBarTranslated.All;
+    }
+  }, [assetClassToSearch]);
+
+  return (
+    <TouchableWithoutFeedback onPress={debounceHandleOnPress}>
+      <Bar>
+        <Container>
+          <SearchIcon />
+          <SearchStartText>{I18n.t("Invest.SearchBar.Text1")}</SearchStartText>
+          <TextWithColor>{textTranslated()}</TextWithColor>
+          <Body2>{I18n.t("Invest.SearchBar.Text2")}</Body2>
+        </Container>
+      </Bar>
+    </TouchableWithoutFeedback>
+  );
+};
+
+SearchBar.defaultProps = {
+  assetClassToSearch: "",
+  callback: null
+};
+SearchBar.propTypes = {
+  assetClassToSearch: PropTypes.oneOf([Object.keys(SearchTab)]),
+  setAssetClassToSearch: PropTypes.func.isRequired,
+  callback: PropTypes.func
+};
+
+export default SearchBar;

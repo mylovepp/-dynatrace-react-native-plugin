@@ -1,0 +1,186 @@
+// @ts-nocheck
+import React, { Fragment, PureComponent } from "react";
+import { TouchableHighlight } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Dimensions } from "react-native";
+import styled from "styled-components/native";
+import _shuffle from "lodash/shuffle";
+import PropTypes from "prop-types";
+import { Display1, Display3 } from "../index";
+import Icon from "../icon/Icon";
+
+const calcurateScreen = () => {
+  const { height } = Dimensions.get("window");
+  if (height < 700) {
+    return 50;
+  } else if (height < 750) {
+    return 55;
+  }
+  return 68;
+};
+
+// Extending the touchablehighlight to fix the background color delay
+class TouchableButton extends TouchableHighlight {
+  // eslint-disable-next-line class-methods-use-this
+  touchableGetHighlightDelayMS() {
+    return 0;
+  }
+}
+
+const StyledButtonContainer = styled.View.attrs(props => {
+  return {
+    underlayColor: props.theme.backgroundTertiaryGrey,
+    height: calcurateScreen(),
+    width: calcurateScreen(),
+    marginHorizontal: props.isShortScreen ? 0 : props.theme.spacingMediumValue,
+    marginVertical: props.isShortScreen ? 0 : props.theme.spacingMediumValue
+  };
+})`
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+`;
+
+const StyledButton = styled(TouchableButton).attrs(props => ({
+  underlayColor: props.theme.backgroundTertiaryGrey,
+  height: calcurateScreen(),
+  width: calcurateScreen()
+}))`
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  width: 50px;
+  margin: 10px 0px;
+  border-radius: 64px;
+`;
+
+const StyledFlatList = styled.FlatList.attrs(props => ({
+  underlayColor: props.theme.backgroundTertiaryGrey,
+  paddingVertical: props.isShortScreen
+    ? props.theme.spacingXXSmallValue
+    : props.theme.spacingMediumValue
+}))`
+  flex-grow: 0;
+`;
+
+class PinKeyboard extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isShortScreen: Dimensions.get("window").height < 700
+    };
+  }
+
+  generateKeyboardData = () => {
+    const { backspaceComponent, hideComponent, shuffleKeyBoard } = this.props;
+    let array = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+    if (shuffleKeyBoard) {
+      array = _shuffle(array);
+    }
+
+    array.splice(-1, 0, hideComponent); // LeftBottom
+    array.push(backspaceComponent); // RightBottom
+    return array;
+  };
+
+  renderBackspaceKey = () => {
+    const { backspaceOnPress, backspaceComponent, disableBackspace } = this.props;
+    return disableBackspace ? (
+      this.renderEmptyComponent()
+    ) : (
+      <StyledButtonContainer isShortScreen={this.state.isShortScreen}>
+        <StyledButton isShortScreen={this.state.isShortScreen} onPress={backspaceOnPress}>
+          {backspaceComponent}
+        </StyledButton>
+      </StyledButtonContainer>
+    );
+  };
+
+  renderEmptyComponent = () => (
+    <StyledButtonContainer isShortScreen={this.state.isShortScreen}>
+      <StyledButton isShortScreen={this.state.isShortScreen}>
+        <Fragment />
+      </StyledButton>
+    </StyledButtonContainer>
+  );
+
+  renderHideKey = () => {
+    const { hideOnPress, hideComponent, disableHide } = this.props;
+    return disableHide ? (
+      this.renderEmptyComponent()
+    ) : (
+      <StyledButtonContainer isShortScreen={this.state.isShortScreen}>
+        <StyledButton isShortScreen={this.state.isShortScreen} onPress={hideOnPress}>
+          {hideComponent}
+        </StyledButton>
+      </StyledButtonContainer>
+    );
+  };
+
+  renderNormalKey = item => {
+    const { keyboardOnPress } = this.props;
+    return (
+      <StyledButtonContainer isShortScreen={this.state.isShortScreen}>
+        <StyledButton
+          isShortScreen={this.state.isShortScreen}
+          onPress={() => keyboardOnPress(item)}
+          accessibilityLabel={`Key ${item}`}
+        >
+          {this.state.isShortScreen ? <Display3>{item}</Display3> : <Display1>{item}</Display1>}
+        </StyledButton>
+      </StyledButtonContainer>
+    );
+  };
+
+  renderItem = ({ item }) => {
+    const { backspaceComponent, hideComponent } = this.props;
+    switch (item) {
+      case backspaceComponent:
+        return this.renderBackspaceKey();
+      case hideComponent:
+        return this.renderHideKey();
+      default:
+        return this.renderNormalKey(item);
+    }
+  };
+
+  render() {
+    return (
+      <StyledFlatList
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flex: 0, justifyContent: "flex-end" }}
+        scrollEnabled={false}
+        horizontal={false}
+        vertical
+        numColumns={3}
+        renderItem={this.renderItem}
+        data={this.generateKeyboardData()}
+        keyExtractor={val => `keyboardItem-${val}`}
+        isShortScreen={this.state.isShortScreen}
+      />
+    );
+  }
+}
+
+PinKeyboard.defaultProps = {
+  backspaceComponent: <Icon name="backspace" size="icon24" />,
+  backspaceOnPress: () => {},
+  disableBackspace: false,
+  disableHide: false,
+  hideComponent: <Icon name="hide-keyboard" size="icon24" />,
+  hideOnPress: () => {},
+  keyboardOnPress: () => {},
+  shuffleKeyBoard: false
+};
+
+PinKeyboard.propTypes = {
+  backspaceComponent: PropTypes.element,
+  backspaceOnPress: PropTypes.func,
+  disableBackspace: PropTypes.bool,
+  disableHide: PropTypes.bool,
+  hideComponent: PropTypes.element,
+  hideOnPress: PropTypes.func,
+  keyboardOnPress: PropTypes.func,
+  shuffleKeyBoard: PropTypes.bool
+};
+export default PinKeyboard;

@@ -1,0 +1,156 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { Bullet } from "../../../components";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { localiseCurrency } from "../../../modules/i18n";
+import { CASH_TYPE, primaryColor } from "../portfolio-constants";
+import { Header2, TextOverlineR, Display3, Body3 } from "../../../components-2";
+import { setupCache, initialCache, getDataWithCacheStatus } from "../portfolio-helpers";
+
+const CardContainer = styled.View`
+  margin-top: 16;
+  background-color: white;
+  margin-bottom: 8;
+  margin-left: 16;
+  margin-right: 16;
+  border-radius: 8;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.2;
+  shadow-radius: 4;
+  shadow-offset: 0px 2px;
+`;
+
+const BodyContainer = styled.View`
+  padding-top: 16;
+  padding-bottom: 16;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: center;
+  padding-left: ${props => props.theme.spacingLargeValue};
+  padding-right: ${props => props.theme.spacingLargeValue};
+`;
+
+const RowDetail = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-top: 3;
+`;
+
+const TitleWrapper = styled(Header2)`
+  font-weight: 500;
+  margin-left: 8;
+  margin-top: -2;
+  font-size: 14;
+`;
+
+const AmountWrapper = styled.View`
+  padding-top: ${props => props.theme.spacingXXSmallValue};
+`;
+
+const DescriptionWrapper = styled(TextOverlineR)`
+  font-size: 10;
+  color: #7e7e7e;
+`;
+
+const Label = styled(TextOverlineR)``;
+
+const Detail = styled(Display3)`
+  font-weight: 500;
+  font-size: 18;
+`;
+
+const PortfolioCashWidget = props => {
+  const { i18n, onNavigateCash, onFetchPortfolioWalletInfo, user, isCashIncomplete } = props;
+
+  useEffect(() => {
+    onFetchPortfolioWalletInfo(user.userId);
+  }, []);
+
+  const [cache, setCache] = useState(
+    initialCache({
+      totalPortfolioCash: 0,
+      colorIndex: undefined
+    })
+  );
+
+  const realTimeData = {
+    totalPortfolioCash: props.totalPortfolioCash,
+    colorIndex: props.colorIndex
+  };
+
+  const { totalPortfolioCash, colorIndex } = getDataWithCacheStatus({
+    cacheStatus: cache.status,
+    cacheData: cache.data,
+    realTimeData
+  });
+
+  setupCache({
+    userId: user.email,
+    cacheStatus: cache.status,
+    detectValue: props.totalPortfolioCash,
+    cacheName: "portfolio-cash-widget",
+    setCache,
+    realTimeData
+  });
+
+  return (
+    <CardContainer>
+      <TouchableOpacity onPress={() => onNavigateCash()}>
+        <BodyContainer>
+          <Row>
+            <Bullet shape="circle" color={primaryColor(colorIndex ? colorIndex[CASH_TYPE] : 5)} />
+            <TitleWrapper>{i18n.translations["Portfolio.Cash.Cash"]}</TitleWrapper>
+          </Row>
+          <Row>
+            <AmountWrapper>
+              <Label>{i18n.translations["Portfolio.Cash.Amount"]}</Label>
+              <RowDetail>
+                <Detail>
+                  {localiseCurrency({
+                    value: totalPortfolioCash,
+                    hideCurrency: true
+                  })}{" "}
+                </Detail>
+                <Body3>{i18n.translations["Portfolio.Cash.THB"]}</Body3>
+              </RowDetail>
+            </AmountWrapper>
+          </Row>
+          <Row>
+            <DescriptionWrapper>
+              {isCashIncomplete
+                ? i18n.translations["General.Error.ServiceUnavailable.CashIncomplete"]
+                : i18n.translations["Portfolio.Cash.Description"]}
+            </DescriptionWrapper>
+          </Row>
+        </BodyContainer>
+      </TouchableOpacity>
+    </CardContainer>
+  );
+};
+
+PortfolioCashWidget.defaultProps = {
+  user: {},
+  totalPortfolioCash: "0.00",
+  onNavigateCash: () => {},
+  colorIndex: [],
+  onFetchPortfolioWalletInfo: () => {},
+  isCashIncomplete: false
+};
+
+PortfolioCashWidget.propTypes = {
+  // eslint-disable-next-line react/forbid-prop-types
+  user: PropTypes.object,
+  totalPortfolioCash: PropTypes.string,
+  onNavigateCash: PropTypes.func,
+  onFetchPortfolioWalletInfo: PropTypes.func,
+  colorIndex: PropTypes.arrayOf(PropTypes.any),
+  i18n: I18nPropTypes.isRequired,
+  isCashIncomplete: PropTypes.bool
+};
+
+export default PortfolioCashWidget;

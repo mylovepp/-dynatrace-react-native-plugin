@@ -1,0 +1,378 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Dimensions, Linking } from "react-native";
+import Carousel from "react-native-carousel-control";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { isEmpty } from "lodash/fp";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import {
+  HOME_ADVERTISE_BANNER,
+  HOME_ADS_SECTION_FREEMIUM,
+  HOME_ADS_SECTION_VIEW_CONTENT
+} from "../../../modules/analytics/analytics-constants";
+import { formatUserMode } from "../../../modules/analytics/analytics-utils";
+import { CONTENT_TYPE } from "../../../redux/article/article-constants";
+import {
+  setSelectTabIndex,
+  navigationPushFundDetailScreenWithAds,
+  navigationPushScreen,
+  HOME_TAB_INDEX,
+  ROBO_ADVISOR_TAB_INDEX
+} from "../../../modules/navigation";
+import {
+  HOME_SCREEN_ID,
+  FUND_DETAIL_SCREEN_ID,
+  STOCK_RECOMMEND_SCREEN_ID,
+  ADVERTISE_DETAIL_SCREEN_ID,
+  DIGITAL_ADVISOR_SCREEN_ID,
+  BOND_DETAIL_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+import { getStockPricingSubject } from "../../../modules/subject/stocks";
+
+const defaultIndex = 0;
+const displayIntervalFactors = 1000;
+const { width: CAROUSEL_FULL_WIDTH } = Dimensions.get("window");
+
+const RELOAD_ADS_INTERVAL_MINUTE = 30;
+
+const StyledImage = styled.Image`
+  width: 100%;
+  height: 88px;
+  background-color: #e1e4e8;
+  border-radius: ${props => props.theme.spacingXSmall};
+`;
+
+const Container = styled.View`
+  padding-top: ${props => props.theme.spacingLargeValue};
+  padding-bottom: ${props => props.theme.spacingLarge};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  background-color: white;
+  elevation: ${props => (!props.isFreemiumMode ? props.theme.spacingXXXSmallValue : 0)};
+  box-shadow: ${props =>
+    !props.isFreemiumMode
+      ? `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+      : "none"};
+`;
+
+const CarouselContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+`;
+
+const ImageTouchableOpacity = styled(TouchableOpacity)`
+  flex-direction: row;
+`;
+
+const DotsContainer = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  position: absolute;
+  bottom: 0;
+`;
+
+const DotView = styled.View`
+  background-color: ${props => props.theme.backgroundWhite};
+  width: ${props => props.theme.spacingXXSmall};
+  height: ${props => props.theme.spacingXXSmall};
+  border-radius: ${props => props.theme.borderRadius};
+  margin: ${props => props.theme.spacingXXSmall};
+  opacity: 0.5;
+`;
+
+const ActiveDotView = styled.View`
+  background-color: ${props => props.theme.backgroundWhite};
+  width: ${props => props.theme.spacingXLarge};
+  height: ${props => props.theme.spacingXXSmall};
+  border-radius: ${props => props.theme.borderRadius};
+  margin: ${props => props.theme.spacingXXSmall};
+`;
+
+const mapScreen = key => {
+  switch (key) {
+    case "fundDetailScreen":
+      return FUND_DETAIL_SCREEN_ID;
+    case "stockProductInformationScreen":
+      return STOCK_RECOMMEND_SCREEN_ID;
+    case "digitalAdvisor":
+      return DIGITAL_ADVISOR_SCREEN_ID;
+    case "homeScreen":
+      return HOME_SCREEN_ID;
+    case "bondDetailScreen":
+      return BOND_DETAIL_SCREEN_ID;
+    default:
+      return null;
+  }
+};
+
+const mapActiveTab = key => {
+  switch (key) {
+    case "roboAdvisor":
+      return ROBO_ADVISOR_TAB_INDEX;
+    default:
+      return 0;
+  }
+};
+
+let reloadAdsInterval = null;
+
+class Advertise extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      selectedIndex: 0,
+      interval: this.startImageInterval()
+    };
+  }
+
+  componentDidMount() {
+    if (!reloadAdsInterval) {
+      reloadAdsInterval = setInterval(() => {
+        this.props.getAdvertisements(this.props.isFreemiumMode);
+      }, RELOAD_ADS_INTERVAL_MINUTE * 60 * 1000);
+    }
+  }
+
+  componentWillUnmount() {
+    clearInterval(reloadAdsInterval);
+    reloadAdsInterval = null;
+  }
+
+  onPageChange = selectedIndex => {
+    this.setState({ selectedIndex });
+    clearInterval(this.state.interval);
+    this.setState({ interval: this.startImageInterval() });
+  };
+
+  handleImagePressed = advertisement => {
+    this.props.callToActions(advertisement);
+    trackEvent(HOME_ADVERTISE_BANNER, {
+      bannerName: advertisement.topic
+    });
+    if (this.props.user && this.props.user.userId && this.props.user.userId !== "") {
+      trackEvent(HOME_ADS_SECTION_VIEW_CONTENT, {
+        adsDetail: `${formatUserMode(this.props.isFreemiumMode)}|${advertisement.topic}|`
+      });
+    } else {
+      trackEvent(HOME_ADS_SECTION_FREEMIUM, {
+        adsDetail: `${formatUserMode(this.props.isFreemiumMode)}|${advertisement.topic}|`
+      });
+    }
+  };
+
+  handlePress = ads => {
+    this.handlePressAds(ads);
+    this.handleTrackEvent(ads);
+  };
+
+  handleTrackEvent = ads => {
+    const { user, isFreemiumMode } = this.props;
+
+    trackEvent(HOME_ADVERTISE_BANNER, { bannerName: ads.header });
+
+    if (!isEmpty(user?.userId)) {
+      trackEvent(HOME_ADS_SECTION_VIEW_CONTENT, {
+        adsDetail: `${formatUserMode(isFreemiumMode)}|${ads.header}|`
+      });
+    } else {
+      trackEvent(HOME_ADS_SECTION_FREEMIUM, {
+        adsDetail: `${formatUserMode(isFreemiumMode)}|${ads.header}|`
+      });
+    }
+  };
+
+  handlePressAds = ads => {
+    const { contentType, details } = ads;
+    switch (contentType) {
+      case CONTENT_TYPE.TEXT_HTML:
+        navigationPushScreen({
+          screen: ADVERTISE_DETAIL_SCREEN_ID,
+          animationType: "slide-horizontal",
+          backButtonTitle: "",
+          passProps: {
+            id: ads.id
+          }
+        });
+        break;
+      case CONTENT_TYPE.TEXT_URI_LIST:
+        Linking.canOpenURL(details).then(valid => {
+          if (valid) {
+            Linking.openURL(details);
+          }
+        });
+        break;
+      case CONTENT_TYPE.IN_APP_NAVIGATION:
+        this.handleInAppNavigation(ads);
+        break;
+      default:
+        break;
+    }
+  };
+
+  handleInAppNavigation = ads => {
+    const { setAssetType, setTradeChannelBanner } = this.props;
+    const { header: adsTopic, details } = ads;
+    const { screen, params } = JSON.parse(details);
+
+    switch (mapScreen(screen)) {
+      case HOME_SCREEN_ID:
+        if (params && params.activeTab) {
+          setSelectTabIndex(HOME_TAB_INDEX, mapActiveTab(params.activeTab));
+        }
+        break;
+      case FUND_DETAIL_SCREEN_ID:
+        if (params && params.code) {
+          setAssetType("FUNDS");
+          setTradeChannelBanner(true);
+          navigationPushFundDetailScreenWithAds(
+            params.code,
+            "",
+            "",
+            () => {
+              setTradeChannelBanner(false);
+            },
+            1000,
+            adsTopic
+          );
+        }
+        break;
+      case STOCK_RECOMMEND_SCREEN_ID:
+        if (params && params.ricCode && params.sourceId) {
+          navigationPushScreen(
+            {
+              screen: STOCK_RECOMMEND_SCREEN_ID,
+              passProps: {
+                stockCode: "",
+                ricCode: params.ricCode,
+                screenId: STOCK_RECOMMEND_SCREEN_ID,
+                subject: getStockPricingSubject({
+                  ricCode: params.ricCode,
+                  sourceId: params.sourceId
+                }),
+                isThaiStock: false,
+                adsTopic
+              },
+              backButtonHidden: true,
+              animationType: "slide-horizontal",
+              backButtonTitle: ""
+            },
+            100
+          );
+        }
+        break;
+      case DIGITAL_ADVISOR_SCREEN_ID:
+        navigationPushScreen({
+          screen: DIGITAL_ADVISOR_SCREEN_ID,
+          backButtonTitle: "",
+          backButtonHidden: true,
+          overrideBackPress: true,
+          navigatorStyle: {
+            tabBarHidden: true,
+            navBarHidden: true,
+            navBarBackgroundColor: "#FFF"
+          },
+          passProps: {
+            screenId: DIGITAL_ADVISOR_SCREEN_ID
+          }
+        });
+        break;
+      case BOND_DETAIL_SCREEN_ID:
+        navigationPushScreen({
+          screen: BOND_DETAIL_SCREEN_ID,
+          passProps: {
+            bondCode: params.code,
+            bondName: params.name,
+            screenId: BOND_DETAIL_SCREEN_ID
+          },
+          backButtonHidden: true,
+          animationType: "slide-horizontal",
+          backButtonTitle: ""
+        });
+        break;
+      default:
+        break;
+    }
+  };
+
+  startImageInterval = () => {
+    return setInterval(() => {
+      this.setState(prev => ({
+        selectedIndex:
+          prev.selectedIndex === this.props.advertisements.length - 1
+            ? this.setState({ selectedIndex: defaultIndex })
+            : this.setState({ selectedIndex: this.state.selectedIndex + 1 })
+      }));
+    }, this.props.interval * displayIntervalFactors);
+  };
+
+  scrollRef = React.createRef();
+
+  renderPagination = () => {
+    if (this.props.advertisements.length <= 1) {
+      return null;
+    }
+
+    const dots = [];
+    for (let i = 0; i < this.props.advertisements.length; i++) {
+      dots.push(i === this.state.selectedIndex ? <ActiveDotView key={i} /> : <DotView key={i} />);
+    }
+
+    return <DotsContainer pointerEvents="none">{dots}</DotsContainer>;
+  };
+
+  renderItems = () => {
+    const { advertisements } = this.props;
+    return advertisements.map(data => {
+      return (
+        <ImageTouchableOpacity key={data} onPress={() => this.handlePress(data)}>
+          <StyledImage
+            resizeMode="cover"
+            source={{ uri: data.shortcutImageUri, cache: "reload" }}
+          />
+        </ImageTouchableOpacity>
+      );
+    });
+  };
+
+  render() {
+    const { selectedIndex } = this.state;
+    return (
+      <Container isFreemiumMode={this.props.isFreemiumMode}>
+        <CarouselContainer>
+          <Carousel
+            sneak={0}
+            currentPage={selectedIndex}
+            onPageChange={this.onPageChange}
+            swipeThreshold={0.2}
+            pageWidth={CAROUSEL_FULL_WIDTH}
+            pageStyle={{ paddingHorizontal: 16 }}
+          >
+            {this.renderItems()}
+          </Carousel>
+          {this.renderPagination()}
+        </CarouselContainer>
+      </Container>
+    );
+  }
+}
+
+Advertise.defaultProps = {
+  advertisements: [],
+  user: {}
+};
+
+Advertise.propTypes = {
+  advertisements: PropTypes.arrayOf(PropTypes.any),
+  interval: PropTypes.number.isRequired,
+  callToActions: PropTypes.func.isRequired,
+  setAssetType: PropTypes.func.isRequired,
+  setTradeChannelBanner: PropTypes.func.isRequired,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  user: PropTypes.arrayOf(PropTypes.any),
+  getAdvertisements: PropTypes.func.isRequired
+};
+
+export default Advertise;

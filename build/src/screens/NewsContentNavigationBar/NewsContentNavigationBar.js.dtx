@@ -1,0 +1,92 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback, useEffect } from "react";
+import { Platform, Share, StatusBar, BackHandler } from "react-native";
+import styled from "styled-components/native";
+import { Icon } from "../../components-2";
+
+const statusBarHeight = StatusBar.currentHeight || 24;
+
+/** ******************************************* */
+// Styles
+/** ******************************************* */
+
+const NavBarContainer = styled.View(props => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  height:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXLargeValue * 3}px`
+      : `${props.theme.spacingXLargeValue * 3 - statusBarHeight}px`,
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXLargeValue + 14}px`
+      : `${props.theme.spacingXXLargeValue + 14 - statusBarHeight}px`,
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium
+}));
+
+const IconButton = styled(TouchableOpacity)``;
+
+const IconStyled = styled(Icon).attrs(props => ({
+  name: props.name,
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const NewsContentNavBar = props => {
+  const { navigator, name, shareLink, onShare, reset } = props;
+
+  const handleOnBackButtonPressed = useCallback(() => {
+    navigator.pop();
+    if (reset) { reset(); }
+  }, [reset]);
+
+  useEffect(() => {
+    BackHandler.addEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    return () => {
+      BackHandler.removeEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    };
+  }, []);
+
+  const handleShareNews = useCallback(async () => {
+    if (Platform.OS === "ios") {
+      const result = await Share.share({ message: name, url: shareLink });
+      if (onShare && result.action === Share.sharedAction) { onShare(result.activityType); }
+    } else {
+      const result = await Share.share({ message: shareLink, title: name }, { dialogTitle: name });
+      if (onShare && result.action === Share.sharedAction) { onShare(result.activityType); }
+    }
+  }, [name, shareLink]);
+
+  return (
+    <NavBarContainer>
+      <IconButton onPress={handleOnBackButtonPressed}>
+        <IconStyled name="chevron-left-2" />
+      </IconButton>
+      {shareLink ? (
+        <IconButton onPress={handleShareNews}>
+          <IconStyled name="share-2" />
+        </IconButton>
+      ) : null}
+    </NavBarContainer>
+  );
+};
+
+NewsContentNavBar.defaultProps = {
+  name: undefined,
+  shareLink: undefined,
+  onShare: undefined
+};
+
+NewsContentNavBar.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  name: PropTypes.string,
+  shareLink: PropTypes.string,
+  onShare: PropTypes.func,
+  reset: PropTypes.func.isRequired
+};
+
+export default NewsContentNavBar;

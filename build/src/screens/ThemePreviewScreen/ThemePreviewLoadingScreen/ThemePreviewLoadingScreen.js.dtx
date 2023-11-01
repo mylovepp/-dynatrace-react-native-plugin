@@ -1,0 +1,104 @@
+// @ts-nocheck
+import React, { Component } from "react";
+import { Button } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import { ThemeProvider } from "styled-components";
+import PropTypes from "prop-types";
+import theme from "../../../theme";
+import {
+  Header1,
+  LottieLoadingIndicator,
+  LoadingScreen,
+  ScrollViewContainer,
+  ViewContainer
+} from "../../../components-2";
+
+const Background = styled(ViewContainer).attrs({ isFullScreen: true, variant: "screen" })``;
+
+const Section = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+  width: 100%;
+  min-height: 100px;
+  align-items: center;
+`;
+
+const Title = styled(Header1)`
+  margin-left: ${props => props.theme.spacingSmall};
+`;
+
+class ThemePreviewLoadingScreen extends Component {
+  state = {
+    modalIndicatorVisible: false
+  };
+
+  render() {
+    return (
+      <Background>
+        <ThemeProvider theme={theme}>
+          {this.state.modalIndicatorVisible ? (
+            <LoadingScreen
+              textVariant="high"
+              caption="TestLoadingScreen"
+              subCaption="this is some sub-caption"
+            />
+          ) : (
+            <ScrollViewContainer>
+              <Title>small</Title>
+              <Section>
+                <LottieLoadingIndicator size="small" />
+              </Section>
+              <Title>medium</Title>
+              <Section>
+                <LottieLoadingIndicator size="medium" />
+              </Section>
+              <Title>large</Title>
+              <Section>
+                <LottieLoadingIndicator size="large" />
+              </Section>
+              <Title>Show case full screen loading page</Title>
+              <Section>
+                <Button
+                  title="loading screen"
+                  onPress={
+                    // this is for testing only don't use with setTimeout
+                    () =>
+                      this.setState({ modalIndicatorVisible: true }, () =>
+                        setTimeout(() => {
+                          this.setState(prev => ({
+                            modalIndicatorVisible: !prev.modalIndicatorVisible
+                          }));
+                        }, 2500)
+                      )
+                  }
+                />
+              </Section>
+              <Title>Show case: navigation LoadingScreen</Title>
+              <Section>
+                <Button
+                  title="loading screen"
+                  onPress={() => {
+                    this.props.navigator.push({
+                      screen: "lottieLoading",
+                      animated: false,
+                      title: "lottieLoadingScreen",
+                      backButtonTitle: "",
+                      animationType: "slide-horizontal"
+                    });
+                  }}
+                />
+              </Section>
+            </ScrollViewContainer>
+          )}
+        </ThemeProvider>
+      </Background>
+    );
+  }
+}
+
+ThemePreviewLoadingScreen.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired
+};
+
+export default ThemePreviewLoadingScreen;

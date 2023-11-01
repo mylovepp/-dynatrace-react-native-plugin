@@ -1,0 +1,132 @@
+import React, { useCallback, memo, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { BackHandler, Platform } from "react-native";
+import styled from "styled-components/native";
+import { debounce } from "lodash";
+import PropTypes from "prop-types";
+
+import { FEATURE } from "@invx/modules/analytics/analytics-constants";
+import { navigationPushScreen } from "@invx/modules/navigation";
+
+import Card from "./Card";
+import { getCardTypes, AssetType } from "./constants";
+import { analyticTracking } from "../utils";
+import { getIsInsuranceEnabled } from "../../../Config";
+
+const Container = styled.View`
+  flex-direction: row;
+  flex-wrap: wrap;
+`;
+
+const CardContainer = styled.View`
+  flex-basis: 50%;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+  padding-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const pushScreen = (screen, passProps = null, backButtonHidden = false) => {
+  navigationPushScreen(
+    {
+      screen,
+      passProps,
+      navigatorStyle: { tabBarHidden: true, navBarHidden: true },
+      backButtonHidden,
+      overrideBackPress: false
+    },
+    100
+  );
+};
+
+const navigatePushScreenByAsset = assetType => {
+  switch (assetType) {
+    case AssetType.OFFSHORE_STOCKS:
+      analyticTracking("Offshore Stocks");
+      pushScreen("offshoreStock");
+      break;
+    case AssetType.THAI_STOCKS:
+      analyticTracking("Thai Stocks");
+      pushScreen("thaiStock");
+      break;
+    case AssetType.OFFSHORE_FUNDS:
+      analyticTracking("Offshore Funds");
+      pushScreen("fundOffshore");
+      break;
+    case AssetType.FUNDS:
+      analyticTracking("Thai Funds");
+      pushScreen("fundMain");
+      break;
+    case AssetType.STRUCTURED_NODE:
+      analyticTracking("Structure Note");
+      pushScreen("structuredNoteMain");
+      break;
+    case AssetType.BONDS:
+      analyticTracking("Bond");
+      pushScreen("bondMain");
+      break;
+    case AssetType.DIGITAL_ASSETS:
+      analyticTracking("Digital Assets");
+      pushScreen("digitalAssetsMarketScreen", { isDisplayInvestScreen: true });
+      break;
+    case AssetType.INTELLIGENT_PORTFOLIOS:
+      analyticTracking("Intelligent Portfolios");
+      pushScreen("digitalAdvisor", { isDisplayInvestScreen: true }, true);
+      break;
+    case AssetType.INSURANCE:
+      analyticTracking(FEATURE.DIGITAL_INSURANCE);
+      pushScreen("insuranceProductCategoryScreen");
+      break;
+    default:
+      break;
+  }
+};
+const AssetCard = ({ navigator }) => {
+  // eslint-disable-next-line consistent-return
+  const handleOnPress = useCallback(assetType => {
+    navigatePushScreenByAsset(assetType);
+  }, []);
+
+  // eslint-disable-next-line consistent-return
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+        navigator.pop();
+      });
+      return () => {
+        backHandler.remove();
+      };
+    }
+  }, []);
+
+  const debounceHandleOnPress = debounce(handleOnPress, 1500, {
+    leading: true,
+    trailing: false
+  });
+  return (
+    <Container>
+      {getCardTypes().map((card, index) => {
+        if (card.assetType === AssetType.INSURANCE) {
+          if (!getIsInsuranceEnabled()) {
+            return <></>;
+          }
+        }
+        return (
+          <CardContainer key={`${index.toString()}`}>
+            <TouchableOpacity
+              onPress={() => {
+                debounceHandleOnPress(card.assetType);
+              }}
+            >
+              <Card {...card} />
+            </TouchableOpacity>
+          </CardContainer>
+        );
+      })}
+    </Container>
+  );
+};
+
+AssetCard.propTypes = {
+  navigator: PropTypes.shape().isRequired
+};
+
+export default memo(AssetCard);

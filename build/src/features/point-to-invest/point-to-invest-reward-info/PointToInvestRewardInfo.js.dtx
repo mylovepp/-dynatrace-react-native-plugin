@@ -1,0 +1,1141 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import {
+  Image,
+  View,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  Platform,
+  UIManager,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import i18n from "react-native-i18n";
+import Clipboard from "@react-native-community/clipboard";
+import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import LinearGradient from "react-native-linear-gradient";
+import PropTypes from "prop-types";
+import styled, { withTheme } from "styled-components/native";
+import { getStatusBarHeight } from "react-native-iphone-screen-helper";
+import QRCode from "react-native-qrcode-svg";
+import Barcode from "react-native-barcode-svg";
+import {
+  Body2,
+  Body3,
+  Display3,
+  Header2,
+  Header3,
+  ErrorSevereBanner,
+  Icon,
+  LargeDisplay,
+  LoadingScreen,
+  LottieLoadingIndicator,
+  TextOverlineR,
+  TouchableOpacityDebounced,
+  SVGIcon,
+  PrimaryButton,
+  SecondaryButton,
+  BottomModal,
+  ViewContainer
+} from "../../../components-2";
+import { showNewInAppNotification } from "../../../modules/navigation";
+import { formatDate, DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT } from "../../../modules/format";
+
+const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const MAX_HEIGHT = 296;
+const STATUSBAR_HEIGHT = getStatusBarHeight(true);
+
+const LoadingIndicator = styled(ShimmerPlaceHolder)(props => ({
+  borderRadius: props.borderRadius,
+  width: Dimensions.get("window").width,
+  height: MAX_HEIGHT
+}));
+
+const calHeight = Platform.OS === "ios" ? 71 : 43;
+const statusBar = Platform.OS === "ios" ? STATUSBAR_HEIGHT : 31;
+const fontWeightPlatform = Platform.OS === "ios" ? "600" : "bold";
+
+const Container = styled(View)(() => ({
+  marginTop: statusBar,
+  height: MAX_HEIGHT - calHeight,
+  backgroundColor: "transparent"
+}));
+
+const SectionBackground = styled(Animated.View)(props => ({
+  width: "100%",
+  borderBottomLeftRadius: 16,
+  borderBottomRightRadius: 16,
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  paddingHorizontal: 16,
+  position: "absolute",
+  zIndex: 99,
+  paddingVertical: props.isExpand ? 16 : 0,
+  backgroundColor: props.isExpand ? props.theme.navigation : "transparent"
+}));
+
+const BackContainer = styled(TouchableOpacityDebounced)(() => ({
+  borderRadius: 100,
+  backgroundColor: "rgba(246, 246, 246, 0.5)",
+  width: 32,
+  height: 32,
+  alignItems: "center",
+  justifyContent: "center"
+}));
+
+const CopyIcon = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const BackIcon = styled(Icon).attrs(props => ({
+  size: "icon24",
+  name: "chevronLeft",
+  color: props.isExpand ? props.theme.contentColorCTAPurple : props.theme.contentColorWhite
+}))``;
+
+const ImageThumbnailContainer = styled(Animated.View)(() => ({
+  position: "absolute",
+  top: -1
+}));
+
+const ImageThumbnail = styled(Image)(props => ({
+  height: MAX_HEIGHT,
+  width: Dimensions.get("window").width,
+  alignSelf: "stretch",
+  resizeMode: "cover",
+  backgroundColor: props.theme.navigation
+}));
+
+const HeaderContainer = styled(View)(() => ({
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  backgroundColor: "white",
+  padding: 16
+}));
+
+const RowIcon = styled(View)(() => ({
+  flexDirection: "row",
+  padding: 2
+}));
+
+const BottomFilterView = styled.View`
+  justify-content: flex-end;
+  padding-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const ButtonFilterContainer = styled.View`
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+`;
+
+const DialogContainer = styled.View`
+  flex: 1;
+  justify-content: flex-start;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const RowCopyIcon = styled.View`
+  flex-direction: row;
+  margin-top: -${props => props.theme.spacingLarge};
+  padding-bottom: ${props => props.theme.spacingXLarge};
+`;
+
+const RowCode = styled.View`
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: -${props => props.theme.spacingLarge};
+`;
+
+const DialogTitle = styled.View`
+  flex-direction: row;
+`;
+
+const DialogDetail = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const ButtonContainer = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+const ButtonArea = styled.View`
+  flex: 5;
+  padding: ${props => props.theme.spacingXXSmall};
+`;
+
+const ResultView = styled.View`
+  width: 100%;
+  height: 140px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #855aff;
+  border-radius: 8px;
+`;
+
+const DialogErrorContainer = styled.View`
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const DialogErrorTitle = styled.View`
+  flex-direction: row;
+`;
+
+const DialogErrorDetail = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const HeroBannerContainer = styled.View`
+  flex-direction: row;
+  min-height: 55px;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const LeftButton = styled(TouchableOpacity)`
+  width: 50px;
+  border-width: 0;
+  border-radius: 0;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+const ResponseMessageBox = styled.View(props => ({
+  backgroundColor: props.theme.backgroundWhite,
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  paddingBottom: "15%"
+}));
+
+class PointToInvestRewardInfo extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      showCode: false,
+      showConfirmDialog: false,
+      showDialogRedeem: false,
+      showPointNotEnough: false,
+      showLoadRewardError: true,
+      showRedeemError: true,
+      showDialogErrorGenCode: true,
+      showDialogSoldOut: true,
+      showDialogPointNotEnough: true
+    };
+  }
+  componentDidMount() {
+    const { pointToInvestRewardInfo, rewardID } = this.props;
+    this.props.clearRedemption();
+    this.props.clearUseReward();
+    this.props.fetchRewardInfoByID(rewardID);
+    if (pointToInvestRewardInfo && pointToInvestRewardInfo.detailImgRef) {
+      this.props.getImagePath(pointToInvestRewardInfo.detailImgRef);
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    const { pointToInvestRewardInfo } = this.props;
+    if (prevProps.pointToInvestRewardInfo.detailImgRef !== pointToInvestRewardInfo.detailImgRef) {
+      this.props.getImagePath(pointToInvestRewardInfo.detailImgRef);
+    }
+  }
+
+  renderBanner = () => {
+    const { imagePath, loadImagePath } = this.props;
+    if (loadImagePath) {
+      return <LoadingIndicator />;
+    }
+    return (
+      <ImageThumbnailContainer style={{ opacity: 1 }}>
+        <ImageThumbnail source={{ uri: `${imagePath}`, cache: "reload" }} />
+      </ImageThumbnailContainer>
+    );
+  };
+
+  handleOnPressAction = () => {
+    const { onPressBack } = this.props;
+    this.props.fetchInitialPoint();
+    return onPressBack();
+  };
+
+  renderNavbar = () => {
+    return (
+      <SectionBackground>
+        <BackContainer onPress={this.handleOnPressAction}>
+          <BackIcon />
+        </BackContainer>
+      </SectionBackground>
+    );
+  };
+
+  renderCondition = conditions => {
+    return (
+      <SafeAreaView>
+        <FlatList
+          ref={ref => {
+            this.flatListRef = ref;
+          }}
+          data={conditions}
+          keyExtractor={(key, index) => `${key}-${index}`}
+          renderItem={this.renderItem}
+        />
+      </SafeAreaView>
+    );
+  };
+
+  renderItem = ({ item }) => {
+    return <Body3 variant="greyHigh">{`• ${item}`}</Body3>;
+  };
+
+  onPressCopyButton = displayText => {
+    const { navigator } = this.props;
+    Clipboard.setString(displayText);
+    showNewInAppNotification(navigator, {
+      body: "FriendGetFriend.CopyCompleted",
+      variant: "success",
+      iconName: "success"
+    });
+  };
+
+  renderIconCopy = message => {
+    return (
+      <RowCopyIcon>
+        <TouchableOpacityDebounced
+          onPress={() => {
+            this.onPressCopyButton(message);
+          }}
+        >
+          <Row>
+            <CopyIcon name="copy" size="icon16" />
+            <Header3 variant="ctaPurple" style={{ marginTop: -3 }}>
+              {` ${i18n.t("FriendGetFriend.ReferCopy")}`}
+            </Header3>
+          </Row>
+        </TouchableOpacityDebounced>
+      </RowCopyIcon>
+    );
+  };
+
+  renderResultGen = codeType => {
+    const { itemForGenerateCode } = this.props;
+    const isOverLength = itemForGenerateCode?.code?.length > 12;
+    if (codeType === "QR_CODE") {
+      return <QRCode style={{ flex: 1 }} value={itemForGenerateCode?.code} size={88} />;
+    }
+    if (codeType === "BARCODE") {
+      return <Barcode maxWidth={300} value={itemForGenerateCode?.code} format="CODE128" />;
+    }
+    return isOverLength ? (
+      <Header2>{itemForGenerateCode?.code}</Header2>
+    ) : (
+      <LargeDisplay>{itemForGenerateCode?.code}</LargeDisplay>
+    );
+  };
+
+  formatDateThai = date => {
+    const formYear = new Date(date).getFullYear();
+    const thaiYear = formYear + 543;
+    const thaiShortYear = thaiYear.toString();
+    const itemForm = formatDate(new Date(date), DISPLAY_DATE_WITH_SHORT_MONTH_FORMAT, "th");
+    return `${itemForm.slice(0, -4)}${thaiShortYear}`;
+  };
+
+  renderContent = () => {
+    const {
+      pointToInvestRewardInfo,
+      resultRedemption,
+      itemForGenerateCode,
+      loadingItemForGenerate
+    } = this.props;
+
+    return (
+      <SafeAreaView style={{ flex: 1 }}>
+        <HeaderContainer>
+          <ScrollView>
+            <TextOverlineR numberOfLines={1}>{pointToInvestRewardInfo?.brandName}</TextOverlineR>
+            <Header2 numberOfLines={1}>{pointToInvestRewardInfo?.topic}</Header2>
+            <RowIcon style={{ marginTop: 15 }}>
+              {resultRedemption.length === 0 && (
+                <>
+                  <SVGIcon name="PointBlue" size="icon16" />
+                  <Body3
+                    variant="ctaPurple"
+                    style={{ marginLeft: 5, marginTop: -3, fontWeight: fontWeightPlatform }}
+                  >
+                    {pointToInvestRewardInfo?.point?.toLocaleString("en-US")}
+                  </Body3>
+                  <Body3 variant="greyHigh" style={{ marginLeft: 5, marginTop: -3 }}>
+                    {i18n.t("Profile.PointToInvest.Point")}
+                  </Body3>
+                </>
+              )}
+            </RowIcon>
+
+            <RowIcon>
+              <Icon name="calendar-2" size="icon16" color="#7E7E7E" />
+              <Body3 variant="greyHigh" numberOfLines={1} style={{ marginLeft: 5, marginTop: -3 }}>
+                {`${this.formatDateThai(pointToInvestRewardInfo.validFrom)} - ${this.formatDateThai(
+                  pointToInvestRewardInfo.validTo
+                )}`}
+              </Body3>
+            </RowIcon>
+            <RowIcon>
+              <SVGIcon name="Location" size="icon16" />
+              <Body3 variant="greyHigh" style={{ marginLeft: 5, marginTop: -3, maxWidth: "95%" }}>
+                {pointToInvestRewardInfo?.branch}
+              </Body3>
+            </RowIcon>
+
+            {resultRedemption && resultRedemption?.id && (
+              <>
+                <RowContainer>
+                  <ResultView>
+                    {itemForGenerateCode &&
+                    itemForGenerateCode?.codeType &&
+                    !loadingItemForGenerate ? (
+                      this.renderResultGen(itemForGenerateCode?.codeType)
+                    ) : (
+                      <>
+                        {loadingItemForGenerate ? (
+                          <LottieLoadingIndicator size="large" />
+                        ) : (
+                          <Header3 variant="ctaPurple">
+                            {`${i18n.t(
+                              "Profile.PointToInvest.Reward.Info.ActiveReward"
+                            )} \n      ${i18n.t(
+                              "Profile.PointToInvest.Reward.Info.ActiveReward2"
+                            )}`}
+                          </Header3>
+                        )}
+                      </>
+                    )}
+                  </ResultView>
+                </RowContainer>
+                {itemForGenerateCode?.codeType !== "CODE" && (
+                  <RowCode>
+                    <Header3
+                      style={{ marginRight: itemForGenerateCode.codeType === "QR_CODE" ? 0 : 15 }}
+                    >
+                      {itemForGenerateCode?.code}
+                    </Header3>
+                  </RowCode>
+                )}
+                {itemForGenerateCode?.codeType === "CODE" && (
+                  <RowCode>{this.renderIconCopy(itemForGenerateCode?.code)}</RowCode>
+                )}
+              </>
+            )}
+
+            <Header2 numberOfLines={1} style={{ marginTop: 15 }}>
+              {i18n.t("Profile.PointToInvest.Reward.Info.Detail")}
+            </Header2>
+            <Body3 variant="greyHigh" numberOfLines={2}>
+              {pointToInvestRewardInfo?.detail}
+            </Body3>
+            <Header2 numberOfLines={1} style={{ marginTop: 15 }}>
+              {i18n.t("Profile.PointToInvest.Reward.Info.Condition")}
+            </Header2>
+            {this.renderCondition(pointToInvestRewardInfo?.conditions)}
+          </ScrollView>
+        </HeaderContainer>
+      </SafeAreaView>
+    );
+  };
+
+  generateReward = RedeemID => {
+    this.setState({ showCode: true, showConfirmDialog: false });
+    setTimeout(() => {
+      this.props.useReward(RedeemID);
+    }, 400);
+  };
+
+  viewReward = () => {
+    setTimeout(() => {
+      this.props.onViewRedemtion();
+    }, 300);
+  };
+
+  useLater = () => {
+    this.props.fetchInitialPoint();
+    setTimeout(() => {
+      this.viewReward();
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  delayIOS = rewardID => {
+    this.props.redeemRewardByID(rewardID);
+    setTimeout(() => {
+      this.props.fetchInitialPoint();
+    }, 500);
+  };
+
+  submitToRedeem = rewardID => {
+    this.setState({ showDialogRedeem: false });
+    setTimeout(() => {
+      this.delayIOS(rewardID);
+    }, 500);
+  };
+
+  calPoint = () => {
+    const { pointToInvestRewardInfo, refreshPointToInvestX } = this.props;
+    const pointStr = refreshPointToInvestX?.toString();
+    const replacePoint = pointStr?.replace(/,/g, "");
+    const pointInt = parseInt(replacePoint, 10);
+
+    const convertPointReward = pointToInvestRewardInfo?.point?.toString();
+    const preparePointReward = convertPointReward?.replace(/,/g, "");
+    const resultPoint = pointInt - parseInt(preparePointReward, 10);
+
+    if (resultPoint < 0) {
+      return this.setState({ showPointNotEnough: true });
+    }
+    return this.setState({ showDialogRedeem: true });
+  };
+
+  handleCloseModal = () => {
+    this.setState({ showPointNotEnough: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleErrorLoadReward = () => {
+    this.setState({ showLoadRewardError: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleErrorRedeemModal = () => {
+    this.setState({ showRedeemError: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleCloseErrorSoldOut = () => {
+    this.setState({ showDialogSoldOut: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleCloseErrorPointNotEnough = () => {
+    this.setState({ showDialogPointNotEnough: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  handleCloseErrorGenCode = () => {
+    this.setState({ showDialogErrorGenCode: false });
+    setTimeout(() => {
+      this.props.navigator.pop();
+    }, 300);
+  };
+
+  renderModal = () => {
+    const { theme } = this.props;
+    return (
+      <View>
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={this.state.showPointNotEnough}
+          onRequestClose={() => {
+            this.setState({ showPointNotEnough: false });
+          }}
+        >
+          <ViewContainer>
+            <HeroBannerContainer>
+              <ButtonContainer>
+                <LeftButton onPress={() => this.handleCloseModal()}>
+                  <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                </LeftButton>
+              </ButtonContainer>
+            </HeroBannerContainer>
+            <ResponseMessageBox>
+              <ErrorSevereBanner size="illus78" />
+              <DialogErrorContainer>
+                <DialogErrorTitle>
+                  <Display3>
+                    {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title2")}
+                  </Display3>
+                </DialogErrorTitle>
+                <DialogErrorDetail>
+                  <Body2 variant="greyHigh">
+                    {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail2")}
+                  </Body2>
+                </DialogErrorDetail>
+              </DialogErrorContainer>
+              <ButtonContainer>
+                <SecondaryButton
+                  size="large"
+                  label={i18n.t(
+                    "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                  )}
+                  onPress={() => this.handleCloseModal()}
+                />
+              </ButtonContainer>
+            </ResponseMessageBox>
+          </ViewContainer>
+        </Modal>
+      </View>
+    );
+  };
+
+  renderErrorRedeem = () => {
+    const { loadingResultRedemption, errorMsg, showErrorResultRedemption, theme } = this.props;
+    if (errorMsg === "4001") {
+      return this.renderIsSoldOut();
+    }
+    if (errorMsg === "4002") {
+      return this.renderPointNotEnough();
+    }
+    return (
+      <View>
+        {showErrorResultRedemption && !loadingResultRedemption && (
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showRedeemError}
+            onRequestClose={() => {
+              this.setState({ showRedeemError: false });
+            }}
+          >
+            <ViewContainer>
+              <HeroBannerContainer>
+                <ButtonContainer>
+                  <LeftButton onPress={() => this.handleErrorRedeemModal()}>
+                    <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                  </LeftButton>
+                </ButtonContainer>
+              </HeroBannerContainer>
+              <ResponseMessageBox>
+                <ErrorSevereBanner size="illus78" />
+                <DialogErrorContainer>
+                  <DialogErrorTitle>
+                    <Display3>
+                      {` ${i18n.t(
+                        "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title"
+                      )} (${errorMsg || "Error"})`}
+                    </Display3>
+                  </DialogErrorTitle>
+                  <DialogErrorDetail>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail2")}
+                    </Body2>
+                  </DialogErrorDetail>
+                </DialogErrorContainer>
+                <ButtonContainer>
+                  <SecondaryButton
+                    size="large"
+                    label={i18n.t(
+                      "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                    )}
+                    onPress={() => this.handleErrorRedeemModal()}
+                  />
+                </ButtonContainer>
+              </ResponseMessageBox>
+            </ViewContainer>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
+  renderErrorLoadRewardInfo = () => {
+    const { loadingRewardInfo, isErrorLoadRewardInfo, theme } = this.props;
+    return (
+      <View>
+        {isErrorLoadRewardInfo && !loadingRewardInfo && (
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showLoadRewardError}
+            onRequestClose={() => {
+              this.setState({ showLoadRewardError: false });
+            }}
+          >
+            <ViewContainer>
+              <HeroBannerContainer>
+                <ButtonContainer>
+                  <LeftButton onPress={() => this.handleErrorLoadReward()}>
+                    <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                  </LeftButton>
+                </ButtonContainer>
+              </HeroBannerContainer>
+              <ResponseMessageBox>
+                <ErrorSevereBanner size="illus78" />
+                <DialogErrorContainer>
+                  <DialogErrorTitle>
+                    <Display3>
+                      {` ${i18n.t(
+                        "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title"
+                      )} (Error)`}
+                    </Display3>
+                  </DialogErrorTitle>
+                  <DialogErrorDetail>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail2")}
+                    </Body2>
+                  </DialogErrorDetail>
+                </DialogErrorContainer>
+                <ButtonContainer>
+                  <SecondaryButton
+                    size="large"
+                    label={i18n.t(
+                      "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                    )}
+                    onPress={() => this.handleErrorLoadReward()}
+                  />
+                </ButtonContainer>
+              </ResponseMessageBox>
+            </ViewContainer>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
+  renderErrorGenerateCode = () => {
+    const { loadingItemForGenerate, showErrorItemForGenerate, theme } = this.props;
+    return (
+      <View>
+        {showErrorItemForGenerate && !loadingItemForGenerate && (
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showDialogErrorGenCode}
+            onRequestClose={() => {
+              this.setState({ showDialogErrorGenCode: false });
+            }}
+          >
+            <ViewContainer>
+              <HeroBannerContainer>
+                <ButtonContainer>
+                  <LeftButton onPress={() => this.handleCloseErrorGenCode()}>
+                    <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                  </LeftButton>
+                </ButtonContainer>
+              </HeroBannerContainer>
+              <ResponseMessageBox>
+                <ErrorSevereBanner size="illus78" />
+                <DialogErrorContainer>
+                  <DialogErrorTitle>
+                    <Display3>
+                      {` ${i18n.t(
+                        "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title"
+                      )} (Error)`}
+                    </Display3>
+                  </DialogErrorTitle>
+                  <DialogErrorDetail>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail2")}
+                    </Body2>
+                  </DialogErrorDetail>
+                </DialogErrorContainer>
+                <ButtonContainer>
+                  <SecondaryButton
+                    size="large"
+                    label={i18n.t(
+                      "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                    )}
+                    onPress={() => this.handleCloseErrorGenCode()}
+                  />
+                </ButtonContainer>
+              </ResponseMessageBox>
+            </ViewContainer>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
+  renderPointNotEnough = () => {
+    const { loadingResultRedemption, showErrorResultRedemption, theme } = this.props;
+    return (
+      <View>
+        {showErrorResultRedemption && !loadingResultRedemption && (
+          <Modal
+            animationType="slide"
+            transparent={false}
+            visible={this.state.showDialogPointNotEnough}
+            onRequestClose={() => {
+              this.setState({ showDialogPointNotEnough: false });
+            }}
+          >
+            <ViewContainer>
+              <HeroBannerContainer>
+                <ButtonContainer>
+                  <LeftButton onPress={() => this.handleCloseErrorPointNotEnough()}>
+                    <Icon name="chevron-left-2" size="icon32" color={theme.contentColorCTAPurple} />
+                  </LeftButton>
+                </ButtonContainer>
+              </HeroBannerContainer>
+              <ResponseMessageBox>
+                <ErrorSevereBanner size="illus78" />
+                <DialogErrorContainer>
+                  <DialogErrorTitle>
+                    <Display3>
+                      {` ${i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title4")}`}
+                    </Display3>
+                  </DialogErrorTitle>
+                  <DialogErrorDetail>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail4")}
+                    </Body2>
+                  </DialogErrorDetail>
+                  <DialogErrorDetail style={{ marginTop: 5 }}>
+                    <Body2 variant="greyHigh">
+                      {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.DetailSub4")}
+                    </Body2>
+                  </DialogErrorDetail>
+                </DialogErrorContainer>
+                <ButtonContainer>
+                  <SecondaryButton
+                    size="large"
+                    label={i18n.t(
+                      "Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.BackToMain"
+                    )}
+                    onPress={() => this.handleCloseErrorPointNotEnough()}
+                  />
+                </ButtonContainer>
+              </ResponseMessageBox>
+            </ViewContainer>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
+  renderIsSoldOut = () => {
+    return (
+      <BottomModal isVisible={this.state.showDialogSoldOut}>
+        <DialogContainer>
+          <DialogTitle>
+            <Display3>
+              {` ${i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Title3")}`}
+            </Display3>
+          </DialogTitle>
+          <DialogDetail>
+            <Body2 variant="greyHigh">
+              {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Detail3")}
+            </Body2>
+          </DialogDetail>
+          <ButtonContainer>
+            <ButtonArea>
+              <PrimaryButton
+                size="large"
+                label={i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ErrorDialog.Button.OK")}
+                onPress={() => {
+                  this.handleCloseErrorSoldOut();
+                }}
+              />
+            </ButtonArea>
+          </ButtonContainer>
+        </DialogContainer>
+      </BottomModal>
+    );
+  };
+
+  setDialogPointNotEnough = () => {
+    this.setState({ showDialogPointNotEnough: true });
+  };
+
+  renderDialogRedeem = () => {
+    const { pointToInvestRewardInfo, refreshPointToInvestX } = this.props;
+    const pointStr = refreshPointToInvestX?.toString();
+    const replacePoint = pointStr?.replace(/,/g, "");
+    const pointInt = parseInt(replacePoint, 10);
+
+    const convertPointReward = pointToInvestRewardInfo?.point?.toString();
+    const preparePointReward = convertPointReward?.replace(/,/g, "");
+    const resultPoint = pointInt - parseInt(preparePointReward, 10);
+
+    return (
+      <BottomModal isVisible={this.state.showDialogRedeem}>
+        <DialogContainer>
+          <DialogTitle>
+            <SVGIcon name="PointBlue" size="icon24" />
+            <Display3>
+              {` ${i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Title")}`}
+            </Display3>
+            <Display3 variant="scbSecondaryBlue">
+              {` ${pointToInvestRewardInfo?.point?.toLocaleString("en-US")}`}
+              {` ${i18n.t("Profile.PointToInvest.Point")}`}
+            </Display3>
+            <Display3>
+              {` ${i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Title2")}`}
+            </Display3>
+          </DialogTitle>
+          <DialogDetail>
+            <Body2 variant="greyHigh">
+              {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Detail")}
+              {` ${resultPoint.toLocaleString("en-US")} `}
+              {i18n.t("Profile.PointToInvest.Point")}
+            </Body2>
+          </DialogDetail>
+          <ButtonContainer>
+            <ButtonArea>
+              <SecondaryButton
+                size="large"
+                label={i18n.t(
+                  "Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Button.Cancel"
+                )}
+                onPress={() => {
+                  this.setState({ showDialogRedeem: false });
+                }}
+              />
+            </ButtonArea>
+            <ButtonArea>
+              <PrimaryButton
+                size="large"
+                label={i18n.t(
+                  "Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Button.Confirm"
+                )}
+                onPress={() => {
+                  this.submitToRedeem(pointToInvestRewardInfo?.id);
+                }}
+              />
+            </ButtonArea>
+          </ButtonContainer>
+        </DialogContainer>
+      </BottomModal>
+    );
+  };
+
+  renderButton = () => {
+    const { resultRedemption, loadingResultRedemption, itemForGenerateCode } = this.props;
+    const { showCode } = this.state;
+    if (itemForGenerateCode && itemForGenerateCode?.codeType && showCode) {
+      return (
+        <BottomFilterView>
+          <ButtonFilterContainer>
+            <SecondaryButton
+              label={i18n.t("Profile.PointToInvest.Reward.Info.ViewReward")}
+              size="large"
+              onPress={() => {
+                this.props.onViewUseReward();
+              }}
+            />
+          </ButtonFilterContainer>
+        </BottomFilterView>
+      );
+    }
+    if (resultRedemption && resultRedemption?.id && !showCode) {
+      return (
+        <BottomFilterView>
+          <ButtonFilterContainer>
+            <ButtonContainer>
+              <ButtonArea>
+                <SecondaryButton
+                  label={i18n.t("Profile.PointToInvest.Reward.Info.UseLater")}
+                  size="large"
+                  onPress={() => {
+                    this.useLater();
+                  }}
+                />
+              </ButtonArea>
+              <ButtonArea>
+                <PrimaryButton
+                  label={i18n.t("Profile.PointToInvest.Reward.Info.UseNow")}
+                  size="large"
+                  onPress={() => {
+                    this.setState({ showConfirmDialog: true });
+                  }}
+                />
+              </ButtonArea>
+            </ButtonContainer>
+          </ButtonFilterContainer>
+        </BottomFilterView>
+      );
+    }
+    return (
+      <BottomFilterView>
+        <ButtonFilterContainer>
+          {resultRedemption && resultRedemption.id ? (
+            <ButtonContainer>
+              <ButtonArea>
+                <SecondaryButton
+                  label={i18n.t("Profile.PointToInvest.Reward.Info.UseLater")}
+                  size="large"
+                  onPress={() => {
+                    this.useLater();
+                  }}
+                />
+              </ButtonArea>
+              <ButtonArea>
+                <PrimaryButton
+                  label={i18n.t("Profile.PointToInvest.Reward.Info.UseNow")}
+                  size="large"
+                  onPress={() => {
+                    this.setState({ showConfirmDialog: true });
+                  }}
+                />
+              </ButtonArea>
+            </ButtonContainer>
+          ) : (
+            <>
+              <PrimaryButton
+                label={i18n.t("Profile.PointToInvest.Reward.Info.Submit")}
+                size="large"
+                disable={loadingResultRedemption}
+                onPress={() => {
+                  this.calPoint();
+                }}
+              />
+            </>
+          )}
+        </ButtonFilterContainer>
+      </BottomFilterView>
+    );
+  };
+
+  renderComfirmDialog = () => {
+    const { resultRedemption } = this.props;
+    return (
+      <BottomModal isVisible={this.state.showConfirmDialog}>
+        <DialogContainer>
+          <DialogTitle>
+            <Display3>
+              {` ${i18n.t("Profile.PointToInvest.Reward.Info.Dialog.RedeemDialog.Title")}`}
+            </Display3>
+          </DialogTitle>
+          <DialogDetail>
+            <Body2 variant="greyHigh">
+              {i18n.t("Profile.PointToInvest.Reward.Info.Dialog.RedeemDialog.Detail")}
+            </Body2>
+          </DialogDetail>
+        </DialogContainer>
+        <ButtonContainer>
+          <ButtonArea>
+            <SecondaryButton
+              size="large"
+              label={i18n.t("Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Button.Cancel")}
+              onPress={() => {
+                this.setState({ showConfirmDialog: false });
+              }}
+            />
+          </ButtonArea>
+          <ButtonArea>
+            <PrimaryButton
+              size="large"
+              label={i18n.t(
+                "Profile.PointToInvest.Reward.Info.Dialog.ConfirmDialog.Button.Confirm"
+              )}
+              onPress={() => {
+                this.generateReward(resultRedemption?.id);
+              }}
+            />
+          </ButtonArea>
+        </ButtonContainer>
+      </BottomModal>
+    );
+  };
+
+  render() {
+    const { loadingRewardInfo } = this.props;
+    if (loadingRewardInfo) {
+      return <LoadingScreen caption="Loading..." />;
+    }
+
+    return (
+      <View style={{ backgroundColor: "white", flex: 1 }}>
+        {this.renderBanner()}
+        <View style={{ flex: 1, backgroundColor: "transparent" }}>
+          <Container>{this.renderNavbar()}</Container>
+          {this.renderContent()}
+          {this.renderButton()}
+          {this.renderModal()}
+          {this.renderDialogRedeem()}
+          {this.renderComfirmDialog()}
+          {this.renderErrorLoadRewardInfo()}
+          {this.renderErrorRedeem()}
+          {this.renderErrorGenerateCode()}
+        </View>
+      </View>
+    );
+  }
+}
+
+PointToInvestRewardInfo.defaultProps = {
+  rewardID: 0,
+  refreshPointToInvestX: "",
+  pointToInvestRewardInfo: [],
+  resultRedemption: [],
+  itemForGenerateCode: [],
+  imagePath: "",
+  loadImagePath: false,
+  loadingRewardInfo: false,
+  loadingResultRedemption: false,
+  loadingItemForGenerate: false,
+  isErrorLoadRewardInfo: false,
+  showErrorResultRedemption: false,
+  showErrorItemForGenerate: false,
+  errorMsg: "",
+  clearRedemption: () => {},
+  clearUseReward: () => {},
+  fetchRewardInfoByID: () => {},
+  getImagePath: () => {},
+  onPressBack: () => {},
+  onViewRedemtion: () => {},
+  onViewUseReward: () => {},
+  redeemRewardByID: () => {},
+  useReward: () => {}
+};
+
+PointToInvestRewardInfo.propTypes = {
+  rewardID: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  refreshPointToInvestX: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  resultRedemption: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  pointToInvestRewardInfo: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  itemForGenerateCode: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  imagePath: PropTypes.string,
+  loadImagePath: PropTypes.bool,
+  loadingRewardInfo: PropTypes.bool,
+  loadingResultRedemption: PropTypes.bool,
+  loadingItemForGenerate: PropTypes.bool,
+  isErrorLoadRewardInfo: PropTypes.bool,
+  showErrorResultRedemption: PropTypes.bool,
+  showErrorItemForGenerate: PropTypes.bool,
+  errorMsg: PropTypes.string,
+  clearRedemption: PropTypes.func,
+  clearUseReward: PropTypes.func,
+  fetchRewardInfoByID: PropTypes.func,
+  getImagePath: PropTypes.func,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  onPressBack: PropTypes.func,
+  onViewRedemtion: PropTypes.func,
+  onViewUseReward: PropTypes.func,
+  redeemRewardByID: PropTypes.func,
+  useReward: PropTypes.func,
+  fetchInitialPoint: PropTypes.func.isRequired,
+  theme: PropTypes.oneOfType([PropTypes.array, PropTypes.object]).isRequired
+};
+export default withTheme(PointToInvestRewardInfo);

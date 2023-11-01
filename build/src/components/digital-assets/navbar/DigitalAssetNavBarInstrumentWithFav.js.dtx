@@ -1,0 +1,152 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { connect } from "react-redux";
+import { View, Platform } from "react-native";
+import styled, { withTheme } from "styled-components/native";
+import PropTypes from "prop-types";
+import _ from "lodash";
+import { Icon, Display3 } from "../../../components-2";
+import CoinImageWithTradingSignIcon from "../../../components/icon/CoinImageWithTradingSignIcon";
+import FavoriteWatchlistButton from "../../../components/navbar/FavoriteWatchlistButton";
+
+const Root = styled(View)(() => ({
+  flex: 1,
+  flexDirection: "row",
+  justifyContent: "center"
+}));
+
+const ItemContainer = styled(TouchableOpacity)(props => ({
+  alignSelf: "center",
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+  marginRight: Platform.OS === "ios" ? 0 : props.theme.spacingMedium
+}));
+
+const BackContainer = styled(TouchableOpacity)(() => ({
+  alignSelf: "center",
+  flexDirection: "row"
+}));
+
+const BackText = styled(Display3)(props => ({
+  fontWeight: props.theme.display3.fontWeight,
+  color: props.theme.contentColorCTAPurple
+}));
+
+const InsturmentContainer = styled(Display3)(props => ({
+  color: props.theme.contentVeryHigh
+}));
+
+const CoinContainer = styled(View)(props => ({
+  marginRight: props.theme.spacingXXSmall
+}));
+
+const DigitalAssetNavBarInstrumentWithFav = props => {
+  const {
+    theme,
+    onPressBack,
+    showBackButton,
+    backButtonText,
+    showFavButton,
+    showInstrument,
+    navigator,
+    onNavigate,
+    tradeSelectedInstrument
+  } = props;
+
+  return (
+    <Root>
+      {showBackButton && (
+        <BackContainer onPress={onPressBack}>
+          <Icon name="chevron-left-2" size="icon24" color={theme.contentColorCTAPurple} />
+          {!_.isEmpty(backButtonText) && <BackText>{backButtonText}</BackText>}
+        </BackContainer>
+      )}
+      {showInstrument && (
+        <ItemContainer
+          style={{ flex: 1 }}
+          onPress={onNavigate}
+          testID={`${tradeSelectedInstrument.Product1Symbol}/${tradeSelectedInstrument.Product2Symbol}`}
+          accessibilityLabel={`${tradeSelectedInstrument.Product1Symbol}/${tradeSelectedInstrument.Product2Symbol}`}
+        >
+          <CoinContainer>
+            <CoinImageWithTradingSignIcon uri={tradeSelectedInstrument.icon} />
+          </CoinContainer>
+          {!_.isEmpty(tradeSelectedInstrument) && (
+            <InsturmentContainer>
+              {tradeSelectedInstrument.Product1Symbol}/{tradeSelectedInstrument.Product2Symbol}
+            </InsturmentContainer>
+          )}
+        </ItemContainer>
+      )}
+      {showFavButton && (
+        <ItemContainer
+          style={{
+            justifyContent: "center",
+            width: theme.spacingXLargeValue
+          }}
+        >
+          {tradeSelectedInstrument.assetInfo ? (
+            <FavoriteWatchlistButton
+              assetInfo={tradeSelectedInstrument.assetInfo}
+              navigator={navigator}
+            />
+          ) : null}
+        </ItemContainer>
+      )}
+    </Root>
+  );
+};
+
+DigitalAssetNavBarInstrumentWithFav.defaultProps = {
+  showBackButton: false,
+  backButtonText: "",
+  onPressBack: () => {},
+  onNavigate: () => {},
+  showFavButton: false,
+  selectedInstrument: {
+    Product1Symbol: "",
+    Product2Symbol: ""
+  },
+  icon: "",
+  showInstrument: true,
+  assetInfo: {}
+};
+DigitalAssetNavBarInstrumentWithFav.propTypes = {
+  onPressBack: PropTypes.func,
+  onNavigate: PropTypes.func,
+  showBackButton: PropTypes.bool,
+  backButtonText: PropTypes.string,
+  showFavButton: PropTypes.bool,
+  showInstrument: PropTypes.bool,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object.isRequired,
+  selectedInstrument: PropTypes.shape({
+    Product1Symbol: PropTypes.string,
+    Product2Symbol: PropTypes.string
+  }),
+  icon: PropTypes.string,
+  assetInfo: PropTypes.shape({
+    assetType: PropTypes.string,
+    symbol: PropTypes.string,
+    reference: PropTypes.shape({})
+  }),
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    push: PropTypes.func
+  }).isRequired,
+  tradeSelectedInstrument: PropTypes.shape().isRequired
+};
+
+// export default withTheme(DigitalAssetNavBarInstrumentWithFav);
+
+const mapStateToProps = ({ digitalAsset }) => ({
+  tradeSelectedInstrument: digitalAsset.tradeSelectedInstrument
+});
+
+const ConnectedDigitalAssetNavBarInstrumentWithFav = connect(
+  mapStateToProps,
+  null
+)(DigitalAssetNavBarInstrumentWithFav);
+
+export default withTheme(ConnectedDigitalAssetNavBarInstrumentWithFav);

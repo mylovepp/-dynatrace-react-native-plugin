@@ -1,0 +1,86 @@
+// @ts-nocheck
+import React from "react";
+import { Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { View, ViewPropTypes } from "react-native";
+import styled from "styled-components/native";
+import { Body2, Body3 } from "../text/Text";
+import theme from "../../theme";
+
+const SubTitle = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const Title = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const RowValue = ({
+  renderTitle,
+  renderSubtitle,
+  title,
+  subTitle,
+  titleAccessibilityLabel,
+  subTitleAccessibilityLabel,
+  style,
+  titleStyle
+}) => (
+  <View style={style}>
+    {renderTitle ? (
+      renderTitle({
+        numberOfLines: 1,
+        children: title
+      })
+    ) : (
+      <Title
+        numberOfLines={1}
+        accessibilityLabel={titleAccessibilityLabel}
+        testID={titleAccessibilityLabel}
+        style={titleStyle}
+      >
+        {title}
+      </Title>
+    )}
+    {renderSubtitle
+      ? renderSubtitle({
+          numberOfLines: 1,
+          children: subTitle
+        })
+      : !!subTitle && (
+      <SubTitle
+        variant="subdued"
+        numberOfLines={1}
+        testID={subTitleAccessibilityLabel}
+        accessibilityLabel={subTitleAccessibilityLabel}
+      >
+        {subTitle}
+      </SubTitle>
+        )}
+  </View>
+);
+
+RowValue.defaultProps = {
+  renderTitle: undefined,
+  renderSubtitle: undefined,
+  subTitle: "",
+  title: "",
+  titleAccessibilityLabel: "",
+  subTitleAccessibilityLabel: "",
+  style: {},
+  titleStyle: {
+    color: theme.defaultTitleColor
+  }
+};
+
+RowValue.propTypes = {
+  renderTitle: PropTypes.func,
+  renderSubtitle: PropTypes.func,
+  subTitle: PropTypes.string,
+  title: PropTypes.string,
+  titleAccessibilityLabel: PropTypes.string,
+  subTitleAccessibilityLabel: PropTypes.string,
+  style: ViewPropTypes.style,
+  titleStyle: Text.propTypes.style
+};
+
+export default RowValue;

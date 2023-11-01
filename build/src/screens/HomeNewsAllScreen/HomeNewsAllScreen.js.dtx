@@ -1,0 +1,308 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback, useEffect, useState, useMemo } from "react";
+import styled from "styled-components/native";
+import { FlatList } from "react-native";
+import i18n from "react-native-i18n";
+import { ViewContainer } from "../../components";
+import {
+  Header2,
+  Body2,
+  SectionBackground,
+  LoadingScreen,
+  ErrorEmptyState,
+  ActivityBanner,
+  Header1
+} from "../../components-2";
+import { ArticleList } from "../../features/article";
+import {
+  HOME_ALL_NEWS,
+  HOME_ALL_NEWS_VIEW_CONTENT,
+  HOME_ALL_NEWS_CHANGE_TOPIC
+} from "../../modules/analytics/analytics-constants";
+import { formatUserMode } from "../../modules/analytics/analytics-utils";
+import { trackEvent } from "../../modules/analytics/AnalyticsService";
+import { TOPIC_ALL } from "../../redux/home-news/home-news-constants";
+import {
+  NEWS_CONTENT_SCREEN_ID,
+  ALL_NEWS_SCREEN_ID
+} from "../../redux/navigation/navigation-constants";
+import AllNewsNavBar from "../AllNewsNavBar/AllNewsNavBar";
+import { ARTICLE_TYPE } from "../../redux/article/article-constants";
+import { TutorialNewsTabMenuStep } from "../../features/tutorial/news";
+
+const TagsContainer = styled.View(props => ({
+  paddingTop: props.theme.spacingMedium,
+  paddingBottom: props.theme.spacingMedium
+}));
+
+const TabMenu = styled(TouchableOpacity)(props => ({
+  backgroundColor: props.isActive ? props.theme.ctaPurple : props.theme.backgroundHomePurple,
+  borderRadius: props.theme.spacingLarge,
+  padding: `${props.theme.spacingXXSmall} ${props.theme.spacingMedium}`,
+  marginRight: props.isLast ? props.spacingMedium : props.theme.spacingSmall,
+  marginLeft: props.isFirst && props.theme.spacingMedium
+}));
+
+const ActiveTagText = styled(Header2)``;
+
+const TagText = styled(Body2)(props => ({
+  color: props.theme.contentColorHigh
+}));
+
+const ContainerEmpty = styled.View`
+  flex-direction: column;
+  align-items: center;
+  padding: 0 ${props => props.theme.spacingMedium};
+  padding-top: ${props => props.theme.spacingXXXLarge};
+  padding-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const TextContainer = styled.View`
+  padding-top: ${props => props.theme.spacingLarge};
+  flex-direction: column;
+  align-items: center;
+`;
+
+const HomeNewsAllScreen = props => {
+  const {
+    navigator,
+    patientlyNavigate,
+    isFreemiumMode,
+    getAllArticleList,
+    getNewsTagleList,
+    newsArticleAllResponse,
+    newsTagListResponse,
+    defaultActiveTab,
+    initTutorial,
+    user,
+    screenTutorialSteps,
+    tutorialReplay
+  } = props;
+
+  const { data, loading, showError } = newsArticleAllResponse;
+
+  const newstags = newsTagListResponse?.data || [];
+
+  const [activeTab, setAtiveTab] = useState(defaultActiveTab);
+  const [ref, setRef] = useState(null);
+
+  const fetchArticleList = (tag, options = {}) => {
+    const params = {
+      pageNumber: 0,
+      pageSize: 100,
+      userMode: isFreemiumMode ? "FREEMIUM" : "PREMIUM"
+    };
+
+    if (tag && tag !== TOPIC_ALL) {
+      params.tag = tag;
+    }
+
+    getAllArticleList(params, options);
+  };
+
+  useEffect(() => {
+    trackEvent(HOME_ALL_NEWS, {
+      newsDetail: `${formatUserMode(isFreemiumMode)}|`
+    });
+    getNewsTagleList({ articleType: ARTICLE_TYPE.NEWS, activeArticle: true });
+  }, [isFreemiumMode]);
+
+  useEffect(() => {
+    if (initTutorial && user?.email && tutorialReplay) {
+      initTutorial({
+        email: user?.email,
+        navigator,
+        screenId: ALL_NEWS_SCREEN_ID,
+        screenTutorialSteps,
+        tutorialReplay
+      });
+    }
+  }, [initTutorial, user, screenTutorialSteps, tutorialReplay]);
+
+  useEffect(() => {
+    fetchArticleList(activeTab, { renewToken: true });
+  }, [isFreemiumMode]);
+
+  useEffect(() => {
+    if (activeTab !== defaultActiveTab) {
+      setAtiveTab(defaultActiveTab);
+      fetchArticleList(defaultActiveTab);
+    }
+  }, [defaultActiveTab]);
+
+  const onPressItem = useCallback(
+    item => {
+      trackEvent(HOME_ALL_NEWS_VIEW_CONTENT, {
+        newsDetail: `${formatUserMode(isFreemiumMode)}|${item.id}|${activeTab}|`
+      });
+      patientlyNavigate(() => {
+        navigator.push({
+          screen: NEWS_CONTENT_SCREEN_ID,
+          passProps: {
+            id: item.id
+          },
+          animationType: "slide-horizontal",
+          backButtonTitle: "",
+          navigatorStyle: {
+            tabBarHidden: true
+          }
+        });
+      });
+    },
+    [activeTab, isFreemiumMode]
+  );
+
+  const handleChangeTab = useCallback(
+    item => {
+      trackEvent(HOME_ALL_NEWS_CHANGE_TOPIC, {
+        newsDetail: `${item.code}|`
+      });
+      setAtiveTab(item.code);
+      fetchArticleList(item.code);
+    },
+    [isFreemiumMode]
+  );
+
+  const articles = data?.content || [];
+
+  const getTagTitle = useCallback(item => {
+    return item.description;
+  }, []);
+
+  const tabMenus = [
+    {
+      description: i18n.t("News.All"),
+      code: TOPIC_ALL
+    }
+  ];
+  newstags.forEach(item => tabMenus.push(item));
+
+  const emptyArticleSubTitle = useMemo(() => {
+    if (activeTab === TOPIC_ALL) {
+      return i18n.t("News.ArticleEmpty.AllTopicSubtitle");
+    }
+    return i18n.t("News.ArticleEmpty.Subtitle", {
+      topic: newstags.find(tab => tab.code === activeTab)?.description || ""
+    });
+  }, [activeTab, newstags]);
+
+  const renderContent = () => {
+    if (loading) {
+      return <LoadingScreen />;
+    }
+    if (showError) {
+      return <ErrorEmptyState onButtonPress={() => fetchArticleList(activeTab)} />;
+    }
+    if (!articles || articles.length === 0) {
+      return (
+        <ContainerEmpty>
+          <ActivityBanner size="illus78" />
+          <TextContainer>
+            <Header1>{i18n.t("News.ArticleEmpty.Title")}</Header1>
+            <Body2 style={{ textAlign: "center", marginTop: 8 }}>{emptyArticleSubTitle}</Body2>
+          </TextContainer>
+        </ContainerEmpty>
+      );
+    }
+    return (
+      <ArticleList
+        type={ARTICLE_TYPE.NEWS}
+        onPressItem={onPressItem}
+        data={articles}
+        isFreemiumMode={isFreemiumMode}
+        tagList={newstags}
+        navigator={navigator}
+      />
+    );
+  };
+
+  useEffect(() => {
+    const idx = tabMenus.indexOf(tabMenus.filter(item => activeTab === item.code)[0]);
+    if (ref && idx > 0) {
+      setTimeout(() => {
+        ref.scrollToIndex({
+          animated: true,
+          index: idx,
+          viewPosition: 0.2
+        });
+      }, 500);
+    }
+  }, [tabMenus, ref]);
+
+  return (
+    <ViewContainer variant="light">
+      <SectionBackground variant="secondary">
+        <AllNewsNavBar navigator={navigator} />
+        {newstags && newstags.length > 0 && (
+          <TutorialNewsTabMenuStep>
+            <TagsContainer>
+              <FlatList
+                ref={ref1 => setRef(ref1)}
+                horizontal
+                scrollEnabled
+                showsHorizontalScrollIndicator={false}
+                data={tabMenus}
+                renderItem={({ item, index }) => (
+                  <TabMenu
+                    isActive={activeTab === item.code}
+                    isFirst={index === 0}
+                    isLast={index === tabMenus.length - 1}
+                    onPress={() => handleChangeTab(item)}
+                  >
+                    {activeTab === item.code ? (
+                      <ActiveTagText variant="white">{getTagTitle(item)}</ActiveTagText>
+                    ) : (
+                      <TagText>{getTagTitle(item)}</TagText>
+                    )}
+                  </TabMenu>
+                )}
+              />
+            </TagsContainer>
+          </TutorialNewsTabMenuStep>
+        )}
+      </SectionBackground>
+      {renderContent()}
+    </ViewContainer>
+  );
+};
+
+HomeNewsAllScreen.propTypes = {
+  navigator: PropTypes.shape({
+    switchToTab: PropTypes.func,
+    push: PropTypes.func.isRequired,
+    setButtons: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  getAllArticleList: PropTypes.func.isRequired,
+  getNewsTagleList: PropTypes.func.isRequired,
+  defaultActiveTab: PropTypes.string,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  // isFremiumModeReadyToFetch: PropTypes.bool.isRequired,
+  patientlyNavigate: PropTypes.func.isRequired,
+  newsArticleAllResponse: PropTypes.shape({
+    data: PropTypes.shape({
+      content: PropTypes.arrayOf(PropTypes.shape({})).isRequired
+    }),
+    showError: PropTypes.bool.isRequired,
+    loading: PropTypes.bool.isRequired
+  }).isRequired,
+  newsTagListResponse: PropTypes.shape({
+    data: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+    showError: PropTypes.bool.isRequired,
+    loading: PropTypes.bool.isRequired
+  }).isRequired,
+  initTutorial: PropTypes.func,
+  user: PropTypes.objectOf(PropTypes.any),
+  screenTutorialSteps: PropTypes.objectOf(PropTypes.any).isRequired,
+  tutorialReplay: PropTypes.string
+};
+
+HomeNewsAllScreen.defaultProps = {
+  defaultActiveTab: TOPIC_ALL,
+  initTutorial: null,
+  user: {},
+  tutorialReplay: null
+};
+
+export default HomeNewsAllScreen;

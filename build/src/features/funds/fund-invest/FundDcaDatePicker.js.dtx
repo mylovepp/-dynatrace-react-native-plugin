@@ -1,0 +1,133 @@
+import React, { PureComponent, Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { Body2, BottomModal, Header3, Icon, TextOverlineR } from "../../../components-2";
+import PickerRoller from "../../../components-2/picker/PickerRoller";
+import Row from "../../../components/row/Row";
+
+const Container = styled(View)`
+  flex: 1;
+`;
+
+const InputContainer = styled(TouchableOpacity)`
+  border-color: ${props => props.theme.contentColorLight};
+  border-width: 1px;
+  background-color: ${props => props.theme.backgroundWhite};
+  border-radius: 8px;
+`;
+
+const LabelText = styled(TextOverlineR)`
+  text-align: center;
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const LabelContainer = styled(View)`
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const IconCalendar = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorHigh,
+  name: "calendar",
+  size: "icon16"
+}))``;
+
+const TextDate = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const Title = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const TextDateRow = styled(Row).attrs(props => ({
+  containerStyle: {
+    paddingTop: props.theme.spacingSmallValue,
+    paddingBottom: props.theme.spacingSmallValue
+  }
+}))``;
+
+class FundDcaDatePicker extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      displayModal: false,
+      selectedValue: this.props.selectedValue
+    };
+  }
+
+  onSelectedDate = value => {
+    const selectedValue = value || "1";
+    this.setState({ displayModal: false, selectedValue });
+    this.props.selectedDate(selectedValue);
+  };
+
+  renderInput = () => {
+    const { i18n } = this.props;
+    const { selectedValue } = this.state;
+    const calendar = <IconCalendar />;
+    const date = (
+      <TextDate>{selectedValue || i18n.translations["FundInvest.DCA.Placeholder"]}</TextDate>
+    );
+    return <TextDateRow left={date} right={calendar} />;
+  };
+
+  render() {
+    const { i18n } = this.props;
+    const listDate = [...Array(32).keys()].slice(1);
+    const listItem = listDate.map(value => `${value}`);
+
+    return (
+      <Fragment>
+        <Container>
+          <Title>{i18n.translations["FundInvest.DCA.LabelInvestmentDate"]}</Title>
+          <InputContainer
+            onPress={() => {
+              this.setState({ displayModal: true });
+            }}
+          >
+            {this.renderInput()}
+          </InputContainer>
+          <LabelContainer>
+            <LabelText center>{i18n.translations["FundInvest.DCA.Remark"]}</LabelText>
+          </LabelContainer>
+        </Container>
+        <BottomModal
+          noPadding
+          propagateSwipe
+          swipeDirection={null}
+          isVisible={this.state.displayModal}
+          onModalClose={() => {
+            this.setState({ displayModal: false });
+          }}
+        >
+          <PickerRoller
+            cancelText={i18n.translations["FundInvest.DCA.Cancel"]}
+            confirmText={i18n.translations["FundInvest.DCA.Submit"]}
+            pickerData={listItem}
+            selectedValue={this.state.selectedValue}
+            onCancel={() => {
+              this.setState({ displayModal: false });
+            }}
+            onConfirm={this.onSelectedDate}
+          />
+        </BottomModal>
+      </Fragment>
+    );
+  }
+}
+
+FundDcaDatePicker.defaultProps = {
+  selectedValue: null
+};
+
+FundDcaDatePicker.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  selectedValue: PropTypes.string,
+  selectedDate: PropTypes.func.isRequired
+};
+
+export default FundDcaDatePicker;

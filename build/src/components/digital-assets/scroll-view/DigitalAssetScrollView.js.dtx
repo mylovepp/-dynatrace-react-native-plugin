@@ -1,0 +1,56 @@
+import React, { useState } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import { ScrollView, Platform, View } from "react-native";
+import PropTypes from "prop-types";
+import { TOP_NAVBAR_HEIGHT } from "../../../modules/navigation/defaultStyle";
+
+const Container = styled(View)`
+  margin-top: ${Platform.OS === "ios" ? 0 : TOP_NAVBAR_HEIGHT};
+`;
+
+const DigitalAssetScrollView = ({ children, theme, ...props }) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    props.onRefresh();
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
+
+  return (
+    <Container>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={50}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor="#A593C2"
+            colors={["#3D084A"]}
+            onRefresh={onRefresh}
+          />
+        }
+        {...props}
+      >
+        {children}
+      </ScrollView>
+    </Container>
+  );
+};
+
+
+DigitalAssetScrollView.defaultProps = {
+  theme: {}
+};
+
+DigitalAssetScrollView.propTypes = {
+  children: PropTypes.node.isRequired,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object,
+  onRefresh: PropTypes.func.isRequired
+};
+
+export default DigitalAssetScrollView;

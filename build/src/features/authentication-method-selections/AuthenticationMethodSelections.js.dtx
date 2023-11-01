@@ -1,0 +1,95 @@
+import React, { useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { ifProp } from "styled-tools";
+
+import Card from "./components/Card";
+import { Header1, Body3, PrimaryButton } from "../../components-2";
+
+const Container = styled.View`
+  flex: 1;
+`;
+
+const TextContainer = styled.View`
+  padding-top: ${props => props.theme.spacingMediumValue};
+  padding-bottom: ${props => props.theme.spacingXLarge};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+const SubHeader = styled(Body3)`
+  padding-top: ${props => props.theme.spacingXXSmall};
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const ButtonFooterContainer = styled.View`
+  flex: 1;
+  justify-content: flex-end;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-vertical: ${props => props.theme.spacingMedium};
+`;
+
+export const CardContainer = styled(TouchableOpacity)`
+  align-items: center;
+  flex-direction: row;
+  border-width: 1px;
+  border-radius: 10px;
+  border-color: ${props =>
+    ifProp({ selected: true }, props.theme.primaryColor, props.theme.inputBorderColor)};
+  height: 64px;
+  padding-left: ${props => props.theme.spacingXSmall};
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.disabled ? props.theme.backgroundTertiaryGrey : props.theme.backgroundLightColor};
+`;
+
+const AuthenticationMethodSelections = props => {
+  const [cardSelected, setCardSelected] = useState(1);
+
+  const { authenticationMethods, onSubmit } = props;
+
+  const onCardSelected = cardIndex => {
+    setCardSelected(cardIndex);
+  };
+
+  const renderCard = item => {
+    return (
+      <CardContainer
+        key={item.id}
+        selected={cardSelected === item.id}
+        onPress={() => onCardSelected(item.id)}
+        disabled={item.disabled}
+      >
+        <Card cardId={item.id} icon={item.icon} label={item.label} />
+      </CardContainer>
+    );
+  };
+
+  return (
+    <Container>
+      <TextContainer>
+        <Header1>{I18n.t("AuthenticationMethodSelections.Header")}</Header1>
+        <SubHeader>{I18n.t("AuthenticationMethodSelections.SubHeader")}</SubHeader>
+      </TextContainer>
+      {authenticationMethods.map(item => {
+        return renderCard(item);
+      })}
+      <ButtonFooterContainer>
+        <PrimaryButton
+          testId="btnNext"
+          label={I18n.t("AuthenticationMethodSelections.Button")}
+          size="large"
+          onPress={() => onSubmit(cardSelected)}
+        />
+      </ButtonFooterContainer>
+    </Container>
+  );
+};
+
+AuthenticationMethodSelections.propTypes = {
+  authenticationMethods: PropTypes.instanceOf(Array).isRequired,
+  onSubmit: PropTypes.func.isRequired
+};
+
+export default AuthenticationMethodSelections;

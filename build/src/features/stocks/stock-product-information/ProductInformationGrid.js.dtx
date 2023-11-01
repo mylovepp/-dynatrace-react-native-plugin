@@ -1,0 +1,487 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { LabelValueText, Body3 } from "../../../components-2";
+import { formatBigNumber } from "../stocks-util";
+import { gainOrLossDisplay, getGainOrLoss } from "../../../modules/format";
+import {
+  stocksPriceValueDisplay,
+  amountValueDisplay,
+  percentageValueDisplay2dp,
+  textValueDisplay,
+  dayValueDisplay
+} from "../../../modules/i18n/value-display";
+import {
+  EQUITY_TYPE_COMMON_STOCK,
+  EQUITY_TYPE_WARRANT,
+  EQUITY_TYPE_DERIVATIVE_WARRANT,
+  EQUITY_TYPE_ETF,
+  EQUITY_TYPE_TSR
+} from "../redux/stocks-constants";
+
+const WrapperContainer = styled.ScrollView``;
+
+const Container = styled.View`
+  flex-direction: row;
+`;
+
+const CardContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const CardView = styled.View`
+  width: 136px;
+  background-color: ${props => props.theme.backgroundLightColor};
+  border-color: ${props => props.theme.inputBorderColor};
+  padding-vertical: ${props => props.theme.spacingXSmallValue * 1.5};
+  padding-horizontal: ${props => props.theme.spacingMediumValue};
+  margin-right: ${props => props.theme.spacingMedium};
+  margin-vertical: ${props => props.theme.spacingXXSmallValue};
+  box-shadow: 0px 2px 2px rgba(223, 219, 236, 0.3);
+  border-radius: ${props => props.theme.spacingXSmallValue};
+  flex-direction: column;
+`;
+
+const LabelText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ValueText = styled(Body3)``;
+
+class ProductInformationGrid extends PureComponent {
+  getGridCells = () => {
+    const {
+      pricePrecision,
+      intradayHigh,
+      intradayLow,
+      yearWeekHigh,
+      yearWeekLow,
+      open,
+      open1,
+      open2,
+      previousClose,
+      volume,
+      value,
+      marketCap,
+      currentEps,
+      currentPE,
+      priceToBookRatio,
+      dividendYield,
+      exDividendDate,
+      percentageChange1M,
+      percentageChange3M,
+      percentageChange1Y,
+      marketStatus,
+      floor,
+      ceiling,
+      isThaiStock,
+      equityType,
+      exerciseDate,
+      exerciseRatio,
+      exercisePrice,
+      maturityDate,
+      lastTrade,
+      toLastTrade,
+      iNav,
+      aumSize,
+      average
+    } = this.props;
+
+    const grid = [
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.IntraDayHighTitle"),
+        value: stocksPriceValueDisplay(intradayHigh, pricePrecision)
+      },
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.IntraDayLowTitle"),
+        value: stocksPriceValueDisplay(intradayLow, pricePrecision)
+      },
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.YearHighTitle"),
+        value: stocksPriceValueDisplay(yearWeekHigh, pricePrecision)
+      },
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.YearLowTitle"),
+        value: stocksPriceValueDisplay(yearWeekLow, pricePrecision)
+      },
+      ...(!isThaiStock
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.OpenTitle"),
+              value: stocksPriceValueDisplay(open, pricePrecision)
+            }
+          ]
+        : []),
+      ...(isThaiStock
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.Open1Title"),
+              value: stocksPriceValueDisplay(open1, pricePrecision)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.Open2Title"),
+              value: stocksPriceValueDisplay(open2, pricePrecision)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.Ceiling"),
+              value: amountValueDisplay(ceiling, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.Floor"),
+              value: amountValueDisplay(floor, true)
+            }
+          ]
+        : []),
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.VolumeTitle"),
+        value: formatBigNumber({ valueString: volume, precision: 0 })
+      },
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.ValueTitle"),
+        value: formatBigNumber({ valueString: value, precision: 2 })
+      },
+      ...(isThaiStock
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.AverageTitle"),
+              value: formatBigNumber({ valueString: average, precision: 2 })
+            }
+          ]
+        : []),
+      {
+        label: I18n.t("Stocks.ProductInfo.Section.PreviousCloseTitle"),
+        value: stocksPriceValueDisplay(previousClose, pricePrecision)
+      },
+      ...(!isThaiStock || equityType === EQUITY_TYPE_COMMON_STOCK
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.MarketCapTitle"),
+              value: formatBigNumber({
+                valueString: marketCap,
+                precision: 2,
+                isMarketCap: true
+              })
+            }
+          ]
+        : []),
+
+      ...(!isThaiStock || equityType === EQUITY_TYPE_COMMON_STOCK || equityType === EQUITY_TYPE_TSR
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.EpsTitle"),
+              value: amountValueDisplay(currentEps, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.PETitle"),
+              value: amountValueDisplay(currentPE, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.PBVTitle"),
+              value: amountValueDisplay(priceToBookRatio, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.DividendYieldTitle"),
+              value: percentageValueDisplay2dp(dividendYield, true)
+            }
+          ]
+        : []),
+      ...(!isThaiStock || equityType === EQUITY_TYPE_COMMON_STOCK
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExDividendDateTitle"),
+              value: textValueDisplay(exDividendDate, true)
+            }
+          ]
+        : []),
+      ...(isThaiStock && equityType === EQUITY_TYPE_WARRANT
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExerciseDate"),
+              value: textValueDisplay(exerciseDate, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExerciseRatio"),
+              value: textValueDisplay(exerciseRatio, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExercisePrice"),
+              value: amountValueDisplay(exercisePrice, true)
+            }
+          ]
+        : []),
+      ...(isThaiStock && equityType === EQUITY_TYPE_DERIVATIVE_WARRANT
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.MaturityDate"),
+              value: textValueDisplay(maturityDate, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.LastTrade"),
+              value: textValueDisplay(lastTrade, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ToLastTrade"),
+              value: dayValueDisplay(toLastTrade, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExerciseRatio"),
+              value: textValueDisplay(exerciseRatio, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.ExercisePrice"),
+              value: amountValueDisplay(exercisePrice, true)
+            }
+          ]
+        : []),
+      ...(isThaiStock && equityType === EQUITY_TYPE_ETF
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.AumSize"),
+              value: textValueDisplay(aumSize, true)
+            },
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.INav"),
+              value: textValueDisplay(iNav, true)
+            }
+          ]
+        : []),
+      ...(isThaiStock
+        ? [
+            {
+              label: I18n.t("Stocks.ProductInfo.Section.MarketStatus"),
+              value: textValueDisplay(marketStatus, true)
+            }
+          ]
+        : [])
+    ];
+
+    const percentageChange = {
+      label: I18n.t("Stocks.ProductInfo.Section.PercentChangeTitle"),
+      component: (
+        <React.Fragment>
+          <LabelValueText
+            textVariant="small"
+            lightWeight
+            variant={getGainOrLoss(percentageChange1M)}
+          >
+            {gainOrLossDisplay({
+              value: amountValueDisplay(percentageChange1M, true),
+              suffix: "%",
+              noDisplayValue: true
+            })}
+          </LabelValueText>
+          <LabelValueText textVariant="small" lightWeight>
+            {" "}
+            /{" "}
+          </LabelValueText>
+          <LabelValueText
+            textVariant="small"
+            lightWeight
+            variant={getGainOrLoss(percentageChange3M)}
+          >
+            {gainOrLossDisplay({
+              value: amountValueDisplay(percentageChange3M, true),
+              suffix: "%",
+              noDisplayValue: true
+            })}
+          </LabelValueText>
+          <LabelValueText textVariant="small" lightWeight>
+            {" "}
+            /{" "}
+          </LabelValueText>
+          <LabelValueText
+            textVariant="small"
+            lightWeight
+            variant={getGainOrLoss(percentageChange1Y)}
+          >
+            {gainOrLossDisplay({
+              value: amountValueDisplay(percentageChange1Y, true),
+              suffix: "%",
+              noDisplayValue: true
+            })}
+          </LabelValueText>
+        </React.Fragment>
+      )
+    };
+
+    this.makeNextCellOnNewLine(grid);
+
+    grid.push(percentageChange);
+    return grid;
+  };
+
+  makeNextCellOnNewLine = grid => {
+    if (grid.length % 2 === 1) {
+      grid.push({});
+    }
+  };
+
+  render() {
+    const {
+      pricePrecision,
+      intradayHigh,
+      intradayLow,
+      yearWeekHigh,
+      yearWeekLow,
+      open,
+      volume,
+      marketCap,
+      currentEps,
+      currentPE,
+      priceToBookRatio,
+      dividendYield
+    } = this.props;
+
+    return (
+      <WrapperContainer
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingLeft: 16,
+          paddingRight: 16
+        }}
+      >
+        <TouchableOpacity>
+          <Container>
+            <CardView>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.OpenTitle")}</LabelText>
+                <ValueText>{stocksPriceValueDisplay(open, pricePrecision)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.IntraDayHighTitle")}</LabelText>
+                <ValueText>{stocksPriceValueDisplay(intradayHigh, pricePrecision)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.IntraDayLowTitle")}</LabelText>
+                <ValueText>{stocksPriceValueDisplay(intradayLow, pricePrecision)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.VolumeTitle")}</LabelText>
+                <ValueText>
+                  {formatBigNumber({ valueString: volume, precision: 3, isMarketCap: true })}
+                </ValueText>
+              </CardContainer>
+            </CardView>
+            <CardView>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.EpsTitle")}</LabelText>
+                <ValueText>{amountValueDisplay(currentEps, true)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.PETitle")}</LabelText>
+                <ValueText>{amountValueDisplay(currentPE, true)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.PBVTitle")}</LabelText>
+                <ValueText>{amountValueDisplay(priceToBookRatio, true)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.DividendYieldTitle")}</LabelText>
+                <ValueText>{percentageValueDisplay2dp(dividendYield, true)}</ValueText>
+              </CardContainer>
+            </CardView>
+            <CardView>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.YearHighTitle")}</LabelText>
+                <ValueText>{stocksPriceValueDisplay(yearWeekHigh, pricePrecision)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.YearLowTitle")}</LabelText>
+                <ValueText>{stocksPriceValueDisplay(yearWeekLow, pricePrecision)}</ValueText>
+              </CardContainer>
+              <CardContainer>
+                <LabelText>{I18n.t("Stocks.ProductInfo.Section.MarketCapTitle")}</LabelText>
+                <ValueText>
+                  {formatBigNumber({
+                    valueString: marketCap,
+                    precision: 2,
+                    isMarketCap: true
+                  })}
+                </ValueText>
+              </CardContainer>
+            </CardView>
+          </Container>
+        </TouchableOpacity>
+      </WrapperContainer>
+    );
+  }
+}
+
+ProductInformationGrid.defaultProps = {
+  intradayHigh: "",
+  intradayLow: "",
+  yearWeekHigh: "",
+  yearWeekLow: "",
+  open: "",
+  open1: "",
+  open2: "",
+  previousClose: "",
+  volume: "",
+  value: "",
+  marketCap: "",
+  dividendYield: "",
+  percentageChange1M: "",
+  percentageChange1Y: "",
+  percentageChange3M: "",
+  marketStatus: "",
+  floor: "",
+  ceiling: "",
+  isThaiStock: false,
+  priceToBookRatio: null,
+  currentEps: null,
+  currentPE: null,
+  exDividendDate: null,
+  equityType: "",
+  exerciseDate: "",
+  exerciseRatio: "",
+  exercisePrice: "",
+  maturityDate: "",
+  lastTrade: "",
+  toLastTrade: "",
+  iNav: "",
+  aumSize: "",
+  average: ""
+};
+
+ProductInformationGrid.propTypes = {
+  pricePrecision: PropTypes.number.isRequired,
+  intradayHigh: PropTypes.string,
+  intradayLow: PropTypes.string,
+  yearWeekHigh: PropTypes.string,
+  yearWeekLow: PropTypes.string,
+  currentEps: PropTypes.string,
+  currentPE: PropTypes.string,
+  exDividendDate: PropTypes.string,
+  open: PropTypes.string,
+  open1: PropTypes.string,
+  open2: PropTypes.string,
+  previousClose: PropTypes.string,
+  volume: PropTypes.string,
+  value: PropTypes.string,
+  marketCap: PropTypes.string,
+  dividendYield: PropTypes.string,
+  priceToBookRatio: PropTypes.string,
+  percentageChange1M: PropTypes.string,
+  percentageChange1Y: PropTypes.string,
+  percentageChange3M: PropTypes.string,
+  marketStatus: PropTypes.string,
+  floor: PropTypes.string,
+  ceiling: PropTypes.string,
+  isThaiStock: PropTypes.bool,
+  equityType: PropTypes.string,
+  exerciseDate: PropTypes.string,
+  exerciseRatio: PropTypes.string,
+  exercisePrice: PropTypes.string,
+  maturityDate: PropTypes.string,
+  lastTrade: PropTypes.string,
+  toLastTrade: PropTypes.string,
+  iNav: PropTypes.string,
+  aumSize: PropTypes.string,
+  average: PropTypes.string
+};
+
+export default ProductInformationGrid;

@@ -1,0 +1,281 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform } from "react-native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import Tooltip from "react-native-walkthrough-tooltip";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+import { useTheme } from "styled-components/native";
+import { v4 as uuidV4 } from "uuid";
+import { Header1, Header2, Icon, TouchableOpacityDebounced } from "@invx/components-2";
+import { STAGE } from "@invx/redux/onboarding/onboarding-constants";
+import {
+  HeaderContainer,
+  TitleContainer,
+  ButtonSectionContainer,
+  AmericanRightButtonContainer,
+  FormTaxResidentContainer,
+  ButtonContainer,
+  Description,
+  TaxResidentLabel,
+  AddTaxResidentContainer,
+  RowContainer,
+  Container,
+  TooltipContainer,
+  IconInfoContainer,
+  TooltipText
+} from "./SubmitVerifyFATCACRSStyle";
+import { REASON_NOT_HAS_TIN_ALL } from "./constant";
+
+import OnboardingFormWrapper from "../form-wrapper";
+import SelectButton from "./components/SelectButton";
+import TaxForm from "./components/TaxForm";
+
+const countryInit = { code: "", country_code: "", high_risk: "", name: "" };
+const uuid = uuidV4();
+const initReasonCode = {
+  label: "",
+  value: null
+};
+const initState = {
+  id: uuid,
+  country: { code: "000", country_code: "TH", high_risk: "N", name: "ไทย" },
+  tin: "",
+  hasCid: false,
+  reasonCode: initReasonCode,
+  reasonMessage: ""
+};
+const initStateInValidForm = {
+  [uuid]: false
+};
+
+const SubmitVerifyFATCACRS = props => {
+  const {
+    showLoading,
+    showLoadingState,
+    citizenId,
+    stateFormCountryBirth,
+    submitVerifyFATCACRS,
+    prefillData,
+    countries
+  } = props;
+  const [stateTaxFormList, setStateTaxFormList] = useState([{ ...initState, tin: citizenId }]);
+  const [isTaxResidenceUSA, setIsTaxResidenceUSA] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isDisableNextButton, setIsDisableNextButton] = useState(initStateInValidForm);
+
+  const theme = useTheme();
+
+  useEffect(() => {
+    if (prefillData?.customerCrsList !== undefined) {
+      mappingPrefillData();
+    } else {
+      setStateTaxFormList([{ ...initState, tin: citizenId }]);
+    }
+  }, [prefillData.customerCrsList]);
+
+  const mappingPrefillData = () => {
+    if (prefillData?.customerCrsList.length === 0) {
+      setIsTaxResidenceUSA(false);
+    } else {
+      const mapDataList = prefillData?.customerCrsList.map(customerCrs => {
+        return {
+          id: customerCrs.rec_no,
+          country: countries.find(country => country.country_code === customerCrs.country_tax),
+          tin: customerCrs.tin,
+          hasCid: customerCrs.reason_code !== null,
+          reasonCode: customerCrs.reason_code
+            ? REASON_NOT_HAS_TIN_ALL.find(reason => reason.value === customerCrs.reason_code)
+            : initReasonCode,
+          reasonMessage: customerCrs.reason_msg
+        };
+      });
+      setStateTaxFormList(mapDataList);
+    }
+  };
+
+  const isTaxResidenceUSAHandler = isTaxResidence => {
+    if (isTaxResidence) {
+      setStateTaxFormList([{ ...initState, tin: citizenId }]);
+    } else {
+      setStateTaxFormList([]);
+    }
+    setIsTaxResidenceUSA(isTaxResidence);
+    setIsDisableNextButton(initStateInValidForm);
+  };
+
+  const onClickNextButton = () => {
+    const payload = {
+      city_code_of_birth: stateFormCountryBirth?.city?.id || null,
+      city_of_birth:
+        stateFormCountryBirth?.country?.country_code === "TH"
+          ? stateFormCountryBirth?.city?.name
+          : stateFormCountryBirth?.city,
+      country_of_birth: stateFormCountryBirth?.country?.country_code,
+      customer_crs_list: stateTaxFormList.map((stateTaxForm, index) => {
+        return {
+          rec_no: index,
+          country_tax: stateTaxForm?.country?.country_code,
+          tin: stateTaxForm?.tin,
+          reason_code: stateTaxForm?.reasonCode?.value,
+          reason_msg: stateTaxForm?.reasonMessage
+        };
+      })
+    };
+    submitVerifyFATCACRS(payload);
+  };
+
+  const editFormHandler = newData => {
+    const updateDataList = stateTaxFormList.map(stateForm =>
+      stateForm.id === newData.id ? newData : stateForm
+    );
+    setStateTaxFormList(updateDataList);
+  };
+
+  const topAdjustment = () => {
+    let result = 0;
+    if (Platform.OS === "ios") {
+      if (isIphoneX()) {
+        result = 100;
+      } else {
+        result = theme.spacingXXXLargeValue;
+      }
+    }
+    return result;
+  };
+
+  const deleteFormHandler = id => {
+    const resultData = stateTaxFormList.filter(stateForm => stateForm.id !== id);
+    setStateTaxFormList(resultData);
+  };
+
+  const renderTooltipContent = () => (
+    <TooltipContainer>
+      <TooltipText>
+        {I18n.t("Onboarding.SubmitVerifyFATCACRS.IsAmericanRight.TooltipMessage")}
+      </TooltipText>
+    </TooltipContainer>
+  );
+
+  return (
+    <OnboardingFormWrapper
+      buttonText={I18n.t("Onboarding.SubmitVerifyFATCACRS.NextButton")}
+      onButtonPress={onClickNextButton}
+      showLoading={showLoading && prefillData}
+      disableButton={Object.values(isDisableNextButton).includes(true) || showLoadingState}
+      showLoadingState={showLoadingState}
+      activeStage={STAGE.STAGE_3}
+    >
+      <Container>
+        <HeaderContainer>
+          <Header1>{I18n.t("Onboarding.SubmitVerifyFATCACRS.Header")}</Header1>
+        </HeaderContainer>
+
+        <AmericanRightButtonContainer>
+          <TitleContainer>
+            <Header2>{I18n.t("Onboarding.SubmitVerifyFATCACRS.IsAmericanRight.Title")}</Header2>
+            <IconInfoContainer>
+              <Tooltip
+                isVisible={isVisible}
+                content={renderTooltipContent()}
+                onClose={() => setIsVisible(false)}
+                placement="bottom"
+                contentStyle={{
+                  backgroundColor: theme.ctaPurple,
+                  padding: 8,
+                  borderRadius: 8
+                }}
+                disableShadow
+                showChildInTooltip={false}
+                topAdjustment={topAdjustment()}
+                backgroundColor="transparent"
+              >
+                <TouchableOpacity onPress={() => setIsVisible(true)}>
+                  <Icon name="info-2" size="icon24" color={theme.ctaPurple} />
+                </TouchableOpacity>
+              </Tooltip>
+            </IconInfoContainer>
+          </TitleContainer>
+          <ButtonSectionContainer>
+            <ButtonContainer>
+              <SelectButton
+                label={I18n.t("Onboarding.SubmitVerifyFATCACRS.IsAmericanRight.Button.Yes")}
+                isSelected={isTaxResidenceUSA}
+                onClickHandler={() => isTaxResidenceUSAHandler(true)}
+              />
+            </ButtonContainer>
+            <ButtonContainer>
+              <SelectButton
+                label={I18n.t("Onboarding.SubmitVerifyFATCACRS.IsAmericanRight.Button.No")}
+                isSelected={!isTaxResidenceUSA}
+                onClickHandler={() => isTaxResidenceUSAHandler(false)}
+              />
+            </ButtonContainer>
+          </ButtonSectionContainer>
+        </AmericanRightButtonContainer>
+
+        {isTaxResidenceUSA && (
+          <>
+            <FormTaxResidentContainer>
+              <Header2> {I18n.t("Onboarding.SubmitVerifyFATCACRS.FormTaxResident.Title")}</Header2>
+              {stateTaxFormList?.map(userTax => {
+                return (
+                  <TaxForm
+                    key={userTax.id}
+                    editFormHandler={editFormHandler}
+                    deleteFormHandler={deleteFormHandler}
+                    taxUserData={userTax}
+                    stateTaxFormList={stateTaxFormList}
+                    isDisableNextButton={isDisableNextButton}
+                    setIsDisableNextButton={setIsDisableNextButton}
+                  />
+                );
+              })}
+            </FormTaxResidentContainer>
+            {stateTaxFormList?.length !== 4 && (
+              <TouchableOpacityDebounced
+                onPress={() => {
+                  const generalUUDI = uuidV4();
+                  setStateTaxFormList([
+                    ...stateTaxFormList,
+                    { ...initState, id: generalUUDI, country: countryInit }
+                  ]);
+                  setIsDisableNextButton({ ...isDisableNextButton, [generalUUDI]: true });
+                }}
+              >
+                <RowContainer>
+                  <AddTaxResidentContainer>
+                    <Icon name="plus" size="20" color="#855AFF" />
+                    <TaxResidentLabel>
+                      {I18n.t("Onboarding.SubmitVerifyFATCACRS.AddTaxResidentButton")}
+                    </TaxResidentLabel>
+                  </AddTaxResidentContainer>
+                </RowContainer>
+              </TouchableOpacityDebounced>
+            )}
+          </>
+        )}
+        <Description>{I18n.t("Onboarding.SubmitVerifyFATCACRS.Description")}</Description>
+      </Container>
+    </OnboardingFormWrapper>
+  );
+};
+
+SubmitVerifyFATCACRS.defaultProps = {};
+
+SubmitVerifyFATCACRS.propTypes = {
+  stateFormCountryBirth: PropTypes.PropTypes.shape({
+    country: PropTypes.object,
+    city: PropTypes.object
+  }).isRequired,
+  prefillData: PropTypes.PropTypes.shape({
+    customerCrsList: PropTypes.object
+  }).isRequired,
+  countries: PropTypes.instanceOf(Array).isRequired,
+  citizenId: PropTypes.string.isRequired,
+  showLoading: PropTypes.bool.isRequired,
+  showLoadingState: PropTypes.bool.isRequired,
+  submitVerifyFATCACRS: PropTypes.func.isRequired
+};
+
+export default SubmitVerifyFATCACRS;

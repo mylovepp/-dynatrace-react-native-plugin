@@ -1,0 +1,259 @@
+import React, { Component, Fragment } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { FlatList } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+
+import {
+  NavigationBar,
+  ViewContainer,
+  SectionBackground,
+  Header1,
+  Display3,
+  Body2,
+  SearchInput,
+  Separator,
+  SeachNoResultLogo,
+  LoadingScreen
+} from "../../../components-2";
+import Theme from "../../../theme";
+
+import HeaderSectionTab from "./HeaderSectionTab";
+import TaxFundItem from "./TaxFundItem";
+import FundRecommendSection from "../tax-product-tax-fund-recommend";
+
+const SearchContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const Title = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  padding: 0 ${props => props.theme.spacingMedium};
+  margin-top: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const EmptyContainer = styled.View`
+  flex-direction: column;
+  align-items: center;
+  padding-top: ${props => props.theme.spacingXXXLarge};
+  padding-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const EmptyTopic = styled(Display3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  text-align: center;
+  margin-top: ${props => props.theme.spacingLarge};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const EmptyDescription = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  text-align: center;
+`;
+
+class TaxProductSearch extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      refreshing: false,
+      searchText: "",
+      sectionSelected: null,
+    };
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    if (state.sectionSelected === null) {
+      return {
+        sectionSelected: props.initSectionSelected,
+      };
+    }
+    return null;
+  }
+
+  componentDidMount() {
+    this.props.onTabSelected(
+      this.state.sectionSelected || this.props.initSectionSelected
+    );
+  }
+
+  handleOnChangeText = text => {
+    this.setState({ searchText: text });
+    this.props.onSearch(text, this.state.sectionSelected);
+  };
+
+  handleOnClear = () => {
+    this.setState({ searchText: "" });
+    this.props.onSearch("", this.state.sectionSelected);
+  };
+
+  handleOnTabSelected = (value) => {
+    this.setState({ searchText: "", sectionSelected: value });
+    this.props.onTabSelected(value);
+  }
+
+  handleLoadMore = () => {
+    const { fundCurrentPage, fundCanNext } = this.props;
+    const { refreshing, searchText, sectionSelected } = this.state;
+    if (fundCanNext && !refreshing) {
+      this.props.onLoadMore(
+        searchText,
+        sectionSelected,
+        fundCurrentPage + 1,
+      );
+    }
+  };
+
+  handleOnRefresh = () => {
+    const { searchText, sectionSelected } = this.state;
+    this.setState(state => ({ ...state, refreshing: true }));
+    this.props.onRefresh(searchText, sectionSelected);
+    const stopRefreshing = state => ({ ...state, refreshing: !state.refreshing });
+    const setStopRefreshing = () => this.setState(stopRefreshing);
+    setTimeout(setStopRefreshing, 500);
+  }
+
+  renderItem = ({ item, index }) => {
+    const { openFundItem, fundList } = this.props;
+    const last = index === (fundList.length - 1);
+    return (
+      <TaxFundItem
+        key={item.fundCode}
+        openFundItem={openFundItem}
+        last={last}
+        item={item}
+      />
+    );
+  }
+
+  renderListHeader = () => {
+    const { loadingScreen, fundRecommendList, fundList, openFundRecommend } = this.props;
+    const { searchText, sectionSelected } = this.state;
+    const ssfCondition = fund => fund.taxType === "SSF";
+    const rmfCondition = fund => fund.taxType === "RMF";
+    const SSFFund = (fundRecommendList || []).filter(ssfCondition);
+    const RMFFund = (fundRecommendList || []).filter(rmfCondition);
+
+    if (searchText && (fundList || []).length === 0) {
+      return null;
+    }
+
+    return (
+      <Fragment>
+        {
+          searchText.length === 0 &&
+          <Fragment>
+            <FundRecommendSection
+              fundSectionLabal={I18n.t("TaxProduct.Search.FundRecommend.Title")}
+              loading={loadingScreen}
+              fundRecommendList={sectionSelected === 0 ? SSFFund : RMFFund}
+              onPressItem={openFundRecommend}
+            />
+            <Separator />
+          </Fragment>
+        }
+        <Title>
+          {
+            sectionSelected === 0
+            ? I18n.t("TaxProduct.Search.FundRecommend.SSFFundSection")
+            : I18n.t("TaxProduct.Search.FundRecommend.RMFFundSection")
+          }
+        </Title>
+      </Fragment>
+    );
+  }
+
+  renderListEmpty = () => {
+    const { searchText } = this.state;
+    return (
+      <EmptyContainer>
+        <SeachNoResultLogo size="illus78" />
+        <EmptyTopic>{I18n.t("TaxProduct.Search.ErrorMessage.Topic", { keyword: searchText })}</EmptyTopic>
+        <EmptyDescription>{I18n.t("TaxProduct.Search.ErrorMessage.Description")}</EmptyDescription>
+      </EmptyContainer>
+    );
+  }
+
+  render() {
+    const { goBack, loadingScreen, fundList } = this.props;
+    const { refreshing, searchText, sectionSelected } = this.state;
+    const data = loadingScreen ? [] : fundList;
+    const listHeaderComponent = this.renderListHeader();
+    const listEmptyComponent = !loadingScreen && searchText && this.renderListEmpty();
+    return (
+      <ViewContainer variant="light">
+        <SectionBackground variant="secondary">
+          <NavigationBar
+            isShowBottomRadius={false}
+            title={I18n.t("TaxProduct.Search.Title")}
+            onPressBackButton={goBack}
+          />
+          <HeaderSectionTab
+            selected={sectionSelected}
+            onPress={this.handleOnTabSelected}
+          />
+          <SearchContainer>
+            <SearchInput
+              value={searchText}
+              placeholder={I18n.t("TaxProduct.Search.Title")}
+              onChangeText={this.handleOnChangeText}
+              onClear={this.handleOnClear}
+            />
+          </SearchContainer>
+        </SectionBackground>
+        <FlatList
+          data={data}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor={Theme.dotNormal}
+              colors={[Theme.dotActive]}
+              onRefresh={this.handleOnRefresh}
+              progressViewOffset={32}
+            />
+          }
+          keyExtractor={item => item.fundCode}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 50 }}
+          onEndReached={this.handleLoadMore}
+          onEndReachedThreshold={0.1}
+          renderItem={this.renderItem}
+          ListHeaderComponent={listHeaderComponent}
+          ListEmptyComponent={listEmptyComponent}
+          ListFooterComponent={() => {
+            if (refreshing || loadingScreen) {
+              return <LoadingScreen />;
+            }
+            return null;
+          }}
+        />
+      </ViewContainer>
+    );
+  }
+}
+
+TaxProductSearch.defaultProps = {
+  loadingScreen: false,
+  initSectionSelected: 0,
+  fundCurrentPage: 1,
+  fundCanNext: false,
+};
+
+TaxProductSearch.propTypes = {
+  initSectionSelected: PropTypes.number,
+  goBack: PropTypes.func.isRequired,
+  onSearch: PropTypes.func.isRequired,
+  onTabSelected: PropTypes.func.isRequired,
+  onLoadMore: PropTypes.func.isRequired,
+  onRefresh: PropTypes.func.isRequired,
+  openFundRecommend: PropTypes.func.isRequired,
+  openFundItem: PropTypes.func.isRequired,
+  loadingScreen: PropTypes.bool,
+  fundRecommendList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  fundList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  fundCurrentPage: PropTypes.number,
+  fundCanNext: PropTypes.bool,
+};
+
+export default TaxProductSearch;

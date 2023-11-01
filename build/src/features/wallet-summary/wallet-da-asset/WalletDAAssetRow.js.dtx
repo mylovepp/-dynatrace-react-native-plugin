@@ -1,0 +1,83 @@
+import React, { useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import { Header2, Body3, Divider } from "../../../components-2";
+import { coinWithCommas } from "../../../modules/coin-format";
+import { localiseCurrency } from "../../../modules/i18n";
+import theme from "../../../theme";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import { WALLET_DA_ASSET_INSTRUMENT } from "../../../modules/analytics/analytics-constants";
+import WalletDAAssetModal from "./WalletDAAssetModal";
+
+const WalletDAAssetRow = ({ isBCP, coin, product, instrument, navigator }) => {
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  return (
+    <TouchableOpacity
+      disabled={isBCP || coin.isMarketUnavailable}
+      onPress={() => {
+        trackEvent(WALLET_DA_ASSET_INSTRUMENT, { instrument_id: instrument.pair });
+        setModalVisible(true);
+      }}
+    >
+      <View style={{ marginHorizontal: 16 }}>
+        <View
+          style={{
+            marginVertical: 12,
+            flexDirection: "row",
+            justifyContent: "space-between"
+          }}
+        >
+          <View style={{ flexDirection: "row" }}>
+            <CoinImageIcon uri={instrument?.icon} width={24} height={24} />
+            <View style={{ marginLeft: 4 }}>
+              <Header2>{coin.assetId}</Header2>
+              <Body3 style={{ color: theme.contentColorHigh }}>{coin.assetFullName}</Body3>
+            </View>
+          </View>
+
+          <View style={{ alignItems: "flex-end" }}>
+            <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+              <Header2 style={{ marginRight: 4 }}>
+                {coinWithCommas(coin.quantity, coin.decimalPlaces)}
+              </Header2>
+              <Body3 style={{ color: theme.contentColorHigh }}>{coin.assetId}</Body3>
+            </View>
+            <Body3 style={{ color: theme.contentColorHigh }}>
+              {isBCP || coin?.isMarketUnavailable
+                ? I18n.t("WalletSummary.Card.BCPMode.Untradeable")
+                : `≈${localiseCurrency({ value: coin.priceTHB })}`}
+            </Body3>
+          </View>
+        </View>
+
+        <Divider />
+      </View>
+
+      <WalletDAAssetModal
+        isVisible={isModalVisible}
+        closeModal={() => setModalVisible(false)}
+        coin={coin}
+        product={product}
+        instrument={instrument}
+        isBCP={isBCP}
+        navigator={navigator}
+      />
+    </TouchableOpacity>
+  );
+};
+
+WalletDAAssetRow.propTypes = {
+  isBCP: PropTypes.bool.isRequired,
+  instrument: PropTypes.shape().isRequired,
+  coin: PropTypes.shape().isRequired,
+  product: PropTypes.shape().isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired
+};
+
+export default WalletDAAssetRow;

@@ -1,0 +1,342 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Linking } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+import I18n from "react-native-i18n";
+import OnboardingFormWrapper from "../../form-wrapper";
+import {
+  Body2,
+  Body3,
+  Display1,
+  Header1,
+  PinNumberInput,
+  TextOverlineM,
+  TextOverlineR
+} from "../../../../components-2";
+import { getConfig } from "../../../../Config";
+import { ACCOUNT_SOURCE } from "../../../../redux/onboarding/onboarding-constants";
+import { getMobileLastFourDigits } from "../../../registration/registration-utils";
+
+const OTP_LENGTH = 6;
+
+const HeaderContainer = styled.View``;
+const BodyContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmall};
+  height: 90px;
+`;
+const FooterContainer = styled.View`
+  align-items: center;
+`;
+
+const DisplayText = styled(Display1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const HeaderText = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+const DescriptionText = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+const FooterText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+const ResendContainer = styled.View`
+  flex-direction: row;
+`;
+const ResendLink = styled(Body3)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+const ResendLinkDisabled = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+const Timer = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+const ReferenceText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+const InvalidCode = styled(TextOverlineM).attrs({
+  variant: "error"
+})`
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const mobileNumberFormatter = numberString => {
+  return numberString.replace(/(\w{3})(\w{3})(\w{4})/, "$1-$2-$3");
+};
+
+const ValidateMobileOTP = props => {
+  const {
+    uuid,
+    remainingTime,
+    message,
+    isDisplayHeader,
+    i18nMobileOtpText,
+    invalidOTP,
+    activeStage,
+    showLoading,
+    mobileNumber,
+    otpReference,
+    returnToHome,
+    setIsResendOTP,
+    resendMobileOTP,
+    verifyMobileOTP,
+    daResendMobileOTP,
+    daVerifyMobileOTP,
+    isDigitalAssetOnboarding
+  } = props;
+
+  let resentTimerInterval;
+  const [code, setCode] = useState(null);
+  const [variant, setVariant] = useState("default");
+  const [submitCode, setSubmitCode] = useState(false);
+  const [displayError, setDisplayError] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [activeResend, setActiveResend] = useState(true);
+
+  const markMobileNumber = number => {
+    return I18n.t("Registration.OTPMobileSelection.MarkingMobileText", {
+      mobile: getMobileLastFourDigits(number)
+    });
+  };
+
+  const maskMobileNumber =
+    isDigitalAssetOnboarding && mobileNumber ? markMobileNumber(mobileNumber) : mobileNumber;
+
+  let customText = null;
+  try {
+    customText = I18n.t(`${i18nMobileOtpText}`);
+  } catch (e) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log("Cannot find i18nMobileOtpText", e);
+    }
+  }
+
+  const mobileNumberDisplay = I18n.t(
+    customText?.Title ? `${i18nMobileOtpText}.Title` : "Onboarding.OTP.Mobile.Title",
+    { mobileNumber: mobileNumberFormatter(maskMobileNumber || "") }
+  );
+
+  const onResendOtp = () => {
+    setCode("");
+    setVariant("default");
+    resendMobileOTP();
+  };
+
+  const onDaResendOtp = () => {
+    setCode("");
+    setVariant("default");
+    daResendMobileOTP({ mobile: mobileNumber });
+  };
+
+  const triggerTimer = () => {
+    let countDown = remainingTime;
+    setActiveResend(false);
+    resentTimerInterval = setInterval(() => {
+      --countDown;
+      if (countDown > 0) {
+        setTimeLeft(countDown);
+      } else {
+        setTimeLeft(null);
+        setActiveResend(true);
+        clearInterval(resentTimerInterval);
+      }
+    }, 1000);
+  };
+
+  const sendOTP = () => {
+    if (!isDigitalAssetOnboarding) {
+      onResendOtp();
+    } else {
+      onDaResendOtp();
+    }
+  };
+
+  const reSendOTP = () => {
+    sendOTP();
+    setIsResendOTP();
+  };
+
+  const enableContinueButton = () => {
+    return (code || "").length === OTP_LENGTH && !!otpReference && !!mobileNumber;
+  };
+
+  useEffect(() => {
+    sendOTP();
+  }, []);
+
+  useEffect(() => {
+    triggerTimer();
+    return () => {
+      clearInterval(resentTimerInterval);
+    };
+  }, [remainingTime]);
+
+  useEffect(() => {
+    setDisplayError(invalidOTP && submitCode && !showLoading);
+  }, [message, isDigitalAssetOnboarding, returnToHome, invalidOTP]);
+
+  const onOTPChanged = value => {
+    setCode(value);
+    setSubmitCode(false);
+    setVariant("typing");
+    setDisplayError(false);
+  };
+
+  const clearOtpInput = () => {
+    setTimeout(() => {
+      setCode("");
+      setVariant("default");
+    }, 1000);
+  };
+
+  const verifyOTP = () => {
+    setSubmitCode(true);
+    Linking.canOpenURL(getConfig().ONBOARDING_VIA_EASY_APP_DEEPLINK).then(valid => {
+      verifyMobileOTP(
+        {
+          code,
+          account_source: valid ? ACCOUNT_SOURCE.SCB : ACCOUNT_SOURCE.NDID
+        },
+        clearOtpInput
+      );
+    });
+  };
+
+  const daVerifyOTP = () => {
+    setSubmitCode(true);
+    daVerifyMobileOTP({
+      otp: code,
+      uuid
+    });
+  };
+
+  const MobileHeaderText = isDisplayHeader ? DisplayText : HeaderText;
+  return (
+    <OnboardingFormWrapper
+      buttonText={
+        customText?.NextButton ? customText.NextButton : I18n.t("Onboarding.OTP.Mobile.NextButton")
+      }
+      onButtonPress={isDigitalAssetOnboarding ? daVerifyOTP : verifyOTP}
+      disableButton={!enableContinueButton() || showLoading}
+      showLoading={showLoading}
+      isShowLoadingFullScreen
+      isDigitalAsset={isDigitalAssetOnboarding}
+      activeStage={activeStage}
+    >
+      <HeaderContainer>
+        <MobileHeaderText>
+          {customText?.Header ? customText.Header : I18n.t("Onboarding.OTP.Mobile.Header")}
+        </MobileHeaderText>
+        <DescriptionText>{mobileNumberDisplay}</DescriptionText>
+      </HeaderContainer>
+
+      <BodyContainer>
+        <PinNumberInput
+          code={code || ""}
+          codeLength={OTP_LENGTH}
+          onChangeCode={onOTPChanged}
+          variant={displayError ? "error" : variant}
+        />
+      </BodyContainer>
+
+      <FooterContainer>
+        {displayError && (
+          <InvalidCode>
+            {customText?.Reference?.Invalid
+              ? customText.Reference.Invalid
+              : I18n.t("Onboarding.OTP.Mobile.Reference.Invalid")}
+          </InvalidCode>
+        )}
+        <ResendContainer>
+          <FooterText>
+            {customText?.Resend?.Description
+              ? customText.Resend.Description
+              : I18n.t("Onboarding.OTP.Mobile.Resend.Description")}
+          </FooterText>
+          {activeResend ? (
+            <TouchableOpacity onPress={() => reSendOTP()}>
+              <ResendLink>
+                {customText?.Resend?.Link
+                  ? customText.Resend.Link
+                  : I18n.t("Onboarding.OTP.Mobile.Resend.Link")}
+              </ResendLink>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <ResendLinkDisabled>
+                {customText?.Resend?.Link
+                  ? customText.Resend.Link
+                  : I18n.t("Onboarding.OTP.Mobile.Resend.Link")}
+              </ResendLinkDisabled>
+              {timeLeft !== null ? (
+                <Timer>
+                  {I18n.t(
+                    customText?.Resend?.Timer
+                      ? `${i18nMobileOtpText}.Resend.Timer`
+                      : "Onboarding.OTP.Mobile.Resend.Timer",
+                    { timeLeft }
+                  )}
+                </Timer>
+              ) : null}
+            </>
+          )}
+        </ResendContainer>
+        <ReferenceText>
+          {otpReference && I18n.t(
+            customText?.Reference?.Label
+              ? `${i18nMobileOtpText}.Reference.Label`
+              : "Onboarding.OTP.Mobile.Reference.Label",
+            {
+              otpReference
+            }
+          )}
+        </ReferenceText>
+      </FooterContainer>
+    </OnboardingFormWrapper>
+  );
+};
+
+ValidateMobileOTP.defaultProps = {
+  invalidOTP: false,
+  isDisplayHeader: false,
+  i18nMobileOtpText: "",
+  message: null,
+  uuid: null,
+  isDigitalAssetOnboarding: false,
+  activeStage: null,
+  remainingTime: null,
+  otpReference: ""
+};
+
+ValidateMobileOTP.propTypes = {
+  invalidOTP: PropTypes.bool,
+  isDisplayHeader: PropTypes.bool,
+  i18nMobileOtpText: PropTypes.string,
+  verifyMobileOTP: PropTypes.func.isRequired,
+  resendMobileOTP: PropTypes.func.isRequired,
+  mobileNumber: PropTypes.string.isRequired,
+  otpReference: PropTypes.string,
+  remainingTime: PropTypes.number,
+  message: PropTypes.shape({
+    title: PropTypes.string,
+    body: PropTypes.string,
+    leftButton: PropTypes.string,
+    rightButton: PropTypes.string,
+    messageType: PropTypes.string
+  }),
+  showLoading: PropTypes.bool.isRequired,
+  daResendMobileOTP: PropTypes.func.isRequired,
+  daVerifyMobileOTP: PropTypes.func.isRequired,
+  uuid: PropTypes.string,
+  isDigitalAssetOnboarding: PropTypes.bool,
+  activeStage: PropTypes.string,
+  returnToHome: PropTypes.func.isRequired,
+  setIsResendOTP: PropTypes.func.isRequired
+};
+
+export default ValidateMobileOTP;

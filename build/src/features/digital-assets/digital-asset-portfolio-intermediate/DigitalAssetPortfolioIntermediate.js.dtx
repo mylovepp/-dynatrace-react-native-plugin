@@ -1,0 +1,161 @@
+import React, { useState, useMemo } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import Theme from "../../../theme";
+
+import PortfolioSummary from "../digital-asset-portfolio-summary";
+import PortfolioBCP from "../digital-asset-portfolio-bcp";
+import DigitalAssetsWalletCoin from "../digital-assets-wallet-main/DigitalAssetsWalletCoin";
+import { WalletRemain, WAlletRemainBCPMode } from "../../../components/digital-assets";
+import { amountValueDisplay } from "../../../modules/i18n/value-display";
+import { SectionBackground } from "../../../components-2";
+import { normalizeCoins } from "../hocs/portfolio/digital-assets-main-helpers";
+import { getPortfolioSummary } from "../../../modules/calculations/portfolio";
+
+const FlexedView = styled.ScrollView`
+  flex: 1;
+  background-color: ${props => props.theme.backgroundScreenColor};
+`;
+
+const DigitalAssetPortfolioIntermediate = ({
+  i18n,
+  renderButton,
+  navigation,
+  isBCP,
+  coins,
+  products,
+  goToWalletDA,
+  amountDA,
+  getProducts,
+  authenticate,
+  getAccountPosition,
+  allInstrumentsList,
+  lv1Sum,
+  updateBCPStatus,
+  userConfig,
+  tradingSignListing,
+  digitalAssetsPortfolioCoinValue,
+  digitalAssetsPortfolioCoinAndTHBValue,
+  navigationBack
+}) => {
+  const [cashRefreshing, setCashRefreshing] = useState(false);
+  const portfolioValue = useMemo(() => getPortfolioSummary(normalizeCoins({ coins, products })), [
+    coins
+  ]);
+
+  const refreshCash = async () => {
+    setCashRefreshing(true);
+    await updateBCPStatus();
+    await getProducts();
+    await authenticate(async userInfo => {
+      await getAccountPosition(userInfo);
+    });
+    setCashRefreshing(false);
+  };
+
+  return (
+    <FlexedView
+      refreshControl={
+        <RefreshControl
+          refreshing={cashRefreshing}
+          tintColor={Theme.dotNormal}
+          colors={[Theme.dotActive]}
+          onRefresh={refreshCash}
+        />
+      }
+    >
+      <SectionBackground variant="secondary">
+        {isBCP ? (
+          <PortfolioBCP i18n={i18n} renderButton={renderButton} />
+        ) : (
+          <PortfolioSummary
+            sumThaiValue={digitalAssetsPortfolioCoinValue}
+            portfolio={portfolioValue}
+            i18n={i18n}
+            renderButton={renderButton}
+          />
+        )}
+        {isBCP ? (
+          <WAlletRemainBCPMode
+            title={i18n.translations["DigitalAssets.Wallet.DA.Remain"]}
+            subTitle="-"
+            subTitle2={`${i18n.translations["DigitalAssets.Wallet.Portfolio.Intermediate.Summary.Title"]} -`}
+            buttonTitle={i18n.translations["DigitalAssets.Wallet.DA.Name"]}
+            isArrowRight
+          />
+        ) : (
+          <WalletRemain
+            title={i18n.translations["DigitalAssets.Wallet.DA.Remain"]}
+            subTitle={`${amountValueDisplay(amountDA).trim() || "0.00"} ${
+              i18n.translations["General.Currencies.THB"]
+            }`}
+            subTitle2={`${
+              i18n.translations["DigitalAssets.Wallet.Portfolio.Intermediate.Summary.Title"]
+            } ${i18n.localiseCurrency({
+              value: digitalAssetsPortfolioCoinAndTHBValue,
+              currency: i18n.translations["General.Currencies.THB"]
+            })}`}
+            buttonTitle={i18n.translations["DigitalAssets.Wallet.DA.Name"]}
+            onPress={() => goToWalletDA()}
+          />
+        )}
+      </SectionBackground>
+      <DigitalAssetsWalletCoin
+        navigation={navigation}
+        isBCP={isBCP}
+        i18n={i18n}
+        listData={coins}
+        allInstrumentsList={allInstrumentsList}
+        lv1Sum={lv1Sum}
+        userConfig={userConfig}
+        tradingSignListing={tradingSignListing}
+        navigationBack={navigationBack}
+      />
+    </FlexedView>
+  );
+};
+
+DigitalAssetPortfolioIntermediate.defaultProps = {
+  isBCP: false,
+  coins: [],
+  products: [],
+  amountDA: 0,
+  allInstrumentsList: []
+};
+
+DigitalAssetPortfolioIntermediate.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  renderButton: PropTypes.node.isRequired,
+  navigation: PropTypes.func.isRequired,
+  navigationBack: PropTypes.func.isRequired,
+  isBCP: PropTypes.bool,
+  coins: PropTypes.arrayOf({
+    accountNo: PropTypes.string,
+    assetId: PropTypes.string,
+    networkCode: PropTypes.string,
+    quantity: PropTypes.string,
+    hold: PropTypes.string,
+    priceTHB: PropTypes.string,
+    assetFullName: PropTypes.string,
+    productId: PropTypes.string
+  }),
+  products: PropTypes.arrayOf(PropTypes.shape({})),
+  getProducts: PropTypes.func.isRequired,
+  authenticate: PropTypes.func.isRequired,
+  getAccountPosition: PropTypes.func.isRequired,
+  goToWalletDA: PropTypes.func.isRequired,
+  amountDA: PropTypes.number,
+  allInstrumentsList: PropTypes.arrayOf(PropTypes.shape({})),
+  lv1Sum: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  updateBCPStatus: PropTypes.func.isRequired,
+  userConfig: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  // eslint-disable-next-line react/forbid-prop-types
+  tradingSignListing: PropTypes.array.isRequired,
+  digitalAssetsPortfolioCoinValue: PropTypes.number.isRequired,
+  digitalAssetsPortfolioCoinAndTHBValue: PropTypes.number.isRequired
+};
+
+export default DigitalAssetPortfolioIntermediate;

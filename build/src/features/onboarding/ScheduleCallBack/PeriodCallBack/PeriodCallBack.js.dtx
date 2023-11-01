@@ -1,0 +1,91 @@
+import React, { Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { FlatList } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+import colors from "../../../../theme/colors";
+import { Body2, Icon, Separator } from "../../../../components-2";
+
+const PeriodItemContainer = styled.View`
+  flex-direction: row;
+  padding-top: 10.5px;
+  padding-bottom: 11.5px;
+  height: 45px;
+`;
+
+const CheckIconContainer = styled.View(props => ({
+  marginLeft: props.theme.spacingXSmall
+}));
+
+const PeriodCallBackText = styled(Body2)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorLight : props.theme.textDefaultColor};
+`;
+
+const PeriodCallBack = props => {
+  const { periods, onPeriodSelected, periodSelected, dateSelected } = props;
+
+  const dateComparison = item => {
+    const date = new Date();
+    date.setDate(dateSelected.value.date);
+    date.setMonth(dateSelected.value.month);
+    date.setFullYear(dateSelected.value.year);
+    date.setHours(item.period.to.hour);
+    date.setMinutes(item.period.to.minute);
+    const current = new Date();
+    return date < current;
+  };
+
+  const renderAccordion = ({ item, index }) => {
+    renderAccordion.propTypes = {
+      item: PropTypes.shape({ id: PropTypes.number, period: PropTypes.string }).isRequired,
+      index: PropTypes.number.isRequired
+    };
+
+    const disabled = dateComparison(item);
+
+    return (
+      <Fragment key={item.id}>
+        <TouchableOpacity onPress={() => onPeriodSelected(item.id)} disabled={disabled}>
+          <PeriodItemContainer>
+            <>
+              <PeriodCallBackText disabled={disabled}>{item.period.label}</PeriodCallBackText>
+            </>
+
+            {item.id === periodSelected ? (
+              <>
+                <CheckIconContainer>
+                  <Icon name="check-2" size="icon32" color={colors.buttonBlueColor} />
+                </CheckIconContainer>
+              </>
+            ) : null}
+          </PeriodItemContainer>
+        </TouchableOpacity>
+        {index !== periods.length - 1 && <Separator variant="padding" />}
+      </Fragment>
+    );
+  };
+  return (
+    <FlatList
+      showsVerticalScrollIndicator={false}
+      data={periods || []}
+      renderItem={periods && dateSelected ? renderAccordion : null}
+    />
+  );
+};
+
+PeriodCallBack.propTypes = {
+  periods: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  onPeriodSelected: PropTypes.func.isRequired,
+  periodSelected: PropTypes.number.isRequired,
+  dateSelected: PropTypes.shape({
+    value: PropTypes.shape({
+      date: PropTypes.number,
+      month: PropTypes.number,
+      year: PropTypes.number
+    })
+  }).isRequired
+};
+
+export default PeriodCallBack;

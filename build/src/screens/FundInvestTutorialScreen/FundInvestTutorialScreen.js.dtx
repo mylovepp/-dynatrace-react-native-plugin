@@ -1,0 +1,189 @@
+import React, { Component } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import AsyncStorage from "@react-native-community/async-storage";
+import { Dimensions, Image } from "react-native";
+
+import { showModalTutorial } from "../../modules/navigation";
+import { ViewContainer } from "../../components";
+import { BUY_TUTORIAL } from "../../features/funds/funds-constants";
+import WalletProfileTutorialDialog from "../../features/wallet/wallet-profile-tutorial-dialog";
+
+const section1Image = require("../../../assets/images/wallet/wallet-tutorial-buy-fund-1-section.png");
+const message1Image = require("../../../assets/images/wallet/wallet-tutorial-buy-fund-1-message.png");
+const section2Image = require("../../../assets/images/wallet/wallet-tutorial-buy-fund-2.png");
+const section3Image = require("../../../assets/images/wallet/wallet-tutorial-buy-fund-3-section.png");
+const message3Image = require("../../../assets/images/wallet/wallet-tutorial-buy-fund-3-message.png");
+
+const Container = styled(ViewContainer)`
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+`;
+
+export const StickyWrapper = styled.View`
+  position: absolute;
+  left: ${props => (props.left != null ? `${props.left}px` : "auto")};
+  right: ${props => (props.right != null ? `${props.right}px` : "auto")};
+  bottom: ${props => props.bottom || 0}px;
+  margin-bottom: ${props => props.marginBottom || 0}px;
+`;
+
+const TutorialImage = styled(Image).attrs({
+  resizeMode: "contain"
+})`
+  width: ${props => props.width || 0}px;
+  height: undefined;
+`;
+
+class FundInvestTutorialScreen extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      currentStep: this.props.currentStep
+    };
+  }
+
+  handleTouched = () => {
+    const { currentStep } = this.state;
+    this.setState({ currentStep: currentStep + 1 });
+  };
+
+  renderTutorialPage = () => {
+    const { currentStep } = this.state;
+    switch (currentStep) {
+      case 0:
+        return this.renderStepZeroth();
+      case 1:
+        return this.renderStepFirst();
+      case 2:
+        showModalTutorial("fundInvestTutorial", { currentStep: 3 });
+        return this.renderStepSecond();
+      case 3:
+        return this.renderStepThird();
+      default:
+        Navigation.dismissAllModals({ animationType: "none" });
+        AsyncStorage.setItem(BUY_TUTORIAL, "Y");
+        return null;
+    }
+  };
+
+  renderStepZeroth = () => {
+    return (
+      <WalletProfileTutorialDialog
+        title={I18n.t("Funds.Tutorial.EasyCash.Buy.Title")}
+        description={I18n.t("Funds.Tutorial.EasyCash.Buy.Description")}
+        cta={I18n.t("Funds.Tutorial.EasyCash.Buy.CTA")}
+        onClick={this.handleTouched}
+      />
+    );
+  };
+
+  renderStepFirst = () => {
+    const { width } = Dimensions.get("window");
+    const STATIC_MARGIN_BOTTOM = 0;
+    const IMAGE_RATIO = 2.016129032258065;
+    const MESSAGE_RATIO = 1.40495867768595;
+    const MESSAGE_PADDING = 16;
+    const MESSAGE_WIDTH = width / 2.2;
+    const IMAGE_HEIGHT = width / IMAGE_RATIO;
+
+    return (
+      <TouchableWithoutFeedback onPress={this.handleTouched}>
+        <Container>
+          <StickyWrapper
+            right={MESSAGE_PADDING}
+            bottom={IMAGE_HEIGHT - 30}
+            marginBottom={STATIC_MARGIN_BOTTOM + 125}
+          >
+            <TutorialImage
+              width={MESSAGE_WIDTH}
+              source={message1Image}
+              style={{ aspectRatio: MESSAGE_RATIO }}
+            />
+          </StickyWrapper>
+          <StickyWrapper marginBottom={STATIC_MARGIN_BOTTOM + 120}>
+            <TutorialImage
+              width={width}
+              source={section1Image}
+              style={{ aspectRatio: IMAGE_RATIO }}
+            />
+          </StickyWrapper>
+        </Container>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  renderStepSecond = () => {
+    const { width } = Dimensions.get("window");
+    const IMAGE_RATIO = 1.524390243902439;
+
+    return (
+      <TouchableWithoutFeedback onPress={this.handleTouched}>
+        <Container>
+          <StickyWrapper left={0}>
+            <TutorialImage
+              width={width}
+              source={section2Image}
+              style={{ aspectRatio: IMAGE_RATIO }}
+            />
+          </StickyWrapper>
+        </Container>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  renderStepThird = () => {
+    const { width } = Dimensions.get("window");
+    const IMAGE_RATIO = 3.605769230769231;
+    const MESSAGE_RATIO = 1.545454545454545;
+    const MESSAGE_PADDING = 16;
+    const IMAGE_HEIGHT = (width - 32) / IMAGE_RATIO;
+    const MESSAGE_WIDTH = width / 2.2;
+
+    return (
+      <TouchableWithoutFeedback onPress={this.handleTouched}>
+        <Container>
+          <StickyWrapper>
+            <TutorialImage
+              width={width}
+              source={section3Image}
+              style={{ aspectRatio: IMAGE_RATIO }}
+            />
+          </StickyWrapper>
+          <StickyWrapper right={MESSAGE_PADDING} bottom={IMAGE_HEIGHT - 15}>
+            <TutorialImage
+              width={MESSAGE_WIDTH}
+              source={message3Image}
+              style={{ aspectRatio: MESSAGE_RATIO }}
+            />
+          </StickyWrapper>
+        </Container>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  render() {
+    return this.renderTutorialPage();
+  }
+}
+
+FundInvestTutorialScreen.defaultProps = {
+  tutorialPosition: { paymentAccount: { pageY: 0 } },
+  currentStep: 0
+};
+
+FundInvestTutorialScreen.propTypes = {
+  tutorialPosition: PropTypes.shape({
+    paymentAccount: PropTypes.shape({
+      pageY: PropTypes.number
+    })
+  }),
+  currentStep: PropTypes.number
+};
+
+export default FundInvestTutorialScreen;

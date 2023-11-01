@@ -1,0 +1,198 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useCallback } from "react";
+import { Platform } from "react-native";
+import i18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import styled from "styled-components/native";
+import { SvgXml } from "react-native-svg";
+import AsyncStorage from "@react-native-community/async-storage";
+
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import { ApplicationBanner, Icon, AlertIcon } from "../../../components-2";
+import {
+  PROFILE_SCREEN_ID,
+  NOTIFICATION_INBOX_SCREEN_ID,
+  DIGITAL_ASSETS_QR_SCANNER_LOGIN_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+import { NOTIFICATION_IN_BOX_ICON_BUTTON } from "../../../modules/analytics/analytics-constants";
+import userCircle from "../../../../assets/images/icon/user-circle.svg";
+import { getStatusBarHeight } from "../../../modules/navigation/defaultStyle";
+import { openLoginPinScreen } from "../../../modules/navigation";
+
+import { LOGGED_IN } from "../../../features/login/login-constants";
+
+const statusBarHeight = getStatusBarHeight();
+
+const Container = styled.View(props => ({
+  flexDirection: "column",
+  paddingTop: Platform.OS === "ios" ? `${statusBarHeight}px` : props.theme.spacingXSmall,
+  backgroundColor: props.theme.backgroundHomePurple,
+  borderBottomLeftRadius: props.isFreemiumMode ? props.theme.spacingMediumLarge : 0,
+  borderBottomRightRadius: props.isFreemiumMode ? props.theme.spacingMediumLarge : 0,
+  zIndex: 1000
+}));
+
+const HeaderContainer = styled.View(props => ({
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingHorizontal: props.theme.spacingMedium,
+  height: `${props.theme.spacingXXLargeValue}px`
+}));
+
+const IconContainer = styled.View(() => ({
+  display: "flex",
+  flexDirection: "row"
+}));
+
+const IconImage = styled(Icon).attrs(props => ({
+  icon: props.name,
+  color: props.theme.contentColorCTAPurple,
+  size: "icon24"
+}))`
+  margin-left: ${props => props.theme.spacingMedium};
+`;
+
+const NotiIcon = styled(AlertIcon).attrs(props => ({
+  name: "noti-2",
+  color: props.theme.ctaPurple
+}))`
+  margin-left: ${props => props.theme.spacingMedium};
+`;
+
+const NotificationIcon = styled.View(props => ({
+  marginLeft: props.theme.spacingMedium
+}));
+
+const UserCircleIcon = styled.View(props => ({
+  marginLeft: props.theme.spacingMedium
+}));
+
+const QrScannerLoginIcon = styled.View(props => ({
+  marginLeft: props.theme.spacingMedium
+}));
+
+const HomeNavbar = props => {
+  const { navigator, unreadCount, isFreemiumMode, patientlyNavigate } = props;
+
+  const handleSearch = useCallback(() => {
+    Navigation.handleDeepLink({ link: "App.openSearch" });
+  }, []);
+
+  const gotoProfile = () => {
+    navigator.push({
+      label: i18n.t("BottomMenuTitle.Profile"),
+      screen: PROFILE_SCREEN_ID,
+      title: i18n.t("BottomMenuTitle.Profile"),
+      testID: "profile_tab_button",
+      navigatorStyle: {
+        tabBarHidden: true
+      },
+      passProps: {
+        screenId: PROFILE_SCREEN_ID,
+        isBack: true
+      }
+    });
+  };
+
+  const handlePressNotification = useCallback(() => {
+    if (!isFreemiumMode) {
+      trackEvent(NOTIFICATION_IN_BOX_ICON_BUTTON);
+    }
+
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: NOTIFICATION_INBOX_SCREEN_ID,
+        backButtonTitle: "",
+        navigatorStyle: {
+          tabBarHidden: true
+        },
+        passProps: {
+          screenId: NOTIFICATION_INBOX_SCREEN_ID
+        }
+      });
+    });
+  }, []);
+
+  const checkPreviousLoggedIn = async () => {
+    const isLoggedIn = await AsyncStorage.getItem(LOGGED_IN);
+
+    if (isFreemiumMode && isLoggedIn) {
+      openLoginPinScreen();
+    } else {
+      handlePressNotification();
+    }
+  };
+
+  const handlePressLoginQr = useCallback(() => {
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: DIGITAL_ASSETS_QR_SCANNER_LOGIN_SCREEN_ID,
+        backButtonTitle: "",
+        navigatorStyle: {
+          navBarHidden: true,
+          tabBarHidden: true
+        }
+      });
+    });
+  }, []);
+
+  return (
+    <Container isFreemiumMode={isFreemiumMode}>
+      <HeaderContainer>
+        <ApplicationBanner height={36} />
+        <IconContainer>
+          <TouchableOpacity
+            accessibilityLabel="icoSearch"
+            testID="icoSearch"
+            onPress={() => handleSearch()}
+          >
+            <IconImage name="search-2" />
+          </TouchableOpacity>
+          {!isFreemiumMode && (
+            <TouchableOpacity onPress={() => handlePressLoginQr()}>
+              <QrScannerLoginIcon>
+                <IconImage name="qrcode-scanner" />
+              </QrScannerLoginIcon>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            accessibilityLabel="icoNotification"
+            testID="icoNotification"
+            onPress={() => checkPreviousLoggedIn()}
+          >
+            <NotificationIcon>
+              <NotiIcon alert={(unreadCount.ALL || 0) !== 0} />
+            </NotificationIcon>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel="icoProfile"
+            testID="icoProfile"
+            onPress={gotoProfile}
+          >
+            <UserCircleIcon>
+              <SvgXml xml={userCircle} />
+            </UserCircleIcon>
+          </TouchableOpacity>
+        </IconContainer>
+      </HeaderContainer>
+    </Container>
+  );
+};
+HomeNavbar.defaultProps = {
+  unreadCount: {}
+};
+
+HomeNavbar.propTypes = {
+  isFreemiumMode: PropTypes.bool.isRequired,
+  unreadCount: PropTypes.shape({
+    ALL: PropTypes.number
+  }),
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired,
+  patientlyNavigate: PropTypes.func.isRequired
+};
+
+export default HomeNavbar;

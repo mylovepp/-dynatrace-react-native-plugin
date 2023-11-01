@@ -1,0 +1,126 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View, Platform } from "react-native";
+import styled, { withTheme } from "styled-components/native";
+import PropTypes from "prop-types";
+import _ from "lodash";
+import { Icon, Display3 } from "../../../components-2";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+
+const Root = styled(View)(() => ({
+  flex: 1,
+  flexDirection: "row",
+  justifyContent: "space-between"
+}));
+
+const CenterContainer = styled(View)(props => ({
+  flex: 5,
+  alignSelf: "center",
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+  marginRight: Platform.OS === "ios" ? 0 : props.theme.spacingMedium
+}));
+
+const LeftContainer = styled(View)(() => ({
+  flex: 1,
+  alignSelf: "center",
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "flex-start"
+}));
+
+const RightContainer = styled(View)(props => ({
+  flex: 1,
+  alignSelf: "center",
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "flex-end",
+  marginRight: Platform.OS === "ios" ? 0 : props.theme.spacingMedium
+}));
+
+const BackContainer = styled(TouchableOpacity)(() => ({}));
+
+const BackText = styled(Display3)(props => ({
+  fontWeight: props.theme.display3.fontWeight,
+  color: props.theme.contentColorCTAPurple
+}));
+
+const InsturmentContainer = styled(Display3)(props => ({
+  color: props.theme.contentVeryHigh
+}));
+
+const CoinContainer = styled(View)(props => ({
+  marginRight: props.theme.spacingXXSmall
+}));
+
+const DigitalAssetNavBarWithCoinIcon = props => {
+  const {
+    theme,
+    onPressBack,
+    showBackButton,
+    backButtonText,
+    title,
+    showIcon,
+    icon,
+    showInstrument
+  } = props;
+
+  return (
+    <Root>
+      <LeftContainer>
+        {showBackButton && (
+          <BackContainer testID="Back" accessibilityLabel="Back" onPress={onPressBack}>
+            <Icon name="chevron-left-2" size="icon24" color={theme.contentColorCTAPurple} />
+            {!_.isEmpty(backButtonText) && <BackText>{backButtonText}</BackText>}
+          </BackContainer>
+        )}
+      </LeftContainer>
+
+      <CenterContainer>
+        {showInstrument && showIcon && (
+          <CoinContainer>
+            <CoinImageIcon uri={icon} width={20} height={20} />
+          </CoinContainer>
+        )}
+
+        {showInstrument && <InsturmentContainer>{title}</InsturmentContainer>}
+      </CenterContainer>
+
+      <RightContainer />
+    </Root>
+  );
+};
+
+DigitalAssetNavBarWithCoinIcon.defaultProps = {
+  showBackButton: false,
+  backButtonText: "",
+  onPressBack: () => {},
+  title: "",
+  icon: "",
+  showInstrument: true,
+  assetInfo: {},
+  showIcon: false
+};
+DigitalAssetNavBarWithCoinIcon.propTypes = {
+  onPressBack: PropTypes.func,
+  showBackButton: PropTypes.bool,
+  backButtonText: PropTypes.string,
+  showInstrument: PropTypes.bool,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object.isRequired,
+  title: PropTypes.string,
+  showIcon: PropTypes.bool,
+  icon: PropTypes.string,
+  assetInfo: PropTypes.shape({
+    assetType: PropTypes.string,
+    symbol: PropTypes.string,
+    reference: PropTypes.shape({})
+  }),
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    push: PropTypes.func
+  }).isRequired
+};
+
+export default withTheme(DigitalAssetNavBarWithCoinIcon);

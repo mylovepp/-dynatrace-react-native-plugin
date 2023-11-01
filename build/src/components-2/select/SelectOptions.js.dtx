@@ -1,0 +1,159 @@
+// @ts-nocheck
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { FlatList, ViewPropTypes } from "react-native";
+import styled, { css } from "styled-components/native";
+
+import { SELECT_OPTION_HEIGHT, DIVIDER_HEIGHT, ONSELECT_OPACITY } from "./select-constants";
+import Divider from "../../components/divider/Divider";
+
+const OptionView = styled.View.attrs(props => ({
+  height: props.useDynamicHeight ? undefined : SELECT_OPTION_HEIGHT
+}))`
+  border-radius: ${props => props.theme.spacingXSmall};
+  border-color: ${props =>
+    props.isSelected ? props.theme.ctaPurple : props.theme.contentColorLight};
+  justify-content: center;
+  border-width: ${props => props.isSelected ? "2px" : "1px"};
+  overflow: hidden;
+`;
+
+const Separator = styled(Divider)`
+  height: ${DIVIDER_HEIGHT};
+  background-color: transparent;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  ${props =>
+    (props.isBeforeActiveItem || props.isAfterActiveItem) &&
+    css`
+      background-color: transparent;
+    `};
+`;
+
+class SelectOptions extends React.Component {
+  static getInitialScrollIndex({ keyExtractor, options, selectedOption, optionsHeight, noScroll }) {
+    if (!selectedOption || noScroll) {
+      return 0;
+    }
+
+    const index =
+      options.findIndex(option => keyExtractor(option) === keyExtractor(selectedOption)) || 0;
+    if (index > 0) {
+      const maxItemsWhollyInView = Math.floor(optionsHeight / SELECT_OPTION_HEIGHT);
+      const midPoint = Math.floor(maxItemsWhollyInView / 2);
+      if (maxItemsWhollyInView - 1 >= index) {
+        // if the user can wholly see all the items
+        // then set the ViewPosition to be the start of the container
+        return 0;
+      } else if (index + midPoint >= options.length) {
+        // if the selected item can be shown in the centre of the screen
+        // without leaving a gap at the bottom
+        // then set the ViewPosition to be the end of the container
+        return options.length - maxItemsWhollyInView;
+      } else if (index - midPoint >= 0) {
+        return index - midPoint;
+      }
+      // otherwise, try to put the active item in the middle of the screen
+      return index;
+    }
+    return 0;
+  }
+  getItemLayout = (data, index) => ({
+    length: SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT,
+    offset: (SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT) * index,
+    index
+  });
+
+  renderSeparator = ({ leadingItem }) => {
+    const { selectedOption, options, keyExtractor, separatorStyle } = this.props;
+
+    // don't render a separator at the end of the list
+    if (!leadingItem) { return null; }
+
+    let isBeforeActiveItem = false;
+    let isAfterActiveItem = false;
+    let selectedItemKey;
+    let selectedItemIndex = -1;
+    let leadingItemIndex = -1;
+    if (selectedOption && leadingItem) {
+      selectedItemKey = keyExtractor(selectedOption);
+      leadingItemIndex = options.findIndex(option => keyExtractor(option) === leadingItem.key);
+      selectedItemIndex = options.findIndex(option => keyExtractor(option) === selectedItemKey);
+      // we are before the active item, if the next item in the list is the selected item
+      isBeforeActiveItem = leadingItemIndex + 1 === selectedItemIndex;
+      // we are after the active item if the leading item is the selected item
+      isAfterActiveItem = leadingItem.key === selectedItemKey;
+    }
+
+    return (
+      <Separator
+        style={separatorStyle}
+        isBeforeActiveItem={isBeforeActiveItem}
+        isAfterActiveItem={isAfterActiveItem}
+      />
+    );
+  };
+
+  renderOption = ({ item, index }) => {
+    const { keyExtractor, renderRow, selectedOption } = this.props;
+
+    const itemKey = keyExtractor(item);
+    const isSelected = selectedOption && itemKey === keyExtractor(selectedOption);
+    const handleSelect = () => {
+      this.props.onSelect(item);
+    };
+    return (
+      <TouchableOpacity
+        activeOpacity={ONSELECT_OPACITY}
+        key={itemKey}
+        onPress={handleSelect}
+        accessible={false}
+        disabled={item.disabled}
+      >
+        <OptionView isSelected={isSelected} useDynamicHeight={this.props.useDynamicHeight}>
+          {renderRow({ ...item, variant: "OPTION", index, isSelected })}
+        </OptionView>
+      </TouchableOpacity>
+    );
+  };
+
+  render() {
+    const { keyExtractor, options, scrollEnabled } = this.props;
+    return (
+      <FlatList
+        data={options}
+        getItemLayout={this.getItemLayout}
+        ItemSeparatorComponent={this.renderSeparator}
+        keyExtractor={keyExtractor}
+        ListFooterComponent={this.renderSeparator}
+        renderItem={this.renderOption}
+        scrollEnabled={scrollEnabled}
+        initialScrollIndex={SelectOptions.getInitialScrollIndex(this.props)}
+      />
+    );
+  }
+}
+
+SelectOptions.defaultProps = {
+  keyExtractor: item => item.key,
+  renderRow: null,
+  selectedOption: null,
+  optionsHeight: null,
+  scrollEnabled: true,
+  useDynamicHeight: undefined,
+  separatorStyle: {}
+};
+
+SelectOptions.propTypes = {
+  keyExtractor: PropTypes.func,
+  options: PropTypes.array.isRequired, // eslint-disable-line react/forbid-prop-types
+  onSelect: PropTypes.func.isRequired,
+  renderRow: PropTypes.func,
+  selectedOption: PropTypes.object, // eslint-disable-line react/forbid-prop-types
+  optionsHeight: PropTypes.number, // eslint-disable-line react/no-unused-prop-types
+  scrollEnabled: PropTypes.bool,
+  useDynamicHeight: PropTypes.bool,
+  separatorStyle: ViewPropTypes.style
+};
+
+export default SelectOptions;

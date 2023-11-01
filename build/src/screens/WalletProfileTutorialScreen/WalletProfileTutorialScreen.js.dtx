@@ -1,0 +1,262 @@
+import React, { Fragment, PureComponent } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image, Platform } from "react-native";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+import { Navigation } from "react-native-navigation";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import AsyncStorage from "@react-native-community/async-storage";
+import { ViewContainer } from "../../components";
+import { WixScreenTearingWorkaround } from "../../modules/navigation/defaultStyle";
+import { TUTORIAL_PROFILE } from "../../features/wallet/redux/wallet-constants";
+import { PrimaryButton, MessageBottomModal, DigitalPaymentBanner } from "../../components-2";
+
+const topupImage = require("../../../assets/images/wallet/profile-tutorial-topup-button.png");
+const topupMessage = require("../../../assets/images/wallet/profile-tutorial-topup-message.png");
+const cashoutImage = require("../../../assets/images/wallet/profile-tutorial-cashout-button.png");
+const cashoutMessage = require("../../../assets/images/wallet/profile-tutorial-cashout-message.png");
+
+const TOPUP_HEIGHT = 82;
+const MARGIN_TOP = 15;
+const MAX_BUTTON_WIDTH = 72;
+const MAX_BUTTON_HEIGHT = 304;
+const Overlay = styled(ViewContainer)`
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+`;
+
+const ImageButton = styled.View`
+  position: absolute;
+  top: ${props => props.positionTop};
+  left: ${props => props.positionLeft};
+  margin-left: ${props => props.marginLeft};
+  margin-top: ${props => props.marginTop};
+`;
+
+const TopupMessage = styled.View`
+  position: absolute;
+  top: ${props => props.positionTop};
+  left: ${props => props.positionLeft};
+  margin-left: ${props => props.marginTop};
+  margin-top: ${TOPUP_HEIGHT / 2};
+`;
+
+const CashoutMessage = styled.View`
+  position: absolute;
+  top: ${props => props.positionTop};
+  left: ${props => props.positionLeft};
+  margin-left: ${props => props.marginLeft};
+  margin-top: ${TOPUP_HEIGHT / 2};
+`;
+
+const ButtonContainer = styled.View`
+  flex: 1;
+  justify-content: flex-end;
+  margin-horizontal: ${props => props.theme.spacingMediumValue};
+`;
+
+class WalletProfileTutorialScreen extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      pageCount: 0
+    };
+  }
+
+  onPressedPage = () => {
+    const { pageCount } = this.state;
+    this.setState({ pageCount: pageCount + 1 });
+  };
+
+  imageButtonWidth = width => {
+    return width + 14;
+  };
+
+  imageButtonHeight = buttonLayout => {
+    return (MAX_BUTTON_HEIGHT * this.imageButtonWidth(buttonLayout.width)) / MAX_BUTTON_WIDTH;
+  };
+
+  heightTextBox = () => {
+    const isIphone = Platform.OS === "ios";
+    if (isIphoneX() || isIphone) { return 195; }
+    return 172;
+  };
+
+  widthTextBox = () => {
+    const isIphone = Platform.OS === "ios";
+    if (isIphoneX() || isIphone) { return 200; }
+    return 176;
+  };
+
+  marginOS = () => {
+    const isIphone = Platform.OS === "ios";
+    if (isIphoneX()) { return 0; }
+    if (isIphone) { return -5; }
+    return 15;
+  };
+
+  positionTop = pageY => {
+    if (!pageY) { return 0; }
+    return WixScreenTearingWorkaround.paddingTop + pageY + this.marginOS() - MARGIN_TOP;
+  };
+
+  marginLeftButton = width => {
+    return width / 2 - this.imageButtonWidth(width) / 2 - 3;
+  };
+
+  marginTopButton = buttonLayout => {
+    return buttonLayout.height / 2 - this.imageButtonHeight(buttonLayout) / 2 - 7;
+  };
+
+  dialogTutorial = () => {
+    const { pageCount } = this.state;
+    return (
+      pageCount === 0 && (
+        <MessageBottomModal
+          isVisible
+          media={<DigitalPaymentBanner size="illus78" />}
+          title={I18n.t("Wallet.ProfileTutorial.Title")}
+          body={I18n.t("Wallet.ProfileTutorial.Description")}
+          buttons={[
+            {
+              variant: "primary",
+              label: I18n.t("Wallet.ProfileTutorial.Button"),
+              onPress: this.onPressedPage
+            },
+            {
+              variant: "secondary",
+              label: I18n.t("Wallet.ProfileTutorial.SkipButton"),
+              onPress: () => {
+                this.setState({ pageCount: 3 });
+                Navigation.dismissModal({ animationType: "none" });
+              }
+            }
+          ]}
+          onModalClose={this.onPressedPage}
+        />
+      )
+    );
+  };
+
+  topupTutorial = () => {
+    const { tutorialPosition } = this.props;
+    const { topupProfile } = tutorialPosition;
+    if (!topupProfile) { return topupProfile; }
+    return (
+      <TouchableWithoutFeedback onPress={this.onPressedPage}>
+        <Overlay>
+          <ImageButton
+            positionTop={this.positionTop(topupProfile.pageY) + 1}
+            positionLeft={topupProfile.pageX}
+            marginLeft={this.marginLeftButton(topupProfile.width)}
+            marginTop={this.marginTopButton(topupProfile)}
+          >
+            <Image
+              source={topupImage}
+              style={{
+                width: this.imageButtonWidth(topupProfile.width),
+                height: this.imageButtonHeight(topupProfile),
+                resizeMode: "contain"
+              }}
+            />
+          </ImageButton>
+          <TopupMessage
+            positionTop={this.positionTop(topupProfile.pageY) - 3}
+            positionLeft={topupProfile.pageX}
+            marginLeft={0}
+            marginTop={0}
+          >
+            <Image
+              source={topupMessage}
+              style={{
+                width: this.widthTextBox(),
+                height: this.heightTextBox(),
+                resizeMode: "contain"
+              }}
+            />
+          </TopupMessage>
+        </Overlay>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  cashoutTutorial = () => {
+    const { tutorialPosition } = this.props;
+    const { cashoutProfile } = tutorialPosition;
+    if (!cashoutProfile) { return cashoutProfile; }
+    return (
+      <Overlay>
+        <ImageButton
+          positionTop={this.positionTop(cashoutProfile.pageY) + 2}
+          positionLeft={cashoutProfile.pageX}
+          marginLeft={this.marginLeftButton(cashoutProfile.width) + 5}
+          marginTop={this.marginTopButton(cashoutProfile)}
+        >
+          <Image
+            source={cashoutImage}
+            style={{
+              width: this.imageButtonWidth(cashoutProfile.width),
+              height: this.imageButtonHeight(cashoutProfile),
+              resizeMode: "contain"
+            }}
+          />
+        </ImageButton>
+        <CashoutMessage
+          positionTop={this.positionTop(cashoutProfile.pageY) - 3}
+          positionLeft={cashoutProfile.pageX}
+          marginLeft={this.marginLeftButton(cashoutProfile.width) - 20}
+          marginTop={0}
+        >
+          <Image
+            source={cashoutMessage}
+            style={{
+              width: this.widthTextBox(),
+              height: this.heightTextBox(),
+              resizeMode: "contain"
+            }}
+          />
+        </CashoutMessage>
+        <ButtonContainer>
+          <PrimaryButton
+            onPress={this.onPressedPage}
+            label={I18n.t("Wallet.ProfileTutorial.StartButton")}
+          />
+        </ButtonContainer>
+      </Overlay>
+    );
+  };
+
+  renderTutorialPage = () => {
+    const { pageCount } = this.state;
+    switch (pageCount) {
+      case 0:
+        return this.dialogTutorial();
+      case 1:
+        return this.topupTutorial();
+      case 2:
+        return this.cashoutTutorial();
+      default:
+        setTimeout(() => {
+          Navigation.dismissModal({ animationType: "none" });
+        }, 100);
+        AsyncStorage.setItem(TUTORIAL_PROFILE, "Y");
+        return null;
+    }
+  };
+
+  render() {
+    return <Fragment>{this.renderTutorialPage()}</Fragment>;
+  }
+}
+
+WalletProfileTutorialScreen.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func
+  }).isRequired,
+  tutorialPosition: PropTypes.isRequired
+};
+
+export default WalletProfileTutorialScreen;

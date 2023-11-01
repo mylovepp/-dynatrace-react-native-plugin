@@ -1,0 +1,115 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { Header3, TextOverlineR } from "../../../components-2";
+import { formatNumber } from "../../../features/new-portfolio/portfolio-helpers";
+import { cashMapping, CASH_OFFSHORE_BALANCE } from "../constants";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import {
+  MY_STATEMENT_CASH_LIST_SCREEN_ID,
+} from "../../../redux/navigation/navigation-constants";
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const Container = styled.View`
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.isLastComponent ? "0px" : props.theme.spacingSmall};
+  border-bottom-width: ${props => props.isLastComponent ? "0px" : "1px"};
+  border-color: ${props => props.theme.dividerColor};
+`;
+
+const SubheadBold = styled(Header3)`
+  color: ${props => props.isOffshoreAccount ? props.theme.textPrimaryColor : "black"};
+`;
+
+const AccountLabel = styled(Header3)`
+  margin-top: 0px;
+`;
+
+const CashCard = props => {
+  const {
+    accountType,
+    accountNumber,
+    desc,
+    amountThb,
+    currency,
+    isLastComponent,
+    i18n,
+    cashs,
+    asOfDate,
+    navigator
+  } = props;
+  const currencyDisplay = currency && currency !== "THB"
+    ? currency : i18n.translations["General.Currencies.THB"];
+  const mvPerUnitText = amountThb ? formatNumber(amountThb) : "";
+
+  const navigateCashList = () => {
+    navigator.push({
+      screen: MY_STATEMENT_CASH_LIST_SCREEN_ID,
+      title: i18n.translations["MyStatement.Cash.CashOffshore"],
+      backButtonTitle: "",
+      passProps: {
+        accountNumber,
+        currencyDisplay,
+        amountDisplay: mvPerUnitText,
+        cashs,
+        asOfDate
+      },
+      navigatorStyle: {
+        tabBarHidden: true
+      }
+    });
+  };
+  const isOffshoreAccount = accountType && accountType.toLowerCase() === CASH_OFFSHORE_BALANCE;
+  let accountName = cashMapping(i18n)[accountType]
+    ? cashMapping(i18n)[accountType].name : accountType;
+  if (isOffshoreAccount) {
+    accountName = cashMapping(i18n)[CASH_OFFSHORE_BALANCE].name;
+  }
+  return (
+    <Container isLastComponent={isLastComponent}>
+      <TouchableOpacity onPress={() => {
+        if (isOffshoreAccount) { navigateCashList(); }
+      }}
+      >
+        <RowContainer>
+          <SubheadBold isOffshoreAccount={isOffshoreAccount}>
+            {accountName}
+          </SubheadBold>
+          <TextOverlineR>{desc}</TextOverlineR>
+        </RowContainer>
+        <RowContainer>
+          <AccountLabel>{accountNumber || ""}</AccountLabel>
+          <SubheadBold>{mvPerUnitText || "-"} {currencyDisplay}</SubheadBold>
+        </RowContainer>
+      </TouchableOpacity>
+    </Container>
+  );
+};
+
+CashCard.defaultProps = {
+  isLastComponent: false,
+  cashs: []
+};
+
+CashCard.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  desc: PropTypes.string.isRequired,
+  currency: PropTypes.string.isRequired,
+  isLastComponent: PropTypes.bool,
+  accountType: PropTypes.string.isRequired,
+  accountNumber: PropTypes.string.isRequired,
+  amountThb: PropTypes.string.isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired,
+  asOfDate: PropTypes.string.isRequired,
+  cashs: PropTypes.arrayOf(PropTypes.any)
+};
+
+export default CashCard;

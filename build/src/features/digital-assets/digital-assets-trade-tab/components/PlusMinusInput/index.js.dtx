@@ -1,0 +1,200 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled, { withTheme } from "styled-components/native";
+import PropTypes from "prop-types";
+import { View } from "react-native";
+import { PlusIcon } from "../../../../../components/icon/digital-assets-icon/trade/plusIcon";
+import { MinusIcon } from "../../../../../components/icon/digital-assets-icon/trade/minusIcon";
+import { displayValueWithThousandSeperator } from "../../utils/format";
+
+const Root = styled(View)(props => ({
+  borderColor: props.inputStyle.borderColor,
+  backgroundColor: props.inputStyle.backgroundColor,
+  flexDirection: "row",
+  justifyContent: "space-around",
+  alignItems: "center",
+  borderWidth: 1,
+  height: 47,
+  borderRadius: props.theme.spacingXSmall,
+  marginVertical: props.theme.spacingXXSmall
+}));
+
+const InputView = styled.View`
+  display: flex;
+  justify-content: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  flex: 2;
+`;
+
+const Input = styled.TextInput`
+  font-family: ${props => props.theme.body3.fontFamily};
+  font-size: ${props => props.theme.body3.fontSize};
+  text-align: center;
+  width: 100%;
+`;
+
+const ShowValue = styled.TextInput`
+  font-family: ${props => props.theme.body3.fontFamily};
+  font-size: ${props => props.theme.body3.fontSize};
+  text-align: center;
+  color: #93979f;
+  width: 100%;
+`;
+
+const Button = styled(TouchableOpacity)(() => ({
+  height: "100%",
+  width: "100%",
+  alignItems: "center",
+  display: "flex",
+  justifyContent: "center",
+  flex: 0.8
+}));
+
+const PlusMinusInput = ({
+  placeHolder,
+  operand,
+  decimal,
+  value,
+  onValueChange,
+  disabled,
+  error,
+  theme,
+  id,
+  setKeyboardShow
+}) => {
+  const [valueDisplay, setValueDisplay] = useState(null);
+  const handleChangeValue = operator => {
+    const prevValueFloat = parseFloat(value || 0);
+    const operandFloat = parseFloat(operand || 0);
+
+    const calMethod = {
+      "+": () => prevValueFloat + operandFloat,
+      "-": () => prevValueFloat - operandFloat
+    };
+    let curValue = calMethod[operator]();
+
+    if (curValue <= 0) { curValue = 0; }
+    return onValueChange(curValue.toFixed(decimal));
+  };
+
+  const decimalCount = num => {
+    const numStr = String(num);
+    if (numStr.includes(".")) {
+      return numStr.split(".")[1].length;
+    }
+    return 0;
+  };
+
+  const onChange = result => {
+    const regForCompleteToUpdate = /^(?!-0(\.0+)?$)-?(0|[1-9]\d*)(\.\d+)?$/;
+    const regForTypingNotComplete = /^-?(?!0\d)\d+\.?\d*$/; // allow '.', '0.'
+    const removeThousandSeperatorNumber = result.split(",").join("");
+    // eslint-disable-next-line no-restricted-globals
+    if (regForCompleteToUpdate.test(removeThousandSeperatorNumber)) {
+      const decimalLength = decimalCount(removeThousandSeperatorNumber);
+      if (decimalLength <= decimal) {
+        setValueDisplay(removeThousandSeperatorNumber);
+        onValueChange(removeThousandSeperatorNumber);
+      }
+    } else if (removeThousandSeperatorNumber === "") {
+      setValueDisplay(removeThousandSeperatorNumber);
+      onValueChange(removeThousandSeperatorNumber);
+    } else if (regForTypingNotComplete.test(removeThousandSeperatorNumber)) {
+      setValueDisplay(removeThousandSeperatorNumber);
+    }
+  };
+
+  useEffect(() => {
+    setValueDisplay(displayValueWithThousandSeperator(value));
+  }, [value, decimal]);
+
+  const getInputStyle = (err, dis) => {
+    const result = {
+      borderColor: theme.contentColorLight,
+      backgroundColor: theme.backgroundWhite,
+      color: "red"
+    };
+    if (err) {
+      result.borderColor = theme.graphRed;
+      result.backgroundColor = theme.lightGraphRed;
+    }
+    if (dis) {
+      result.borderColor = theme.contentColorLight;
+      result.backgroundColor = theme.backgroundTertiaryGrey;
+    }
+    return result;
+  };
+
+  return (
+    <Root inputStyle={getInputStyle(error, disabled)}>
+      {!disabled && (
+        <Button testID={`da-trade-tab-btn-minus-${id}`} onPress={() => handleChangeValue("-")}>
+          <MinusIcon width={18} height={18} />
+        </Button>
+      )}
+
+      <InputView>
+        {!disabled && (
+          <Input
+            testID={`da-trade-tab-input-${id}`}
+            placeholder={placeHolder}
+            placeholderTextColor="#93979f"
+            underlineColorAndroid="transparent"
+            onChangeText={onChange}
+            keyboardType="numeric"
+            value={valueDisplay}
+            maxLength={20}
+            adjustsFontSizeToFit
+            onFocus={() => {
+              setKeyboardShow(true);
+            }}
+          />
+        )}
+        {disabled && (
+          <ShowValue
+            maxLength={20}
+            testID={`da-trade-tab-input-${id}`}
+            adjustsFontSizeToFit
+            placeholder={placeHolder}
+            editable={false}
+            placeholderTextColor="#93979f"
+            underlineColorAndroid="transparent"
+          />
+        )}
+      </InputView>
+
+      {!disabled && (
+        <Button testID={`da-trade-tab-btn-plus-${id}`} onPress={() => handleChangeValue("+")}>
+          <PlusIcon width={18} height={18} />
+        </Button>
+      )}
+    </Root>
+  );
+};
+
+PlusMinusInput.propTypes = {
+  value: PropTypes.number.isRequired,
+  onValueChange: PropTypes.func.isRequired,
+  placeHolder: PropTypes.string,
+  operand: PropTypes.number,
+  decimal: PropTypes.number,
+  disabled: PropTypes.bool,
+  error: PropTypes.bool,
+  id: PropTypes.string,
+  // eslint-disable-next-line react/forbid-prop-types
+  theme: PropTypes.object.isRequired,
+  setKeyboardShow: PropTypes.func
+};
+
+PlusMinusInput.defaultProps = {
+  placeHolder: "",
+  operand: 1,
+  decimal: 2,
+  disabled: false,
+  error: false,
+  id: "",
+  setKeyboardShow: () => {}
+};
+
+export default withTheme(PlusMinusInput);

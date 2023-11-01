@@ -1,0 +1,75 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useState } from "react";
+import styled from "styled-components/native";
+import { Icon } from "../../components-2";
+import TutorialReplayList from "./TutorialReplayList";
+
+const SectionContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const ItemContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const TitleContainer = styled.View`
+  flex: 1;
+`;
+
+const TutorialReplayItem = props => {
+  const { titleComponent, onPress, subItems } = props;
+  const [showSubItems, setShowSubItems] = useState(false);
+  const hasSubItems = subItems.length > 0;
+
+  const renderIcon = () => {
+    if (hasSubItems) {
+      return showSubItems
+        ? (<Icon name="chevron-up" size="icon8" />)
+        : (<Icon name="chevron-down" size="icon8" />);
+    }
+    return undefined;
+  };
+
+  const handlePress = () => {
+    if (hasSubItems) {
+      setShowSubItems(!showSubItems);
+    } else {
+      onPress();
+    }
+  };
+
+  return (
+    <SectionContainer>
+      <TouchableOpacity onPress={handlePress} >
+        <ItemContainer>
+          <TitleContainer>{titleComponent}</TitleContainer>
+          {renderIcon()}
+        </ItemContainer>
+      </TouchableOpacity>
+      {hasSubItems && showSubItems && (
+        <TutorialReplayList
+          data={subItems}
+          isSubMenu
+        />
+      )}
+    </SectionContainer>
+  );
+};
+
+TutorialReplayItem.defaultProps = {
+  titleComponent: undefined,
+  onPress: undefined,
+  subItems: [],
+};
+
+TutorialReplayItem.propTypes = {
+  titleComponent: PropTypes.element,
+  onPress: PropTypes.func,
+  subItems: PropTypes.arrayOf(PropTypes.object),
+};
+
+export default TutorialReplayItem;

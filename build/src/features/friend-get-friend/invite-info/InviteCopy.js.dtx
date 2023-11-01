@@ -1,0 +1,87 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+
+import styled from "styled-components/native";
+import Clipboard from "@react-native-community/clipboard";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import {
+  Row,
+  Header2,
+  Body2,
+  Icon,
+  Divider
+} from "../../../components-2";
+import { showNewInAppNotification } from "../../../modules/navigation";
+
+const Container = styled.View`
+  padding: 0px 16px;
+`;
+
+const CopyContainer = styled.View`
+  flex-direction: row;
+`;
+
+const CopyIcon = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const CopyText = styled(Body2)`
+  margin-right: 8;
+`;
+
+
+const InviteCopy = props => {
+  const {
+    i18n,
+    code,
+    url,
+    navigator
+  } = props;
+
+  const onPressCopyButton = (displayText) => {
+    Clipboard.setString(displayText);
+    showNewInAppNotification(navigator, {
+      body: "FriendGetFriend.CopyCompleted",
+      variant: "success",
+      iconName: "success"
+    });
+  };
+
+  const getCopyButton = (displayText) => {
+    return (
+      <CopyContainer>
+        <CopyText variant="greyHigh" numberOfLines={1}>{displayText}</CopyText>
+        <TouchableOpacity onPress={() => {
+          onPressCopyButton(displayText);
+        }}
+        >
+          <CopyIcon name="copy" size="icon24" />
+        </TouchableOpacity>
+      </CopyContainer>
+    );
+  };
+
+  return (
+    <Container>
+      <Row
+        left={<Header2>{i18n.translations["FriendGetFriend.CodeTitle"]}</Header2>}
+        right={getCopyButton(code)}
+      />
+      <Divider />
+      <Row
+        left={<Header2>{i18n.translations["FriendGetFriend.LinkTitle"]}</Header2>}
+        right={getCopyButton(url)}
+      />
+    </Container>
+  );
+};
+
+InviteCopy.propTypes = {
+  navigator: PropTypes.shape({}).isRequired,
+  i18n: I18nPropTypes.isRequired,
+  code: PropTypes.string.isRequired,
+  url: PropTypes.string.isRequired,
+};
+
+export default InviteCopy;

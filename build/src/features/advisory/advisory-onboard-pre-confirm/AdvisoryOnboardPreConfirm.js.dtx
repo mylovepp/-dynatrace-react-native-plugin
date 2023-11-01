@@ -1,0 +1,24 @@
+import { View } from "react-native";
+import { TouchableOpacity, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import React from "react";
+
+const AdvisoryOnboardPreConfirm = ({ navigator }) => {
+  return (
+    <View>
+      <Text style={{ marginTop: 20, alignSelf: "center" }}>AdvisoryOnboardPreConfirm</Text>
+      <TouchableOpacity
+        onPress={() => navigator.push({ screen: "advisoryOnBoardSlipScreen", title: "ADVISORY ONBOARD SLIP" })}
+        style={{ marginTop: 20, alignSelf: "center" }}
+      >
+        <Text style={{ color: "blue" }}>NEXT</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+AdvisoryOnboardPreConfirm.propTypes = {
+  navigator: PropTypes.shape().isRequired
+};
+
+export default AdvisoryOnboardPreConfirm;

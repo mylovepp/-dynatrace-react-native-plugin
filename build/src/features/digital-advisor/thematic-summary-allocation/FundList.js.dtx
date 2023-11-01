@@ -1,0 +1,186 @@
+
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+// import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import {
+  Header3,
+  Body3,
+  Icon,
+} from "../../../components-2";
+import { formatDecimalPercent } from "../../../modules/format";
+
+const IconContainer = styled.View`
+  marginLeft: 12px;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  alignItems: center;
+`;
+
+const Header3Text = styled(Header3)`
+  color: ${(props) => props.theme.textDarkestColor};
+`;
+
+const Body3Text = styled(Body3)`
+  color: ${(props) => props.theme.textDarkestColor};
+  flex: 1;
+`;
+
+const RightBody3Text = styled(Body3)`
+  color: ${(props) => props.theme.textDarkestColor};
+  marginLeft: ${props => props.theme.spacingXSmall};
+`;
+
+const Body3GrayText = styled(Body3)`
+  color: ${(props) => props.theme.contentColorHigh};
+`;
+
+const FundContainer = styled.View`
+  marginBottom: 16px;
+  backgroundColor: ${(props) => props.theme.backgroundLightColor};
+  borderRadius: 8px;
+  shadowColor: #DFDBEC;
+  elevation: 2;
+  shadowRadius: 2;
+  shadowOpacity: 0.3;
+  shadowOffset: {
+    width: 0;
+    height: 2;
+  }
+`;
+
+const FundHeaderContainer = styled.View`
+  flexDirection: row;
+  justifyContent: space-between;
+  alignItems: center;
+  marginBottom: 4px;
+  padding: 8px;
+  borderBottomColor: #EAEAEA;
+  borderBottomWidth: ${(props) => props.isOpen ? 1 : 0};
+`;
+
+const FundVerticalHeader = styled.View`
+  height: 27px;
+  width: 5px;
+  borderRadius: 6px;
+  marginRight: 8px;
+  backgroundColor: ${(props) => props.color ? props.color : "#000"};
+`;
+
+const FundItemContainer = styled.View`
+  flexDirection: column;
+  justifyContent: space-between;
+  marginBottom: 4px;
+  marginHorizontal: 16px;
+  paddingTop: 4px;
+  paddingBottom: 8px;
+  borderBottomColor: #EAEAEA;
+  borderBottomWidth: ${(props) => props.border ? 0 : 1};
+`;
+
+const ChevronDownIcon = styled(Icon).attrs({
+  name: "chevron-down",
+  size: "icon8",
+  color: "#7E7E7E",
+})``;
+
+const ChevronUpIcon = styled(Icon).attrs({
+  name: "chevron-up",
+  size: "icon8",
+  color: "#7E7E7E",
+})`
+`;
+
+class FundList extends PureComponent {
+  state = {
+    fundDataList: [],
+  };
+
+  static getDerivedStateFromProps(props, state) {
+    const { data } = props;
+    const fundDataList = (data || []).map(fund => {
+      const existingState = state.fundDataList.find(item => item.titleEn === fund.label_english);
+      const dataItems = (fund.fundList || []).map(item => {
+        return {
+          name: item.label_thai,
+          percent: item.percent,
+          ticker: item.ticker,
+        };
+      });
+      return {
+        title: fund.label_thai,
+        titleEn: fund.label_english,
+        percent: fund.percent,
+        color: fund.color,
+        isOpen: existingState ? existingState.isOpen : false,
+        items: dataItems,
+      };
+    });
+    return { fundDataList };
+  }
+
+  onToggleExpandItem = index => {
+    const toggleFundDataList = [...this.state.fundDataList];
+    toggleFundDataList[index].isOpen = !toggleFundDataList[index].isOpen;
+    this.setState({ fundDataList: toggleFundDataList });
+  };
+
+  renderFundItemList = (fund) => {
+    if (fund.isOpen) {
+      return fund.items.map((item, itemIndex) => {
+        return (
+          <FundItemContainer
+            key={item.ticker}
+            border={itemIndex >= fund.items.length - 1}
+          >
+            <RowContainer>
+              <Body3Text>{item.name}</Body3Text>
+              <RightBody3Text>{formatDecimalPercent(item.percent)}</RightBody3Text>
+            </RowContainer>
+            <Body3GrayText>{item.ticker}</Body3GrayText>
+          </FundItemContainer>
+        );
+      });
+    }
+    return null;
+  }
+
+  render() {
+    const { fundDataList } = this.state;
+    return fundDataList.map((fund, index) => {
+      const headerColor = fund.color ? fund.color : "#7E7E7E";
+      return (
+        <FundContainer
+          style={index >= fundDataList.length - 1 && { borderBottomColor: "transparent" }}
+          key={fund.titleEn}
+        >
+          <TouchableOpacity onPress={() => this.onToggleExpandItem(index)}>
+            <FundHeaderContainer isOpen={fund.isOpen}>
+              <RowContainer>
+                <FundVerticalHeader color={headerColor} />
+                <Header3Text>{fund.title}</Header3Text>
+              </RowContainer>
+              <RowContainer>
+                <Header3Text>{`${formatDecimalPercent(fund.percent)}`}</Header3Text>
+                <IconContainer>
+                  { fund.isOpen ? <ChevronUpIcon /> : <ChevronDownIcon /> }
+                </IconContainer>
+              </RowContainer>
+            </FundHeaderContainer>
+          </TouchableOpacity>
+          { this.renderFundItemList(fund) }
+        </FundContainer>
+      );
+    });
+  }
+}
+
+// FundList.defaultProps = {};
+
+// FundList.propTypes = {
+//   data: PropTypes.arrayOf(PropTypes.any).isRequired,
+// };
+
+export default FundList;

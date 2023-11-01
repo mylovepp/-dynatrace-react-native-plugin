@@ -1,0 +1,57 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+
+import { Header1 } from "../../../components-2";
+
+const HeaderText = styled(Header1).attrs({
+  numberOfLines: 1
+})`
+  margin-top: ${props => props.theme.spacingMedium};
+  color: ${props => props.theme.contentColorVeryHigh};
+  text-align: center;
+  margin-left: 70;
+`;
+
+const ButtonText = styled(Header1)(props => ({
+  color: props.theme.ctaPurple
+}));
+
+const TitleContainer = styled.View`
+  flex: 1;
+`;
+
+const HeaderSectionContainer = styled.View`
+  flex-direction: row;
+`;
+
+const ButtonFilterContainer = styled.View`
+  justify-content: flex-end;
+  width: 70;
+`;
+
+const ActivityFilterInputHeader = props => {
+  const { title, disable, onPress } = props;
+  return (
+    <HeaderSectionContainer>
+      <TitleContainer>
+        <HeaderText variant="light">{title}</HeaderText>
+      </TitleContainer>
+      <ButtonFilterContainer>
+        <TouchableOpacity disable={disable} onPress={onPress}>
+          <ButtonText>{I18n.t("ActivityMain.Activity.Filter.Select")}</ButtonText>
+        </TouchableOpacity>
+      </ButtonFilterContainer>
+    </HeaderSectionContainer>
+  );
+};
+
+ActivityFilterInputHeader.propTypes = {
+  title: PropTypes.string.isRequired,
+  disable: PropTypes.bool.isRequired,
+  onPress: PropTypes.func.isRequired
+};
+
+export default ActivityFilterInputHeader;

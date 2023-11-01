@@ -1,0 +1,229 @@
+import get from "lodash/get";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import React, { memo, useEffect, useLayoutEffect, useState } from "react";
+import { Keyboard, View } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import OnboardingFormWrapper from "../../form-wrapper";
+import { Body2, HeaderText, TextInput, TextOverlineR, Body3 } from "../../onboard-styled";
+
+const maxOtpCodeLength = 6;
+
+const DescriptionText = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+const InputContainer = styled(View)`
+  justify-content: flex-end;
+`;
+const ResendContainer = styled(View)`
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+const ResendLink = styled(Body3)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+const ResendLinkDisabled = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+const Timer = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+const ReferenceText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+const Row = styled(View)`
+  flex-grow: 1;
+  display: flex;
+  flex-direction: row;
+`;
+
+const ValidateEmailOTP = props => {
+  const {
+    showLoading,
+    invalidOTP,
+    emailOTP,
+    resendEmailOTP,
+    verifyEmailOTP,
+    activeStage,
+    remainingTime,
+    setIsResendOTP
+  } = props;
+
+  let resentTimerInterval;
+  const [email, setEmail] = useState(emailOTP.email ?? "");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [isValid, setIsValid] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [activeResend, setActiveResend] = useState(true);
+
+  const handleCodeChange = text => {
+    setCode(text);
+    setError("");
+  };
+
+  const sendEmailOTP = () => {
+    resendEmailOTP(data => {
+      const resEmail = get(data, "data.email", "");
+      if (resEmail !== email) {
+        setEmail(resEmail);
+      }
+    });
+  };
+
+  const triggerTimer = () => {
+    let countDown = remainingTime;
+    setActiveResend(false);
+    resentTimerInterval = setInterval(() => {
+      --countDown;
+      if (countDown > 0) {
+        setTimeLeft(countDown);
+      } else {
+        setTimeLeft(null);
+        setActiveResend(true);
+        clearInterval(resentTimerInterval);
+      }
+    }, 1000);
+  };
+
+  const onResendOTPPressed = () => {
+    Keyboard.dismiss();
+    setCode("");
+    setError("");
+
+    sendEmailOTP();
+    setIsResendOTP();
+  };
+
+  useEffect(() => {
+    sendEmailOTP();
+  }, []);
+
+  useEffect(() => {
+    triggerTimer();
+    return () => {
+      clearInterval(resentTimerInterval);
+    };
+  }, [remainingTime]);
+
+  useEffect(() => {
+    if (error === "" && code.length === maxOtpCodeLength && !!emailOTP?.otp_reference && !!emailOTP?.email) {
+      setIsValid(true);
+    } else {
+      setIsValid(false);
+    }
+  }, [code]);
+
+  useLayoutEffect(() => {
+    if (invalidOTP) {
+      setError(i18n.t("Onboarding.OTP.Email.Reference.Invalid"));
+      setIsValid(false);
+    } else {
+      setError("");
+    }
+  }, [invalidOTP]);
+
+  const clearOtpInput = () => {
+    setTimeout(() => {
+      setCode("");
+    }, 1000);
+  };
+
+  const handleSubmit = () => {
+    if (isValid) {
+      Keyboard.dismiss();
+      verifyEmailOTP({
+        code,
+        otpReference: emailOTP.otp_reference
+      },
+        clearOtpInput
+      );
+    }
+  };
+
+  return (
+    <OnboardingFormWrapper
+      buttonText={i18n.t("Onboarding.OTP.Email.NextButton")}
+      onButtonPress={handleSubmit}
+      showLoading={showLoading}
+      isShowLoadingFullScreen
+      activeStage={activeStage}
+      disableButton={!isValid}
+    >
+      <View>
+        <HeaderText>{i18n.t("Onboarding.OTP.Email.Header")}</HeaderText>
+        <DescriptionText>
+          {i18n.t("Onboarding.OTP.Email.Description", {
+            email
+          })}
+        </DescriptionText>
+      </View>
+
+      <InputContainer>
+        <TextInput
+          placeholder={i18n.t("Onboarding.OTP.Email.Reference.Placeholder")}
+          value={code}
+          onChangeText={handleCodeChange}
+          disabled={!emailOTP.email}
+          variant={error === "" ? "valid" : "error"}
+          helperText={error}
+          maxLength={maxOtpCodeLength}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+      </InputContainer>
+
+      <ResendContainer>
+        <Row>
+          <Body3>{i18n.t("Onboarding.OTP.Email.Resend.Description")}</Body3>
+          {activeResend ? (
+            <TouchableOpacity onPress={onResendOTPPressed}>
+              <ResendLink>{i18n.t("Onboarding.OTP.Email.Resend.Link")}</ResendLink>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <ResendLinkDisabled>{i18n.t("Onboarding.OTP.Mobile.Resend.Link")}</ResendLinkDisabled>
+              {timeLeft !== null ? (
+                <Timer>{i18n.t("Onboarding.OTP.Mobile.Resend.Timer", { timeLeft })}</Timer>
+              ) : null}
+            </>
+          )}
+        </Row>
+        {!!emailOTP.otp_reference && (
+          <Row>
+            <ReferenceText>
+              {i18n.t("Onboarding.OTP.Email.Reference.Label", {
+                otpReference: emailOTP.otp_reference
+              })}
+            </ReferenceText>
+          </Row>
+        )}
+      </ResendContainer>
+    </OnboardingFormWrapper>
+  );
+};
+
+ValidateEmailOTP.defaultProps = {
+  invalidOTP: false,
+  activeStage: null,
+  remainingTime: null
+};
+
+ValidateEmailOTP.propTypes = {
+  invalidOTP: PropTypes.bool,
+  emailOTP: PropTypes.shape({
+    email: PropTypes.string.isRequired,
+    otp_reference: PropTypes.string.isRequired
+  }).isRequired,
+  verifyEmailOTP: PropTypes.func.isRequired,
+  resendEmailOTP: PropTypes.func.isRequired,
+  showLoading: PropTypes.bool.isRequired,
+  activeStage: PropTypes.string,
+  remainingTime: PropTypes.number,
+  setIsResendOTP: PropTypes.func.isRequired
+};
+
+export default memo(ValidateEmailOTP);

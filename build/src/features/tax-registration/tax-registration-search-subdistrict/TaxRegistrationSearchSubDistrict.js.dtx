@@ -1,0 +1,239 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, ScrollView, View } from "react-native";
+import Highlighter from "react-native-highlight-words";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { TOP_NAVBAR_HEIGHT } from "../../../modules/navigation/defaultStyle";
+import { SEARCH_BAR_INPUT_BORDER_RADIUS } from "../../search/search-bar/search-bar-constants";
+import {
+  Body2,
+  Header1,
+  Header2,
+  Icon,
+  SeachNoResultLogo,
+  SearchInput
+} from "../../../components-2";
+import SelectOptionsSubDistrict from "../../../components-2/select/SelectOptionsSubDistrict";
+
+const Container = styled(ScrollView).attrs(props => ({
+  showsVerticalScrollIndicator: false,
+  contentContainerStyle: props.displayFlex ? { flex: 1 } : null
+}))`
+  background-color: ${props => props.theme.backgroundLightColor};
+  padding-top: ${Platform.OS === "android" ? 20 : TOP_NAVBAR_HEIGHT};
+`;
+
+const HeaderContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.backgroundLightColor};
+  margin-bottom: ${props => (props.additionalBottomContent ? "1.5px" : props.theme.spacingXSmall)};
+  align-items: center;
+`;
+
+const SearchBarContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  padding-bottom: ${props => props.theme.spacingXSmall};
+  border-top-right-radius: ${SEARCH_BAR_INPUT_BORDER_RADIUS};
+  border-bottom-right-radius: ${SEARCH_BAR_INPUT_BORDER_RADIUS};
+`;
+
+const SearchResultLineItemContainer = styled.View``;
+const SearchResultContainer = styled.View`
+  flex-direction: column;
+  margin-top: -15px;
+`;
+
+const ImageContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+  max-height: 300px;
+  margin-top: 200px;
+`;
+
+const SearchResultText = styled(Body2)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+const ImojiContainer = styled.View``;
+
+const ImojiCaptionContainer = styled.View`
+  align-items: center;
+  padding-top: 10px;
+`;
+
+const SearchInputContainer = styled(View)`
+  flex: 1;
+`;
+
+const ButtonContainer = styled(TouchableOpacity)`
+  padding-horizontal: ${props => props.theme.spacingSmall};
+  justify-content: center;
+  height: 36px;
+`;
+
+const SearchText = styled(Header2)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const RowSelectedView = styled.View`
+  flex-direction: row;
+  margin-left: ${props => props.theme.spacingMedium};
+  margin-right: ${props => props.theme.spacingMedium};
+`;
+
+const IconContainerView = styled.View`
+  padding-top: 100px;
+`;
+
+const CustomHighlighter = styled(Highlighter).attrs(props => ({
+  highlightStyle: {
+    color: props.theme.contentColorVeryHigh
+  }
+}))``;
+
+const TitleHeader1 = styled(Header1)`
+  padding-bottom: 10px;
+`;
+
+class TaxRegistrationSearchSubDistrict extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.nameInput = React.createRef();
+    this.state = {
+      selectedValue: "",
+      searchInputValue: "",
+      searchResults: null
+    };
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (nextProps.searchResults) {
+      this.setState({
+        searchResults: nextProps.searchResults
+      });
+    }
+  }
+
+  onItemSelected = option => {
+    const { navigator, onItemSelected } = this.props;
+    navigator.pop();
+    onItemSelected(option);
+  };
+
+  onChangeText = value => {
+    this.props.clearSearchResult();
+    this.setState({ searchInputValue: value, searchResults: null });
+    if (value && value.length >= 2) {
+      this.props.searchBySubDistrictOrPostalCode(value, this.props.setLanguage);
+    }
+  };
+
+  onClear = () => {
+    this.setState({ searchInputValue: "", searchResults: null, selectedValue: "" });
+  };
+
+  getTextFormat = data => {
+    return (
+      <CustomHighlighter
+        searchWords={[this.state.searchInputValue]}
+        textToHighlight={`${data.subDistrictName} > ${data.districtName} > ${data.postalCode}`}
+      />
+    );
+  };
+
+  cancelSearch = () => {
+    this.props.navigator.pop({});
+  };
+
+  renderSearchResultRow = data => {
+    return (
+      <RowSelectedView>
+        <SearchResultLineItemContainer>
+          <SearchResultText>{this.getTextFormat(data)}</SearchResultText>
+        </SearchResultLineItemContainer>
+      </RowSelectedView>
+    );
+  };
+
+  render() {
+    const { i18n } = this.props;
+    const { searchInputValue, selectedValue, searchResults } = this.state;
+    const showSearchNotFound = !!(searchResults && searchInputValue);
+    return (
+      <Container>
+        <HeaderContainer>
+          <TitleHeader1>{i18n.translations["Onboarding.Address.Search.Header"]}</TitleHeader1>
+          <SearchBarContainer>
+            <SearchInputContainer>
+              <SearchInput
+                placeholder={i18n.translations["Onboarding.Address.Search.PlaceHolder"]}
+                onChangeText={this.onChangeText}
+                onClear={this.onClear}
+                value={searchInputValue}
+                autoCorrect
+                ref={this.nameInput}
+              />
+            </SearchInputContainer>
+            <ButtonContainer onPress={this.cancelSearch}>
+              <SearchText>{i18n.translations["General.Cancel"]}</SearchText>
+            </ButtonContainer>
+          </SearchBarContainer>
+        </HeaderContainer>
+        <SearchResultContainer>
+          {searchResults && searchResults.length > 0 && (
+            <SelectOptionsSubDistrict
+              keyExtractor={item => item.id}
+              selectedOption={selectedValue}
+              options={searchResults}
+              renderRow={this.renderSearchResultRow}
+              onSelect={this.onItemSelected}
+              scrollEnabled
+            />
+          )}
+          {searchInputValue.length < 2 && (
+            <ImojiContainer>
+              <ImageContainer>
+                <IconContainerView>
+                  <Icon name="search" size="icon32" />
+                </IconContainerView>
+              </ImageContainer>
+              <ImojiCaptionContainer>
+                <Body2>{i18n.translations["Onboarding.Address.Search.MainCaption"]}</Body2>
+              </ImojiCaptionContainer>
+            </ImojiContainer>
+          )}
+          {(!searchResults || searchResults.length === 0) && showSearchNotFound && (
+            <ImojiContainer>
+              <ImageContainer>
+                <SeachNoResultLogo size="illus78" />
+              </ImageContainer>
+              <ImojiCaptionContainer>
+                <Body2>{i18n.translations["Onboarding.Address.Search.SearchNotFound"]}</Body2>
+              </ImojiCaptionContainer>
+            </ImojiContainer>
+          )}
+        </SearchResultContainer>
+      </Container>
+    );
+  }
+}
+
+TaxRegistrationSearchSubDistrict.defaultProps = {
+  searchResults: [],
+  setLanguage: undefined
+};
+
+TaxRegistrationSearchSubDistrict.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  navigator: PropTypes.func.isRequired,
+  searchResults: PropTypes.instanceOf(Array),
+  searchBySubDistrictOrPostalCode: PropTypes.func.isRequired,
+  onItemSelected: PropTypes.func.isRequired,
+  clearSearchResult: PropTypes.func.isRequired,
+  setLanguage: PropTypes.string
+};
+
+export default TaxRegistrationSearchSubDistrict;

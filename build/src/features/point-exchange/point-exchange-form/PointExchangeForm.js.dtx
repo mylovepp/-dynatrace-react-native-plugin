@@ -1,0 +1,834 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { View, Modal } from "react-native";
+import styled from "styled-components/native";
+import { v4 as uuidV4 } from "uuid";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { ScrollViewContainer } from "../../../components";
+
+import theme from "../../../theme";
+
+import {
+  Icon,
+  PrimaryButton,
+  SecondaryButton,
+  Body3,
+  Body2,
+  Body1,
+  Display1,
+  Display3,
+  LoadingIndicator,
+  ViewContainer,
+  TextInput,
+  CustomTextInput,
+  ChipTabs,
+  Separator,
+  MessageBottomModal,
+  BottomModal,
+  ErrorSevereBanner,
+  InvxCoinSuccessBanner,
+  SVGIcon
+} from "../../../components-2";
+
+import {
+  POINT_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID,
+  STOCK_INVEST_COIN_EDIT_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+
+export const toCurrency = value => {
+  return value.toLocaleString("fullwide", {
+    useGrouping: true
+  });
+};
+
+const Body = styled(View)`
+  padding-left: 16;
+  padding-right: 16;
+  border-radius: 15;
+`;
+
+const Container = styled(ViewContainer)`
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const BodyContainer = styled(ScrollViewContainer)`
+  background-color: white;
+  border-radius: 15;
+`;
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
+
+const InputContainer = styled.View`
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const LabelContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const SvgContainer = styled.View`
+  margin-right: 5;
+`;
+
+const ChipsContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const IconCointainer = styled.View`
+  background: #0099ff;
+  border-radius: 25;
+  padding: 3px;
+  margin-left: 10px;
+  margin-right: 10px;
+`;
+
+const ButtonContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+`;
+
+const ConditionContainer = styled.View`
+  padding: 16px 16px;
+`;
+
+const ServerDownContainer = styled.View`
+  width: 100%;
+`;
+
+const ServerDownHeader = styled.View`
+  justify-content: center;
+  align-items: center;
+`;
+
+const ServerDownBody = styled.View`
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin: 16px 0px 32px;
+`;
+
+const ServerDownFooter = styled.View`
+  justify-content: center;
+  align-items: center;
+`;
+
+const PostModalContainer = styled.View`
+  margin-top: ${props => props.theme.spacingMedium};
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const PostModalHeader = styled.View`
+  justify-content: flex-end;
+  align-items: flex-end;
+  height: 10%;
+`;
+
+const PostModalBody = styled.View`
+  justify-content: center;
+  align-items: center;
+  height: 80%;
+`;
+
+const PostModalFooter = styled.View`
+  justify-content: center;
+  align-items: center;
+  height: 10%;
+`;
+
+const BannerContainer = styled.View`
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const PostHeaderText = styled(Display3)`
+  margin-top: ${props => props.theme.spacingXSmall};
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const PostReceiveText = styled(Display1)`
+  margin-top: ${props => props.theme.spacingXSmall};
+  color: ${props => props.theme.graphWarningOrange};
+`;
+
+const PostDetailText = styled(Body2)`
+  margin-top: ${props => props.theme.spacingXSmall};
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const IconButton = styled(TouchableOpacity)``;
+
+const CloseIcon = styled(Icon).attrs(props => ({
+  name: "close-2",
+  size: "icon24",
+  color: props.theme.contentColorVeryHigh
+}))``;
+
+const RateAndCondition = styled.View`
+  flex-direction: row;
+  align-content: center;
+`;
+
+const RateLabel = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ConditionText = styled(Body3)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+
+const ConditionLink = styled.TouchableOpacity`
+  flex-direction: row;
+  margin-top: 0;
+  padding-top: 0;
+  align-items: flex-end;
+`;
+
+const CurvIconContainer = styled(View)`
+  min-width: 25px;
+  flex-direction: row;
+  justify-content: center;
+  text-align: center;
+  margin-right: 16px;
+  padding-top: 5px;
+`;
+
+const CurvButton = styled.TouchableOpacity`
+  background: #f1eff8;
+  padding: 8px 10px;
+  border-radius: 16px;
+`;
+
+const CurvText = styled(Body2)`
+  font-size: 15;
+  line-height: 15;
+  color: #0a0b0d;
+`;
+
+const FooterContainer = styled.View`
+  width: 100%
+  padding: 0px 20px 0px;
+`;
+
+const PointExchangeForm = ({
+  fromScreen,
+  pointToInvestX,
+  refreshPointLoading,
+  refreshPointError,
+  goBackWallet,
+  goBack,
+  refreshPointOnPop,
+  refreshPointAndCoin,
+  fetchCoinExchangeConfig,
+  minRedeemPoint,
+  minRedeemCoin,
+  redeemRate,
+  condition,
+  pointRedeemList,
+  coinRedeemList,
+  loadingRedeemConfig,
+  sendCoinRedeem,
+  loadingSendExchange
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [selectedP2CTab, setSelectedP2CTab] = useState();
+  const [point, setPoint] = useState("");
+  const [pointValidStat, setPointValidStat] = useState(false);
+  const [pointValidMsg, setPointValidMsg] = useState("");
+  const [pointVariant, setPointVariant] = useState("");
+
+  const [coin, setCoin] = useState("");
+  const [coinValidStat, setCoinValidStat] = useState(false);
+  const [coinValidMsg, setCoinValidMsg] = useState("");
+  const [coinVariant, setCoinVariant] = useState("");
+
+  const [isVisibleConditionModal, setIsVisibleConditionModal] = useState(false);
+  const [isNextConfirm, setIsNextConfirm] = useState(false);
+  const [isVisibleConfirmModal, setIsVisibleConfirmModal] = useState(false);
+  const [isVisibleServerDownModal, setIsVisibleServerDownModal] = useState(false);
+  const [isVisiblePost, setIsVisiblePost] = useState(false);
+
+  const tranHash = uuidV4();
+
+  const validatePoint = pointValid => {
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+    if (pointValid.toString().indexOf(".") !== -1) {
+      validStat = false;
+      validMsg = I18n.t("Profile.PointToInvest.Exchange.Form.ValidMessages.PointDecimal");
+      variant = "error";
+    } else if (pointValid < minRedeemPoint) {
+      validStat = false;
+      validMsg = I18n.t("Profile.PointToInvest.Exchange.Form.ValidMessages.MinAmount", {
+        min: toCurrency(minRedeemPoint)
+      });
+      variant = "error";
+    } else if (pointValid > pointToInvestX) {
+      validStat = false;
+      validMsg = I18n.t("Profile.PointToInvest.Exchange.Form.ValidMessages.NotEnough");
+      variant = "error";
+    }
+    setPointValidStat(validStat);
+    setPointValidMsg(validMsg);
+    setPointVariant(variant);
+  };
+
+  const validateCoin = coinValid => {
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+    if (coinValid.toString().indexOf(".") !== -1) {
+      validStat = false;
+      validMsg = I18n.t("Profile.PointToInvest.Exchange.Form.ValidMessages.CoinDecimal");
+      variant = "error";
+    } else if (coinValid < minRedeemCoin) {
+      validStat = false;
+      validMsg = I18n.t("Profile.PointToInvest.Exchange.Form.ValidMessages.MinAmount", {
+        min: toCurrency(minRedeemCoin)
+      });
+      variant = "error";
+    }
+    setCoinValidStat(validStat);
+    setCoinValidMsg(validMsg);
+    setCoinVariant(variant);
+  };
+
+  const handlePointInput = text => {
+    setSelectedP2CTab(0);
+    const replacedCommas = text.split(",").join("");
+    const usingValue = replacedCommas;
+    const regex = new RegExp("^[0-9]*$");
+
+    if (!Number.isNaN(Number(replacedCommas)) && replacedCommas.length < 15) {
+      if (replacedCommas.match(regex)) {
+        setPointValidStat(true);
+        setPointValidMsg("");
+        setPointVariant("");
+      }
+      setPoint(usingValue);
+
+      const receivedCoin = usingValue * redeemRate;
+      setCoinValidStat(true);
+      setCoinValidMsg("");
+      setCoinVariant("");
+      setCoin(receivedCoin < 1 ? "" : receivedCoin);
+    }
+  };
+
+  const handleCoinInput = text => {
+    setSelectedP2CTab(0);
+    const replacedCommas = text.split(",").join("");
+    const usingValue = replacedCommas;
+    const regex = new RegExp("^[0-9]*$");
+
+    if (!Number.isNaN(Number(replacedCommas)) && replacedCommas.length < 15) {
+      if (replacedCommas.match(regex)) {
+        setCoinValidStat(true);
+        setCoinValidMsg("");
+        setCoinVariant("");
+      }
+      setCoin(usingValue);
+      setPoint(usingValue / redeemRate);
+    }
+  };
+
+  const handlePointNative = ({ nativeEvent }) => {
+    setIsEditing(true);
+    const { text } = nativeEvent;
+    handlePointInput(text);
+  };
+
+  const handleCoinNative = ({ nativeEvent }) => {
+    setIsEditing(true);
+    const { text } = nativeEvent;
+    handleCoinInput(text);
+  };
+
+  const handleP2COnComplete = () => {
+    setIsEditing(false);
+    const textPoint = point.toString();
+    const pointNum = Number(textPoint.replace(/,/g, ""));
+    const textCoin = coin.toString();
+    const coinNum = Number(textCoin.replace(/,/g, ""));
+
+    validatePoint(pointNum);
+    validateCoin(coinNum, pointNum);
+  };
+
+  const handleP2CTab = id => {
+    setSelectedP2CTab(id);
+    const newPoint = pointRedeemList.find(item => item.id === id);
+    const newCoin = coinRedeemList.find(item => item.id === id);
+    if (newPoint && newCoin) {
+      setPoint(Number(newPoint.value));
+      setCoin(Number(newCoin.value));
+      validatePoint(Number(newPoint.value));
+      validateCoin(Number(newCoin.value), Number(newPoint.value));
+    }
+  };
+
+  const setMaxAmount = () => {
+    setSelectedP2CTab(0);
+    setIsEditing(false);
+    const coinWithUsablePoint = Math.floor(pointToInvestX * redeemRate);
+    const usablePoint = coinWithUsablePoint / redeemRate;
+    setCoinValidStat(true);
+    setCoinValidMsg("");
+    setCoinVariant("");
+    setCoin(coinWithUsablePoint < 1 ? "" : coinWithUsablePoint);
+    validateCoin(coinWithUsablePoint, usablePoint);
+
+    setPointValidStat(true);
+    setPointValidMsg("");
+    setPointVariant("");
+    setPoint(usablePoint);
+    validatePoint(usablePoint);
+  };
+
+  const handleCondition = () => {
+    if (condition === []) {
+      setIsVisibleServerDownModal(true);
+    } else {
+      setIsVisibleConditionModal(true);
+    }
+  };
+
+  const handleConfirmButton = () => {
+    if (condition === []) {
+      setIsVisibleServerDownModal(true);
+    } else {
+      setIsVisibleConditionModal(true);
+      setIsNextConfirm(true);
+    }
+  };
+
+  const handleSendRedeem = async () => {
+    setIsVisibleConfirmModal(false);
+    await sendCoinRedeem({ usedPoint: point, transactionHash: tranHash }, res => {
+      if (res.result) {
+        setIsVisiblePost(true);
+        refreshPointOnPop();
+      } else {
+        setIsVisibleServerDownModal(true);
+      }
+    });
+  };
+
+  const handlePostClose = () => {
+    setIsVisiblePost(false);
+    goBack();
+  };
+
+  const handlePostPush = () => {
+    setIsVisiblePost(false);
+    refreshPointAndCoin();
+
+    if (!refreshPointLoading) {
+      if (refreshPointError) {
+        goBack();
+      } else if (
+        fromScreen === DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID ||
+        fromScreen === POINT_SCREEN_ID
+      ) {
+        goBackWallet();
+      } else {
+        goBack();
+      }
+    }
+  };
+
+  const renderSep = () => {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Separator style={{ flex: 1 }} />
+        <IconCointainer>
+          <Icon name="grip-lines" size="icon24" color="#ffffff" />
+        </IconCointainer>
+        <Separator style={{ flex: 1 }} />
+      </View>
+    );
+  };
+
+  const renderInputs = () => {
+    return (
+      <>
+        <InputContainer>
+          <LabelContainer>
+            <SvgContainer>
+              <SVGIcon name="PointBlue" size="icon16" />
+            </SvgContainer>
+            <Body2 textAlign="left">
+              {I18n.t("Profile.PointToInvest.Exchange.Form.PointLabel")}
+            </Body2>
+          </LabelContainer>
+          <CustomTextInput
+            placeholder="0"
+            variant={pointVariant}
+            helperText={pointValidMsg}
+            value={point === "" ? "" : toCurrency(Number(point))}
+            onEndEditing={handleP2COnComplete}
+            onBlur={handleP2COnComplete}
+            onChange={handlePointNative}
+            // keyboardType="numeric"
+            rightComponent={
+              <>
+                <CurvIconContainer>
+                  <CurvText style={{ color: "#A5A5A5" }}>
+                    {I18n.t("Profile.PointToInvest.Exchange.Form.PointSuffix")}
+                  </CurvText>
+                </CurvIconContainer>
+                <CurvIconContainer>
+                  <CurvButton onPress={() => setMaxAmount()}>
+                    <CurvText style={{ color: "#855AFF" }}>
+                      {I18n.t("Profile.PointToInvest.Exchange.Form.MaxButton")}
+                    </CurvText>
+                  </CurvButton>
+                </CurvIconContainer>
+              </>
+            }
+          />
+          <ChipsContainer>
+            <ChipTabs
+              selectedTab={selectedP2CTab}
+              tabs={pointRedeemList.slice(0, 4)}
+              onTabPress={handleP2CTab}
+              scrollable={false}
+              hideFrontGap
+              activeColor={theme.scbSecondaryBlue}
+            />
+          </ChipsContainer>
+        </InputContainer>
+        {renderSep()}
+        <InputContainer>
+          <LabelContainer>
+            <SvgContainer>
+              <SVGIcon name="INVXCoin" size="icon16" />
+            </SvgContainer>
+            <Body2 textAlign="left">
+              {I18n.t("Profile.PointToInvest.Exchange.Form.CoinLabel")}
+            </Body2>
+          </LabelContainer>
+          <TextInput
+            placeholder="0"
+            variant={coinVariant}
+            helperText={coinValidMsg}
+            value={coin === "" ? "" : toCurrency(Number(coin))}
+            onEndEditing={handleP2COnComplete}
+            onBlur={handleP2COnComplete}
+            onChange={handleCoinNative}
+            // keyboardType="numeric"
+            suffixPlaceholder={I18n.t("Profile.PointToInvest.Exchange.Form.CoinSuffix")}
+          />
+          <ChipsContainer>
+            <ChipTabs
+              selectedTab={selectedP2CTab}
+              tabs={coinRedeemList.slice(0, 4)}
+              onTabPress={handleP2CTab}
+              scrollable={false}
+              hideFrontGap
+              activeColor={theme.scbSecondaryBlue}
+            />
+          </ChipsContainer>
+        </InputContainer>
+      </>
+    );
+  };
+
+  const renderServerDownModal = () => {
+    return (
+      <BottomModal isVisible={isVisibleServerDownModal} onModalClose={() => {}}>
+        <ServerDownContainer>
+          <ServerDownHeader>
+            <ErrorSevereBanner />
+          </ServerDownHeader>
+          <ServerDownBody>
+            <Display3 style={{ marginBottom: 16 }}>
+              {I18n.t("Profile.PointToInvest.Exchange.ServerDown.Title")}
+            </Display3>
+            <Body1 variant="subdued">
+              {I18n.t("Profile.PointToInvest.Exchange.ServerDown.Desc")}
+            </Body1>
+          </ServerDownBody>
+          <ServerDownFooter>
+            <PrimaryButton
+              label={I18n.t("Profile.PointToInvest.Exchange.Form.AcceptButton")}
+              size="large"
+              onPress={() => {
+                setIsVisibleServerDownModal(false);
+              }}
+            />
+          </ServerDownFooter>
+        </ServerDownContainer>
+      </BottomModal>
+    );
+  };
+
+  const renderConfirmModal = () => {
+    return (
+      <MessageBottomModal
+        isVisible={isVisibleConfirmModal}
+        body={
+          <>
+            <Body1>
+              <Body1>{I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmText.Text1")}</Body1>
+              <Body1 style={{ color: "#0099FF" }}>
+                {` ${I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmText.Text2", {
+                  point: toCurrency(point)
+                })} `}
+              </Body1>
+              <Body1>{I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmText.Text3")}</Body1>
+              <Body1 style={{ color: "#FFA713" }}>
+                {` ${I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmText.Text4", {
+                  coin: toCurrency(coin)
+                })} `}
+              </Body1>
+              <Body1>{I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmText.Text5")}</Body1>
+            </Body1>
+          </>
+        }
+        buttons={[
+          {
+            variant: "secondary",
+            label: I18n.t("Profile.PointToInvest.Exchange.Form.CancelButton"),
+            onPress: () => {
+              setIsVisibleConfirmModal(false);
+            }
+          },
+          {
+            variant: "primary",
+            label: I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmButton"),
+            onPress: async () => {
+              await handleSendRedeem();
+            }
+          }
+        ]}
+        buttonAlignment="row"
+        onModalClose={() => {}}
+      />
+    );
+  };
+
+  const renderConditionModal = () => {
+    return (
+      <BottomModal visible={isVisibleConditionModal} onModalClose={() => {}}>
+        <View>
+          <Display3>{I18n.t("Profile.PointToInvest.Exchange.Form.ConditionTitle")}</Display3>
+          <ConditionContainer>
+            {condition?.map(item => {
+              return <Body1 key={item} variant="subdued">{`\u2022 ${item}`}</Body1>;
+            })}
+          </ConditionContainer>
+
+          <PrimaryButton
+            size="large"
+            label={
+              isNextConfirm
+                ? I18n.t("Profile.PointToInvest.Exchange.Form.ConfirmButton")
+                : I18n.t("Profile.PointToInvest.Exchange.Form.CloseButton")
+            }
+            onPress={
+              isNextConfirm
+                ? () => {
+                    setIsVisibleConditionModal(false);
+                    setTimeout(() => {
+                      setIsVisibleConfirmModal(true);
+                      setIsNextConfirm(false);
+                    }, 800);
+                  }
+                : () => {
+                    setIsVisibleConditionModal(false);
+                  }
+            }
+          />
+        </View>
+      </BottomModal>
+    );
+  };
+
+  const getPostButtonTextText = () => {
+    switch (fromScreen) {
+      case POINT_SCREEN_ID:
+        return I18n.t("Profile.PointToInvest.Exchange.Post.ToCoinWalletButton");
+      case STOCK_INVEST_COIN_EDIT_SCREEN_ID:
+        return I18n.t("Profile.PointToInvest.Exchange.Post.ToCoinWalletButton");
+      case DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID:
+        return I18n.t("Profile.PointToInvest.Exchange.Post.ToTradButton");
+      default:
+        return "";
+    }
+  };
+
+  const renderPost = () => {
+    return (
+      <Modal
+        // animationType="slide"
+        statusBarTranslucent
+        transparent={false}
+        presentationStyle="fullScreen"
+        visible={isVisiblePost}
+        onRequestClose={() => {
+          handlePostClose();
+        }}
+      >
+        <PostModalContainer>
+          <PostModalHeader>
+            <IconButton
+              onPress={() => {
+                handlePostClose();
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </PostModalHeader>
+          <PostModalBody>
+            <BannerContainer>
+              <InvxCoinSuccessBanner size="illus128" />
+            </BannerContainer>
+
+            <PostHeaderText>{I18n.t("Profile.PointToInvest.Exchange.Post.Text1")}</PostHeaderText>
+            <PostReceiveText>
+              {I18n.t("Profile.PointToInvest.Exchange.Post.Text2", { coin })}
+            </PostReceiveText>
+            <PostDetailText>{I18n.t("Profile.PointToInvest.Exchange.Post.Text3")}</PostDetailText>
+          </PostModalBody>
+          <PostModalFooter>
+            <SecondaryButton
+              label={getPostButtonTextText()}
+              size="large"
+              onPress={() => {
+                handlePostPush();
+              }}
+            />
+          </PostModalFooter>
+        </PostModalContainer>
+      </Modal>
+    );
+  };
+
+  useEffect(() => {
+    (async () => {
+      await fetchCoinExchangeConfig();
+    })();
+  }, []);
+
+  if (loadingRedeemConfig || loadingSendExchange) {
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <LoadingContainer>
+          <LoadingIndicator size="large" />
+        </LoadingContainer>
+      </ViewContainer>
+    );
+  }
+
+  return (
+    <>
+      <Container isFullScreen variant="light">
+        <KeyboardAwareScrollView
+          style={{ width: "100%", padding: 5 }}
+          automaticallyAdjustContentInsets={false}
+          viewIsInsideTabBar
+          extraScrollHeight={225}
+        >
+          <BodyContainer>
+            <View>
+              <Body>
+                <View>
+                  <Body1 variant="black" textAlign="left">
+                    {I18n.t("Profile.PointToInvest.Exchange.Form.Title")}
+                  </Body1>
+                  <Body1 variant="black" textAlign="left">
+                    {getPostButtonTextText()}
+                  </Body1>
+                  <RateAndCondition>
+                    <RateLabel>
+                      {I18n.t("Profile.PointToInvest.Exchange.Form.Desc", {
+                        point: toCurrency(minRedeemPoint),
+                        coin: toCurrency(minRedeemCoin)
+                      })}
+                    </RateLabel>
+                    <ConditionLink
+                      onPress={() => handleCondition()}
+                      disabled={isNextConfirm || isVisibleConditionModal || isVisibleConfirmModal}
+                    >
+                      <ConditionText>
+                        {I18n.t("Profile.PointToInvest.Exchange.Form.ConditionButton")}
+                      </ConditionText>
+                    </ConditionLink>
+                  </RateAndCondition>
+                </View>
+                {renderInputs()}
+              </Body>
+            </View>
+          </BodyContainer>
+          <FooterContainer>
+            <ButtonContainer>
+              <PrimaryButton
+                size="large"
+                label={I18n.t("Profile.PointToInvest.Exchange.Form.ExchangeButton")}
+                onPress={() => handleConfirmButton()}
+                disable={
+                  isEditing ||
+                  !pointValidStat ||
+                  !coinValidStat ||
+                  isNextConfirm ||
+                  isVisibleConditionModal ||
+                  isVisibleConfirmModal
+                }
+              />
+            </ButtonContainer>
+          </FooterContainer>
+        </KeyboardAwareScrollView>
+      </Container>
+
+      {renderServerDownModal()}
+      {renderConditionModal()}
+      {renderConfirmModal()}
+      {renderPost()}
+    </>
+  );
+};
+
+PointExchangeForm.defaultProps = {
+  refreshPointAndCoin: () => {}
+};
+
+PointExchangeForm.propTypes = {
+  fromScreen: PropTypes.string.isRequired,
+  pointToInvestX: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  goBack: PropTypes.func.isRequired,
+  refreshPointOnPop: PropTypes.func.isRequired,
+  refreshPointAndCoin: PropTypes.func,
+  fetchCoinExchangeConfig: PropTypes.func.isRequired,
+  loadingRedeemConfig: PropTypes.bool.isRequired,
+  minRedeemPoint: PropTypes.number.isRequired,
+  minRedeemCoin: PropTypes.number.isRequired,
+  redeemRate: PropTypes.number.isRequired,
+  condition: PropTypes.arrayOf(PropTypes.string).isRequired,
+  pointRedeemList: PropTypes.arrayOf(
+    PropTypes.shape({ id: PropTypes.number, text: PropTypes.string })
+  ).isRequired,
+  coinRedeemList: PropTypes.arrayOf(
+    PropTypes.shape({ id: PropTypes.number, text: PropTypes.string })
+  ).isRequired,
+  sendCoinRedeem: PropTypes.func.isRequired,
+  loadingSendExchange: PropTypes.bool.isRequired,
+  refreshPointError: PropTypes.bool.isRequired,
+  refreshPointLoading: PropTypes.bool.isRequired,
+  goBackWallet: PropTypes.func.isRequired
+};
+
+export default PointExchangeForm;

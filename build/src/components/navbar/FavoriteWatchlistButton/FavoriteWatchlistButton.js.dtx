@@ -1,0 +1,704 @@
+import AsyncStorage from "@react-native-community/async-storage";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { cloneDeep } from "lodash";
+import { isEmpty } from "lodash/fp";
+import PropTypes from "prop-types";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Platform, ScrollView, View } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import {
+  Icon,
+  Body2,
+  Body3,
+  BottomModal,
+  Header1,
+  PrimaryButton,
+  SecondaryButton,
+  Separator,
+  TextInput
+} from "../../../components-2";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import {
+  AssetType,
+  maxNumberOfAssets,
+  ModalState,
+  StatusCode,
+  IS_MAIN_WATCHLIST,
+  ProcessStatus
+} from "../../../redux/favorite-watchlist/favorite-watchlist-constants";
+import {
+  FILTER_THAI_FUND,
+  HOME_WATCHLIST_ADD_ASSET,
+  HOME_WATCHLIST_REMOVE_ASSET
+} from "../../../modules/analytics/analytics-constants";
+import { formatPayload, formatAssetType } from "../../../modules/analytics/analytics-utils";
+import {
+  TutorialWatchlistCreateFolder2Step,
+  TutorialWatchlistAddRemoveAssetStep
+} from "../../../features/tutorial/watchlist";
+import { showInAppNotification } from "../../../modules/navigation";
+
+const WatchlistNameLabel = styled(Body2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props =>
+    props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.buttonVeryHighColor};
+`;
+const WatchlistDetailLabel = styled(Body3).attrs({
+  numberOfLines: 1
+})`
+  color: ${props =>
+    props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.contentColorHigh};
+`;
+const CloseIcon = styled(Icon).attrs({
+  name: "close-2",
+  color: "black"
+})``;
+
+const CloseContainer = styled.View`
+  position: absolute;
+  right: ${props => props.theme.spacingMedium};
+  top: ${props => props.theme.spacingMedium};
+  height: ${props => props.theme.spacingLargeValue + 2}px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+`;
+
+const HeaderTitle = styled(Header1).attrs(() => ({
+  numberOfLines: 2
+}))(props => ({
+  textAlign: "center",
+  paddingHorizontal: props.theme.spacingXXLargeValue,
+  paddingTop: props.theme.spacingMedium,
+  paddingBottom: props.theme.spacingLarge
+}));
+
+const CheckIcon = styled(Icon).attrs(props => ({
+  name: "check-2",
+  color: props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.black
+}))`
+  border-color: ${props =>
+    props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.favoriteCheckColor};
+`;
+const BodyContainer = styled.View`
+  flex-direction: column;
+`;
+const FooterContainer = styled.View`
+  justify-content: flex-end;
+  flex: 1;
+  margin-top: ${props => props.theme.spacingXXSmall};
+  margin-horizontal: ${props => props.theme.spacingSmall};
+  margin-bottom: ${props => (Platform.OS === "android" ? props.theme.spacingXSmallValue : 0)}px;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-horizontal: ${props => props.theme.spacingXSmallValue * 2}px;
+  min-height: ${props => props.theme.spacingXSmallValue * 7 - 1}px;
+`;
+
+const CreateNewWatchlistContainer = styled.View`
+  display: flex;
+  flex-direction: row;
+`;
+
+const CreateNewWatchlistLable = styled(Body2)`
+  line-height: ${props => props.theme.spacingXSmallValue * 2.5}px;
+  margin-left: ${props => props.theme.spacingXSmall};
+`;
+
+const SaveButton = styled(PrimaryButton)`
+  margin-top: ${props => props.theme.spacingXSmallValue * 1.5}px;
+`;
+
+const StarIcon = styled(Icon).attrs(props => ({
+  color: props.theme.ctaPurple,
+  size: "icon24",
+  name: props.favorite ? "wishlist-solid" : "wishlist"
+}))``;
+
+const MarginedDivider = styled(Separator)`
+  margin-horizontal: ${props => props.theme.spacingXSmallValue * 2}px;
+`;
+
+const ScrollWatchlistContainer = styled(ScrollView)`
+  max-height: ${props => props.theme.spacingXSmallValue * 34.875}px;
+`;
+
+const ModalHeaderContainer = styled.View`
+  margin: auto;
+`;
+
+const ModalBodyContainer = styled.View`
+  margin-bottom: ${props => props.theme.spacingLarge};
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const ModalFooterContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  padding-top: ${props => props.theme.spacingXSmallValue * 2}px;
+`;
+
+const ButtonContainer = styled.View`
+  flex: 0.5;
+  justify-content: center;
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+`;
+
+const WatchlistLeftContainer = styled.View(() => ({
+  flex: 0.9
+}));
+
+const WatchlistRightContainer = styled.View(() => ({
+  flex: 0.1,
+  alignItems: "flex-end"
+}));
+
+const FavoriteWatchlistButton = props => {
+  const {
+    assetInfo,
+    isFreemiumMode,
+    maxList,
+    maxSymbolList,
+    fetchWatchlistItems,
+    fetchWatchlistItemsState,
+    updateWatchlist,
+    updateWatchlistState,
+    analytics,
+    navigator,
+    currentTabIndex
+  } = props;
+  const entryPoint = analytics.trackChannel;
+
+  const [checkItems, setCheckItems] = useState([]);
+  const [disable, setDisable] = useState(false);
+  const [currentModalState, setCurrentModalState] = useState(ModalState.None);
+  const [nextModalState, setNextModalState] = useState(ModalState.None);
+
+  const [isNameDuplicated, setIsNameDuplicated] = useState(false);
+  const [watchlistName, setWatchlistName] = useState("");
+  const [lastCreatedNames, setLastCreatedNames] = useState([]);
+  const [tabIndex, setTabIndex] = useState();
+
+  const isAllWatchlistFull = useMemo(() => {
+    const watchlists = fetchWatchlistItemsState.result?.watchlists || [];
+
+    const watchlistAmount = watchlists.length;
+    const isAllMaxNumberOfAssets = watchlists.every(
+      watchlist => watchlist.numberOfAsset === maxNumberOfAssets
+    );
+    return watchlistAmount === 1 && isAllMaxNumberOfAssets;
+  }, [fetchWatchlistItemsState]);
+
+  const isFavoriteFromCheckList = watchlistItem => {
+    return !!checkItems.find(item => item.id === watchlistItem.id && item.hasChecked);
+  };
+
+  const isFavoriteInWatchlistItem = watchlistItem => {
+    return !!watchlistItem?.details?.find(item => item.symbol === assetInfo.symbol);
+  };
+
+  const getWatchllistCheckItems = (watchlists, names) => {
+    const items = [];
+    watchlists.forEach(item => {
+      const originalChecked = isFavoriteInWatchlistItem(item);
+      items.push({
+        ...item,
+        id: item.id,
+        name: item.name,
+        hasChecked: isFavoriteInWatchlistItem(item) || names.includes(item.name),
+        details: item.details,
+        originalChecked
+      });
+    });
+    return items;
+  };
+
+  const onFavoriteClicked = useCallback(() => {
+    if (isAllWatchlistFull) {
+      return showInAppNotification(navigator, {
+        text: i18n.t("FavoriteWatchlist.Notification.AddAsset.Fail.AssetFull"),
+        variant: "error"
+      });
+    }
+    const watchlists = fetchWatchlistItemsState.result?.watchlists || [];
+    let items = getWatchllistCheckItems(watchlists, lastCreatedNames);
+    if (items.length === 1) {
+      items = items.map(item => ({ ...item, hasChecked: !item.hasChecked }));
+      onSaveData(items);
+      return null;
+    }
+    setCheckItems(items);
+    return setNextModalState(ModalState.Main);
+  }, [isAllWatchlistFull, fetchWatchlistItemsState, lastCreatedNames]);
+
+  const onFavoriteItemCheckChanged = item => {
+    setCheckItems(prev =>
+      prev.map(each => {
+        if (each.id === item.id) {
+          let { numberOfAsset } = each;
+          if (each.hasChecked) {
+            numberOfAsset = each.numberOfAsset - 1;
+          } else {
+            numberOfAsset = each.numberOfAsset + 1;
+          }
+          return { ...each, hasChecked: !each.hasChecked, numberOfAsset };
+        }
+        return each;
+      })
+    );
+  };
+
+  const resetState = () => {
+    setCheckItems([]);
+    setIsNameDuplicated(false);
+    setWatchlistName("");
+  };
+
+  const onCloseOrCancelDialog = () => {
+    setNextModalState(ModalState.None);
+    resetState();
+  };
+
+  const enableSaveButton = () => {
+    return !!checkItems.find(item => item.hasChecked !== item.originalChecked);
+  };
+
+  const onSaveData = items => {
+    const updatedWatchlists = items.map(watchlistItem => {
+      const clonedWatchlistItem = cloneDeep(watchlistItem);
+      if (!clonedWatchlistItem.originalChecked && clonedWatchlistItem.hasChecked) {
+        if (assetInfo.assetType === AssetType.FUNDS) {
+          AsyncStorage.getItem(FILTER_THAI_FUND.STORAGE).then(filterStr => {
+            if (filterStr) {
+              trackEvent(FILTER_THAI_FUND.TH_FILTER_FAV, {
+                thFilterFav: assetInfo.symbol
+              });
+            }
+          });
+        }
+      }
+
+      if (
+        clonedWatchlistItem.hasChecked &&
+        clonedWatchlistItem.hasChecked !== clonedWatchlistItem.originalChecked &&
+        !clonedWatchlistItem.details?.some(item => item.symbol === assetInfo.symbol) &&
+        !isEmpty(assetInfo)
+      ) {
+        // ADD TO WATCHLISTS
+        if (assetInfo.assetType === AssetType.OFFSHORE) {
+          clonedWatchlistItem.details.push({ ...assetInfo, isThailand: false });
+        } else if (assetInfo.assetType === AssetType.FUNDS) {
+          if (assetInfo?.reference && assetInfo?.reference?.isOffshore) {
+            clonedWatchlistItem.details.push({
+              ...assetInfo,
+              reference: { ...assetInfo.reference, isOffshore: true }
+            });
+          } else {
+            clonedWatchlistItem.details.push({
+              ...assetInfo,
+              reference: { isOffshore: false }
+            });
+          }
+        } else if (assetInfo.assetType === AssetType.DIGITAL_ASSET) {
+          clonedWatchlistItem.details.push({
+            ...assetInfo,
+            reference: { instrumentId: assetInfo?.reference?.instrumentId }
+          });
+        } else {
+          // BONDS
+          clonedWatchlistItem.details.push({
+            ...assetInfo,
+            reference: null
+          });
+        }
+      }
+
+      if (
+        !clonedWatchlistItem.hasChecked &&
+        clonedWatchlistItem.hasChecked !== clonedWatchlistItem.originalChecked &&
+        !isEmpty(assetInfo)
+      ) {
+        // REMOVE FROM WATCHLISTS
+        clonedWatchlistItem.details = clonedWatchlistItem.details?.filter(
+          each => each.symbol !== assetInfo.symbol
+        );
+      }
+      return clonedWatchlistItem;
+    });
+
+    updateWatchlist({
+      isMultipleWatchlist: true,
+      watchlists: updatedWatchlists.map(each => {
+        return {
+          id: each.id,
+          name: each.name,
+          details: each.details
+        };
+      })
+    });
+
+    if (
+      updatedWatchlists.some(each => each.originalChecked !== each.hasChecked && each.hasChecked)
+    ) {
+      // ADD TO WATCHLISTS
+
+      const isMainWatchlist = updatedWatchlists.some(
+        each => each.originalChecked !== each.hasChecked && each.hasChecked && each.isMainWatchlist
+      );
+
+      trackEvent(HOME_WATCHLIST_ADD_ASSET, {
+        watchlistDetail: formatPayload([
+          assetInfo.symbol,
+          formatAssetType(assetInfo.assetType, assetInfo.reference?.isOffshore),
+          entryPoint,
+          isMainWatchlist ? IS_MAIN_WATCHLIST.YES : IS_MAIN_WATCHLIST.NO
+        ])
+      });
+    }
+
+    if (
+      updatedWatchlists.some(each => each.originalChecked !== each.hasChecked && !each.hasChecked)
+    ) {
+      // REMOVE FROM WATCHLISTS
+
+      const isMainWatchlist = updatedWatchlists.some(
+        each => each.originalChecked !== each.hasChecked && !each.hasChecked && each.isMainWatchlist
+      );
+
+      trackEvent(HOME_WATCHLIST_REMOVE_ASSET, {
+        watchlistDetail: formatPayload([
+          assetInfo.symbol,
+          formatAssetType(assetInfo.assetType, assetInfo?.reference?.isOffshore),
+          entryPoint,
+          isMainWatchlist ? IS_MAIN_WATCHLIST.YES : IS_MAIN_WATCHLIST.NO
+        ])
+      });
+    }
+  };
+
+  const handleChangeText = value => {
+    if (checkItems && value && value !== "") {
+      const checkItem = checkItems.filter(i => i.name === value)[0];
+      if (checkItem) {
+        setIsNameDuplicated(true);
+        onFavoriteItemCheckChanged(checkItem);
+      } else {
+        setIsNameDuplicated(false);
+      }
+    }
+    setWatchlistName(value);
+  };
+
+  // -------- USE EFFECT BEGINS-------- //
+  useEffect(() => {
+    if (!isFreemiumMode) {
+      fetchWatchlistItems();
+    }
+  }, [isFreemiumMode]);
+
+  useEffect(() => {
+    const watchlists = fetchWatchlistItemsState.result?.watchlists || [];
+    const items = getWatchllistCheckItems(watchlists, lastCreatedNames);
+    setCheckItems(items);
+  }, [fetchWatchlistItemsState, lastCreatedNames]);
+
+  useEffect(() => {
+    if (!tabIndex && tabIndex !== 0) {
+      setTabIndex(props.currentTabIndex);
+    }
+  }, [currentTabIndex]);
+
+  useEffect(() => {
+    if (currentTabIndex !== tabIndex) {
+      return;
+    }
+    if (!isFreemiumMode) {
+      const { processStatus, statusCode } = updateWatchlistState;
+      if (processStatus === ProcessStatus.FAILURE) {
+        if (statusCode === StatusCode.DuplicateFolder) {
+          setIsNameDuplicated(true);
+        } else if (statusCode === StatusCode.FolderExceedMaximum) {
+          setNextModalState(ModalState.WatchlistFullModal);
+        } else if (statusCode === StatusCode.AssetExceedMaximum) {
+          setNextModalState(ModalState.AssetFullModal);
+        } else {
+          setNextModalState(ModalState.Error);
+        }
+        showInAppNotification(navigator, {
+          text: i18n.t("FavoriteWatchlist.Notification.AddAsset.Fail.Exception"),
+          variant: "error"
+        });
+      } else if (processStatus === ProcessStatus.SUCCESS) {
+        if (currentModalState === ModalState.CreateNewWatchlist) {
+          setNextModalState(ModalState.Main);
+        } else {
+          setNextModalState(ModalState.None);
+        }
+        if (watchlistName) {
+          const newItems = [...lastCreatedNames];
+          newItems.push(watchlistName);
+          setLastCreatedNames(newItems);
+          setWatchlistName("");
+        }
+        showInAppNotification(navigator, {
+          text: i18n.t("FavoriteWatchlist.Notification.AddAsset.Success"),
+          variant: "success"
+        });
+      }
+    }
+  }, [currentTabIndex, tabIndex, isFreemiumMode, updateWatchlistState]);
+
+  // -------- USE EFFECT ENDS-------- //
+
+  const renderHeaderRow = () => {
+    return (
+      <View>
+        <HeaderTitle>{i18n.t("FavoriteWatchlist.BottomDialog.FavoriteNavbar.Title")}</HeaderTitle>
+        <CloseContainer>
+          <TouchableOpacity
+            onPress={() => {
+              onCloseOrCancelDialog();
+            }}
+          >
+            <CloseIcon />
+          </TouchableOpacity>
+        </CloseContainer>
+      </View>
+    );
+  };
+
+  const isFavoriteInSomeWatchlist = () => {
+    const watchlists = fetchWatchlistItemsState.result?.watchlists || [];
+    let foundFavorite = false;
+    if (watchlists) {
+      for (let i = 0; i < watchlists.length; i++) {
+        const watchlistItem = watchlists[i];
+        const asset = watchlistItem.details?.find(item => item.symbol === assetInfo.symbol);
+        if (asset) {
+          foundFavorite = true;
+          break;
+        }
+      }
+    }
+    return foundFavorite;
+  };
+
+  const renderCheckIcon = hasChecked => {
+    if (hasChecked) {
+      return <CheckIcon />;
+    }
+    return null;
+  };
+
+  const isDisabled = item => {
+    return item.numberOfAsset >= maxSymbolList && !item.hasChecked;
+  };
+
+  const renderWatchlist = () => {
+    const watchlists = fetchWatchlistItemsState.result?.watchlists || [];
+    const watchlistItems = checkItems.map(item => {
+      return (
+        <Fragment key={item.id}>
+          <TouchableOpacity
+            onPress={() => {
+              onFavoriteItemCheckChanged(item);
+            }}
+            disabled={isDisabled(item)}
+          >
+            <RowContainer>
+              <WatchlistLeftContainer>
+                <WatchlistNameLabel disabled={isDisabled(item)}>{item.name}</WatchlistNameLabel>
+                <WatchlistDetailLabel disabled={isDisabled(item)}>
+                  {i18n.t("FavoriteWatchlist.WatchlistGroup.Accordion.Count", {
+                    count: item.numberOfAsset || item.details?.length || 0
+                  })}
+                </WatchlistDetailLabel>
+              </WatchlistLeftContainer>
+              <WatchlistRightContainer>
+                {renderCheckIcon(isFavoriteFromCheckList(item))}
+              </WatchlistRightContainer>
+            </RowContainer>
+          </TouchableOpacity>
+          <MarginedDivider />
+        </Fragment>
+      );
+    });
+    const createListItem = (
+      <Fragment>
+        <TouchableOpacity onPress={() => setNextModalState(ModalState.CreateNewWatchlist)}>
+          <RowContainer>
+            <CreateNewWatchlistContainer>
+              <Icon name="plus" size="20" />
+              <CreateNewWatchlistLable>
+                {i18n.t("FavoriteWatchlist.Common.CreateNewListButton")}
+              </CreateNewWatchlistLable>
+            </CreateNewWatchlistContainer>
+          </RowContainer>
+        </TouchableOpacity>
+      </Fragment>
+    );
+    if (watchlists.length < maxList) {
+      watchlistItems.push(createListItem);
+    }
+    return watchlistItems;
+  };
+
+  const renderStarIcon = () => {
+    const isFavorite = isFavoriteInSomeWatchlist();
+
+    return <StarIcon favorite={isFavorite} />;
+  };
+
+  const handleCloseCreateNewWatchlistModal = useCallback(() => {
+    setWatchlistName("");
+    setNextModalState(ModalState.Main);
+  }, []);
+
+  const handleCreateWatchlist = name => {
+    updateWatchlist({ watchlists: [{ name }] });
+  };
+
+  if (isFreemiumMode) {
+    return null;
+  }
+  return (
+    <Fragment>
+      <TouchableOpacity
+        disabled={disable}
+        onPress={() => {
+          setDisable(true);
+          setTimeout(() => {
+            setDisable(false);
+          }, 1000);
+          onFavoriteClicked();
+        }}
+      >
+        <TutorialWatchlistAddRemoveAssetStep>
+          <TutorialWatchlistCreateFolder2Step>
+            {renderStarIcon()}
+          </TutorialWatchlistCreateFolder2Step>
+        </TutorialWatchlistAddRemoveAssetStep>
+      </TouchableOpacity>
+
+      {/* MAIN MODAL */}
+      <BottomModal
+        noPadding
+        scrollTo={() => {}}
+        scrollOffset={1}
+        avoidKeyboard
+        isVisible={
+          [ModalState.Main, ModalState.None].includes(currentModalState) &&
+          nextModalState === ModalState.Main
+        }
+        hideModal={onCloseOrCancelDialog}
+        onModalHide={() => {
+          setCurrentModalState(nextModalState);
+        }}
+        onModalShow={() => setCurrentModalState(ModalState.Main)}
+        onModalClose={onCloseOrCancelDialog}
+      >
+        {renderHeaderRow()}
+        <BodyContainer>
+          <ScrollWatchlistContainer showsVerticalScrollIndicator={false}>
+            {renderWatchlist()}
+          </ScrollWatchlistContainer>
+        </BodyContainer>
+        <Separator />
+        <FooterContainer>
+          <SaveButton
+            disable={!enableSaveButton()}
+            label={i18n.t("FavoriteWatchlist.BottomDialog.FavoriteNavbar.SaveButton")}
+            onPress={() => onSaveData(checkItems)}
+          />
+        </FooterContainer>
+      </BottomModal>
+
+      {/* CREATE NEW WATCHLIST MODAL */}
+      <BottomModal
+        avoidKeyboard
+        isVisible={
+          [ModalState.CreateNewWatchlist, ModalState.None].includes(currentModalState) &&
+          nextModalState === ModalState.CreateNewWatchlist
+        }
+        onModalHide={() => {
+          setCurrentModalState(nextModalState);
+        }}
+        onModalShow={() => setCurrentModalState(ModalState.CreateNewWatchlist)}
+      >
+        <ModalHeaderContainer>
+          <Header1>{i18n.t("FavoriteWatchlist.WatchlistGroup.Create")}</Header1>
+        </ModalHeaderContainer>
+        <ModalBodyContainer>
+          <TextInput
+            maxLength={100}
+            variant={isNameDuplicated ? "error" : ""}
+            helperText={
+              isNameDuplicated
+                ? i18n.t("FavoriteWatchlist.BottomDialog.AddWatchlistDialog.Error")
+                : ""
+            }
+            onChangeText={handleChangeText}
+            containerStyle={{ paddingBottom: 0, paddingTop: 0, paddingRight: 8, flex: 1 }}
+            placeholder={i18n.t("FavoriteWatchlist.WatchlistGroup.FavWatchlistName")}
+            value={watchlistName}
+          />
+        </ModalBodyContainer>
+        <ModalFooterContainer>
+          <ButtonContainer>
+            <SecondaryButton
+              onPress={handleCloseCreateNewWatchlistModal}
+              size="large"
+              label={i18n.t("FavoriteWatchlist.BottomDialog.AddWatchlistDialog.Button.LeftButton")}
+            />
+          </ButtonContainer>
+          <ButtonContainer>
+            <PrimaryButton
+              disable={!watchlistName || isNameDuplicated}
+              onPress={() => handleCreateWatchlist(watchlistName)}
+              size="large"
+              label={i18n.t("FavoriteWatchlist.BottomDialog.AddWatchlistDialog.Button.RightButton")}
+            />
+          </ButtonContainer>
+        </ModalFooterContainer>
+      </BottomModal>
+    </Fragment>
+  );
+};
+
+FavoriteWatchlistButton.defaultProps = {
+  maxList: 10,
+  maxSymbolList: 30
+};
+FavoriteWatchlistButton.propTypes = {
+  fetchWatchlistItems: PropTypes.func.isRequired,
+  updateWatchlist: PropTypes.func.isRequired,
+  fetchWatchlistItemsState: PropTypes.instanceOf(PropTypes.object).isRequired,
+  updateWatchlistState: PropTypes.instanceOf(PropTypes.object).isRequired,
+  currentTabIndex: PropTypes.number.isRequired,
+  assetInfo: PropTypes.shape({
+    symbol: PropTypes.string,
+    assetType: PropTypes.string,
+    reference: PropTypes.instanceOf(PropTypes.object)
+  }).isRequired,
+  maxList: PropTypes.number,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  maxSymbolList: PropTypes.number,
+  analytics: PropTypes.shape({
+    trackChannel: PropTypes.string,
+    tradeChannel: PropTypes.string,
+    ads: PropTypes.string
+  }).isRequired
+};
+
+export default FavoriteWatchlistButton;

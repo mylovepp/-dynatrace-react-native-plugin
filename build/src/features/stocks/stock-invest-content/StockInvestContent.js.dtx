@@ -1,0 +1,1204 @@
+import React, { Fragment, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image, View, Platform } from "react-native";
+import I18n from "react-native-i18n";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import _ceil from "lodash/ceil";
+
+import { Row, WarningSection } from "../../../components";
+import {
+  Section,
+  Header2,
+  Icon,
+  Body2,
+  Body3,
+  Header1,
+  Header3,
+  TextOverlineR,
+  NumberInput,
+  Divider,
+  BottomModal
+} from "../../../components-2";
+import StocksTradeButton from "../stocks-trade-button";
+import Warning from "../../../components-2/warning/Warning";
+import { palette } from "../../../theme/colors";
+import { PreCheckStates } from "../redux/stocks-selectors";
+import {
+  CURRENCY_VARIANTS,
+  getCurrencyDisplay,
+  getIsMarketOpen,
+  LIMIT_ORDER_TYPE,
+  ThaiStockAccountsPropTypes,
+  STATUS_CODE_SUCEESS,
+  STATUS_CODE_EB000,
+  STATUS_CODE_EB001,
+  STATUS_CODE_EB003,
+  STATUS_CODE_EB004,
+  STATUS_CODE_EB005
+} from "../stocks-util";
+
+import StockInvestAccountSection from "./StockInvestAccountSection";
+import StockInvestAmount from "./StockInvestAmount";
+// import StockInvestReferralCode from "./StockInvestReferralCode";
+import StockInvestEarnPoints from "./StockInvestEarnPoints";
+// import StockInvestCashBack from "./StockInvestCashBack";
+import StockInvestCoinCashBack from "./StockInvestCoinCashBack";
+import StockAutoFXModal from "../stock-auto-fx-modal";
+import StockInvestOrderDesc from "./StockInvestOrderDesc";
+import { localiseCurrency } from "../../../modules/i18n";
+// import { fundAmountSectionHeader } from "./OffshoreFundAdditions";
+import RiskLevelMain from "../../risk-level/risk-level-main";
+
+import {
+  showDefaultErrorModal,
+  showEB001Modal,
+  showEB003Modal,
+  showEB004Modal,
+  showTaxRegistrationModal,
+  showOffshoreFundAutoFXModal
+} from "../offshore-precheck-modal";
+
+import StockHeroBannerPrice from "../stock-detail-hero-banner/StockHeroBannerPrice";
+import LimitOrderImg from "../../../../assets/images/offshore/invest/limit-order.png";
+import MarketOrderImg from "../../../../assets/images/offshore/invest/market-order.png";
+
+const isAndroid = () => Platform.OS === "android";
+
+const BannerPriceContainer = styled.View`
+  margin-left: 16;
+  margin-right: 16;
+`;
+
+const BuyContainer = styled.View`
+  background-color: ${props => props.theme.sectionBackgroundColor};
+  border-color: ${props => props.theme.sectionBorderColor};
+  border-width: 1px;
+  border-radius: 8px;
+  padding-horizontal: ${props => props.theme.spacingSmall};
+`;
+
+const PriceContainer = styled.View`
+  background-color: ${props => props.theme.sectionBackgroundColor};
+  border-color: ${props => props.theme.sectionBorderColor};
+  border-width: 0px;
+  border-radius: 4px;
+  padding-horizontal: ${props => props.theme.spacingSmall};
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const ButtonContainer = styled.View`
+  background-color: ${props => props.theme.backgroundWhite};
+  border-top-left-radius: ${props => props.theme.borderRadius};
+  border-top-right-radius: ${props => props.theme.borderRadius};
+  box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.11);
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+`;
+
+const Container = styled.View`
+  padding: 10px 16px;
+`;
+
+const OrderTypeContainer = styled.View`
+  margin: 16px 16px;
+`;
+
+const PriceSectionTitleText = styled(Header3)`
+  margin-bottom: 10;
+`;
+
+export const EstimateContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+export const EstimateValue = styled(Header2)`
+  padding-right: 5px;
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+
+// color: ${props => props.theme.contentColorCTAPurple};
+
+export const LimitPriceTitle = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const Caption3Padded = styled(Body3)`
+  padding-top: ${props => props.theme.spacingXXSmall};
+`;
+
+export const Caption2Strong = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+export const FrontendFeeCaption2Strong = styled(Caption2Strong)`
+  line-height: 20px;
+`;
+
+const TouchableIcon = styled(TouchableOpacity).attrs(props => ({
+  hitSlop: props.theme.iconHitSlopSmall
+}))``;
+
+const EnabledIcon = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const OrderTypeButton = styled(TouchableOpacity)`
+  height: 60px;
+  align-items: center;
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const OrderTypeButtonTitleContainer = styled.View`
+  flex-direction: row;
+`;
+
+const OrderTypeTitle = styled(Header1)``;
+
+const OrderTypeTitleContainer = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  margin-bottom: 16;
+`;
+
+const OrderTypeSelectedContainer = styled(TouchableOpacity)``;
+
+const OrderTypeSelectedTitleContainer = styled.View`
+  flex-direction: row;
+  margin-top: 16;
+  margin-bottom: 16;
+`;
+
+const OrderTypeSelectedAllTextContainer = styled.View`
+  margin-left: 8;
+`;
+
+const OrderTypeSelectedLayoutContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const CheckIcon = styled(Icon).attrs(props => ({
+  name: "check",
+  size: "icon16",
+  color: props.theme.ctaPurple
+}))``;
+
+const OrderTypeSelectedText = styled(Body2)`
+  margin-top: -4;
+`;
+
+const OrderTypeSwitchIcon = <Icon name="chevron-down" size="icon8" />;
+
+const OrderTypeSwitchText = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-top: 4px;
+  margin-left: 8px;
+`;
+
+const OutOfHoursNotice = styled(View)`
+  margin-top: ${props => props.theme.spacingXXSmall};
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+  margin-horizontal: ${props => props.theme.spacingXSmall};
+`;
+
+const OffshoreFundUncancelableText = styled(TextOverlineR)`
+  padding: 20px 16px;
+  color: ${props => props.theme.contentColorHigh};
+  text-align: left;
+`;
+
+const StockPaddingContainer = styled.View`
+  height: 200px;
+`;
+
+const BodyLight = styled(Body3)``;
+
+const onLimitPriceInputFocus = (setLimitPriceInputFocused, onInputFieldFocus) => {
+  setLimitPriceInputFocused(true);
+  onInputFieldFocus();
+};
+
+const onLimitPriceInputBlur = (setLimitPriceInputFocused, onInputFieldBlur) => {
+  setLimitPriceInputFocused(false);
+  onInputFieldBlur();
+};
+
+const buttonProps = (props, isFxOutOfService, isRequireExchange) => {
+  const {
+    canSubmit,
+    isServiceUnavailable,
+    isOffshoreBuyPrecheckLoading,
+    exchangeRate,
+    sell
+  } = props;
+
+  return {
+    buttonText: sell ? I18n.t("Bonds.Button.SellText") : I18n.t("Bonds.Button.BuyText"),
+    buttonIsDisabled:
+      !canSubmit ||
+      isServiceUnavailable ||
+      isOffshoreBuyPrecheckLoading ||
+      (isFxOutOfService && isRequireExchange) ||
+      exchangeRate?.isExchangeCurrencyLoading ||
+      exchangeRate?.isExchangeCurrencyAccInfoLoading
+  };
+};
+
+const renderPreCheckFailedMessage = preCheckHardStopErrorMessage => {
+  if (preCheckHardStopErrorMessage) {
+    return (
+      <Section>
+        <Warning
+          message={preCheckHardStopErrorMessage}
+          color={palette.red}
+          accessibilityLabel="PreCheckFailMessage"
+        />
+      </Section>
+    );
+  }
+  return null;
+};
+
+const renderFXOutofServiceMessage = (marketCurrency, isFxOutOfService, isRequireExchange) => {
+  if (isFxOutOfService && isRequireExchange) {
+    return (
+      <Section>
+        <Warning
+          message={I18n.t("Stocks.Error.ExchangeServiceOutOfTime", { currency: marketCurrency })}
+          iconName="info-2"
+          color={palette.red}
+          accessibilityLabel="PreCheckFailMessage"
+        />
+      </Section>
+    );
+  }
+  return null;
+};
+
+const StockInvestContent = props => {
+  const {
+    bestBid,
+    bestAsk,
+    price,
+    stockCode,
+    stockName,
+    limitPrice,
+    pricePrecision,
+    unitsPrecision,
+    priceSectionTitle,
+    accountTitle,
+    estimatedCost,
+    marketCurrency,
+    walletCurrency,
+    onInputFieldBlur,
+    onInputFieldFocus,
+    onShowBreakdown,
+    selectedAccountId,
+    limitErrorValidationMessage,
+    preCheckStatus,
+    sharesValue,
+    orderType,
+    lastPrice,
+    onPressOrderType,
+    sell,
+    sharesAvailable,
+    totalValue,
+    accountValue,
+    onSharesChange,
+    onLimitPriceChange,
+    onValidate,
+    lotSize,
+    isServiceUnavailable,
+    minimumShares,
+    marketStatus,
+    onPressAccountSection,
+    isThaiStock,
+    thaiStockAccounts,
+    minimumOrderValue,
+    minimumOrderUnit,
+    minimumBase,
+    preCheckHardStopErrorMessage,
+    onPreConfirm,
+    buttonOnPress,
+    sharesErrorMessage,
+    portfolioData,
+    onSelectSellAccount,
+    selectedSellAccount,
+    isOffshoreFund,
+    offshoreFundRiskLevel,
+    isComplexRisk,
+    onNavigateExchangeCurrency,
+    preCheckAggregatedFees,
+    preCheckResevedBalance,
+    isChangeOrderType,
+    preCheckStockValue,
+    onGetExchangeRate,
+    onGetExchangeRateAccInfo,
+    onNavigateTaxRegis,
+    onNavigateWalletProfile,
+    onOffshoreBuyPrecheck,
+    resetExchangeRateState,
+    isOffshoreBuyPrecheckLoading,
+    offshorePrecheck,
+    realAccountValue,
+    isFxOutOfService,
+    actualFrontLoad,
+    cutOffTime,
+    referralCode,
+    pricingExchangeRate,
+    nCoin,
+    // eslint-disable-next-line no-unused-vars
+    onReferralCodeChange,
+    onCoinChange,
+    navigator,
+    onUseCashBackChange,
+    useCashBack,
+    amountInput
+  } = props;
+
+  const [limitPriceInputFocused, setLimitPriceInputFocused] = useState(false);
+  const [showRiskLevelWarning, setShowRiskLevelWarning] = useState(false);
+  const [isAutoFxModalVisible, setAutoFXModalVisible] = useState(false);
+  const [isOrderTypeVisible, setIsOrderTypeVisible] = useState(false);
+  const orderTypeList = ["MARKET", "LIMIT"];
+
+  let fieldsEditable = true;
+  let icon;
+  const iconLoading = (
+    <TouchableIcon>
+      <Image source={require("./loading.gif")} style={{ width: 20, height: 5 }} />
+    </TouchableIcon>
+  );
+  if (preCheckStatus === PreCheckStates.Successful) {
+    icon = (
+      <TouchableIcon onPress={onShowBreakdown}>
+        <EnabledIcon name="info-2" size="icon16" />
+      </TouchableIcon>
+    );
+  } else if (preCheckStatus === PreCheckStates.Checking) {
+    fieldsEditable = false;
+    icon = iconLoading;
+  }
+
+  const estimatedAmountValue = (
+    <EstimateContainer>
+      <EstimateValue>
+        {estimatedCost !== "-"
+          ? `${localiseCurrency({
+              value: estimatedCost,
+              hideCurrency: true
+            })} ${marketCurrency}`
+          : `0.00 ${walletCurrency}`}
+      </EstimateValue>
+      {!isOffshoreFund && icon}
+    </EstimateContainer>
+  );
+
+  const isMarketOpen = getIsMarketOpen(marketStatus);
+
+  let limitPriceSection;
+  if (orderType === LIMIT_ORDER_TYPE) {
+    const placeholder = `0.${"0".repeat(pricePrecision)}`;
+    const showLimitError = !limitPriceInputFocused && limitErrorValidationMessage;
+
+    limitPriceSection = (
+      <PriceContainer>
+        <Section noBottomBorder noTopBorder noPadding noShadowBorder>
+          <LimitPriceTitle>
+            { sell ? I18n.t("Stocks.Invest.SellLimitPriceTitle")
+              : I18n.t("Stocks.Invest.BuyLimitPriceTitle") }
+          </LimitPriceTitle>
+          <NumberInput
+            editable={fieldsEditable}
+            inlineLabel={getCurrencyDisplay(marketCurrency, CURRENCY_VARIANTS.PENCE)}
+            placeholder={placeholder}
+            format="money"
+            precision={pricePrecision}
+            controlledValue={Number(limitPrice)}
+            accessibilityLabel="StockInvestContent_LimitPriceInput"
+            onBlur={() => onLimitPriceInputBlur(setLimitPriceInputFocused, onInputFieldBlur)}
+            onFocus={() => onLimitPriceInputFocus(setLimitPriceInputFocused, onInputFieldFocus)}
+            onValueChange={({ numericValue }) => {
+              onLimitPriceChange(numericValue);
+              onValidate({
+                selectedAccountId,
+                orderType,
+                lotSize,
+                minimumShares,
+                sharesAvailable,
+                numberOfSharesInput: sharesValue,
+                limitPriceInput: numericValue,
+                isChangeOrderType
+              });
+            }}
+            helperText={showLimitError ? limitErrorValidationMessage : ""}
+            variant={showLimitError ? "error" : "valid"}
+          />
+        </Section>
+      </PriceContainer>
+    );
+  }
+
+  const unitPrice = orderType === LIMIT_ORDER_TYPE ? Number(limitPrice) : Number(price);
+
+  const hasSelectedAccount =
+    thaiStockAccounts && selectedAccountId && thaiStockAccounts[selectedAccountId];
+
+  let availableUnitsThaiStocks = 0;
+  if (sell) {
+    if (hasSelectedAccount) {
+      availableUnitsThaiStocks = Number(thaiStockAccounts[selectedAccountId].amountOfShares);
+    }
+  } else {
+    availableUnitsThaiStocks = Infinity;
+  }
+
+  // there are possible values for "minimumOrderUnit", "UNIT" and "USD"
+  let unitPriceTimesLotSize = unitPrice * lotSize;
+  if (isOffshoreFund) {
+    unitPriceTimesLotSize =
+      minimumOrderUnit === "UNIT" ? _ceil(unitPrice * minimumOrderValue, 2) : minimumOrderValue;
+    if (sell) {
+      unitPriceTimesLotSize = _ceil(unitPrice * lotSize, 2);
+    }
+  }
+
+  const amountInputProps = {
+    unitPrice,
+    lotSize: Number(lotSize),
+    currency: marketCurrency,
+    side: sell ? "SELL" : "BUY",
+    // if the minimum value either "minimum amount" or "minimum unit * nav"
+    //    less than minimum base(global minimum)
+    // then use minimum base
+    minValue: Math.max(Number(minimumOrderValue), unitPriceTimesLotSize, Number(minimumBase)),
+    minUnits: Math.max(minimumShares, lotSize),
+    sharesErrorMessage,
+    ...(isThaiStock
+      ? {
+          walletCurrency: "THB",
+          availableUnits: availableUnitsThaiStocks,
+          availableValue: Infinity
+        }
+      : {
+          walletCurrency,
+          availableUnits: sell ? Number(sharesAvailable) : Infinity,
+          availableValue: sell
+            ? Number(
+                isOffshoreFund ? portfolioData.availableMarketValue : unitPrice * sharesAvailable
+              )
+            : Number(accountValue)
+        })
+  };
+
+  const isHighRiskOffshoreFund = () => {
+    const { userRiskLevel } = props;
+    let isHighRiskLevel;
+    switch (userRiskLevel) {
+      case 1:
+        if (offshoreFundRiskLevel > 1) {
+          isHighRiskLevel = true;
+        }
+        break;
+      case 2:
+        if (offshoreFundRiskLevel > 4) {
+          isHighRiskLevel = true;
+        }
+        break;
+      case 3:
+        if (offshoreFundRiskLevel > 5) {
+          isHighRiskLevel = true;
+        }
+        break;
+      case 4:
+        if (offshoreFundRiskLevel > 7) {
+          isHighRiskLevel = true;
+        }
+        break;
+      case 5:
+        isHighRiskLevel = false;
+        break;
+      default:
+        break;
+    }
+    return isHighRiskLevel;
+  };
+
+  const isHighRisk = isHighRiskOffshoreFund();
+
+  const goToOffshoreFundFactSheet = (isWithExchangeCurrency = false) => {
+    const { onNavigateToFundFactSheet, onPopNavigateToFundFactSheet, factsheetUrl } = props;
+    onNavigateToFundFactSheet({
+      fundClass: stockCode,
+      buttonOnPress: () => {
+        onPopNavigateToFundFactSheet();
+
+        const defaultPreconfirmProps = {
+          stockCode,
+          stockName,
+          selectedAccountId,
+          orderType,
+          actualFrontLoad,
+          estimatedAmount: estimatedCost,
+          walletCurrency,
+          pricePrecision,
+          unitsPrecision,
+          marketCurrency,
+          cutOffTime,
+          onConfirm: buttonOnPress
+        };
+        onPreConfirm({
+          ...defaultPreconfirmProps,
+          isWithExchangeCurrency
+        });
+      },
+      factsheetUrl,
+      onCloseDialog: null,
+      factSheetButtonText: I18n.t("FundInvest.FactSheet.Continue"),
+      isOffshore: true
+    });
+  };
+
+  const getRequiredExchange = () => {
+    const floatAccountValue = Number(accountValue);
+    return Number(estimatedCost) - (!Number.isNaN(floatAccountValue) ? floatAccountValue : 0);
+  };
+
+  const showFXConversionDialog = () => setAutoFXModalVisible(true);
+  const hideFXConversionDialog = () => setAutoFXModalVisible(false);
+  const handlerSubmitWithAutoFX = async () => {
+    setAutoFXModalVisible(false);
+    const defaultPreconfirmProps = {
+      stockCode,
+      stockName,
+      price: limitPrice,
+      marketCurrency,
+      sharesValue,
+      orderType,
+      estimatedAmount: estimatedCost,
+      walletCurrency,
+      pricePrecision,
+      onConfirm: buttonOnPress
+    };
+
+    onPreConfirm({
+      ...defaultPreconfirmProps,
+      isWithExchangeCurrency: true,
+      preCheckResevedBalance,
+      preCheckAggregatedFees,
+      referralCode,
+      nCoin,
+      useCashBack
+    });
+  };
+
+  const validateOffshoreBuyPrecheck = () => {
+    return new Promise(async (resolve) => {
+      let valid = false;
+      onOffshoreBuyPrecheck({
+        currency: marketCurrency,
+        isInsufficientCash: getRequiredExchange() > 0,
+        callback: offshoreBuyPrecheck => {
+          if (offshoreBuyPrecheck) {
+            const { statusCode, errorCode } = offshoreBuyPrecheck;
+            if (statusCode === STATUS_CODE_SUCEESS) {
+              valid = true;
+            } else if (statusCode === STATUS_CODE_EB000) {
+              showDefaultErrorModal();
+            } else if (statusCode === STATUS_CODE_EB001) {
+              showEB001Modal(onNavigateExchangeCurrency);
+            } else if (statusCode === STATUS_CODE_EB003) {
+              showEB003Modal(marketCurrency);
+            } else if (statusCode === STATUS_CODE_EB004) {
+              showEB004Modal(marketCurrency, getRequiredExchange(), onNavigateExchangeCurrency);
+            } else if (statusCode === STATUS_CODE_EB005) {
+              if (errorCode) {
+                showDefaultErrorModal(errorCode);
+              } else {
+                showTaxRegistrationModal(onNavigateTaxRegis);
+              }
+            } else {
+              showDefaultErrorModal();
+            }
+          } else {
+            valid = true;
+          }
+
+          resolve(valid);
+        }
+      });
+    });
+  };
+
+  const validatePreConfirm = () => {
+    if (isThaiStock || sell) {
+      return true;
+    }
+    return validateOffshoreBuyPrecheck();
+  };
+  /**
+   * Description: Validate amount of estimated value and available cash
+   * If have enough money process without Auto FX
+   * If not enough money process with Auto FX Flow
+   */
+  const onPressPreConfirm = async () => {
+    resetExchangeRateState();
+    hideFXConversionDialog();
+    if (await validatePreConfirm()) {
+      const defaultPreconfirmProps = {
+        stockCode,
+        stockName,
+        price: limitPrice,
+        marketCurrency,
+        sharesValue,
+        orderType,
+        estimatedAmount: estimatedCost,
+        walletCurrency,
+        pricePrecision,
+        unitsPrecision,
+        onConfirm: buttonOnPress
+      };
+
+      if (isOffshoreFund) {
+        const requiredExchange = getRequiredExchange();
+        if (!sell) {
+          const needsAcknowledgement = isHighRisk || isComplexRisk;
+          if (requiredExchange > 0) {
+            onGetExchangeRate(requiredExchange, "THB", marketCurrency, exchangeRate => {
+              onGetExchangeRateAccInfo({
+                callback: bankAccountInfo => {
+                  const onAccept = () => {
+                    if (needsAcknowledgement) {
+                      setShowRiskLevelWarning(true);
+                    } else {
+                      goToOffshoreFundFactSheet(true);
+                    }
+                  };
+
+                  showOffshoreFundAutoFXModal({
+                    accountValue,
+                    realAccountValue,
+                    estimatedCost,
+                    marketCurrency,
+                    onAccept,
+                    exchangeRate,
+                    bankAccountInfo,
+                    onNavigateWalletProfile,
+                    resetExchangeRateState
+                  });
+                }
+              });
+            });
+          } else if (needsAcknowledgement) {
+            setShowRiskLevelWarning(true);
+          } else {
+            goToOffshoreFundFactSheet(requiredExchange > 0);
+          }
+        } else {
+          onPreConfirm({
+            ...defaultPreconfirmProps,
+            estimatedAmount: amountInput,
+            isWithExchangeCurrency: requiredExchange > 0,
+            selectedAccountId,
+            actualFrontLoad,
+            cutOffTime
+          });
+        }
+      } else if (!sell && getRequiredExchange() > 0) {
+        showFXConversionDialog();
+      } else {
+        onPreConfirm({
+          ...defaultPreconfirmProps,
+          referralCode,
+          useCashBack,
+          nCoin,
+          sharesAvailable,
+          preCheckResevedBalance,
+          preCheckAggregatedFees,
+          isWithExchangeCurrency: false
+        });
+      }
+    }
+  };
+
+  const onAcceptRiskLevelWarning = () => {
+    setShowRiskLevelWarning(false);
+    goToOffshoreFundFactSheet(getRequiredExchange() > 0);
+  };
+
+  const onCancelRiskLevelWarning = () => {
+    setShowRiskLevelWarning(false);
+  };
+
+  return (
+    <Fragment>
+      <KeyboardAwareScrollView
+        enableOnAndroid={isAndroid ? true : undefined}
+        extraHeight={isAndroid ? 190 : undefined}
+      >
+        {!isOffshoreFund && (
+          <BannerPriceContainer>
+            <StockHeroBannerPrice
+              bestBid={bestBid}
+              bestAsk={bestAsk}
+              pricePrecision={pricePrecision}
+              bidLabel={I18n.t("Stocks.ProductInfo.Header.BidLabel")}
+              askLabel={I18n.t("Stocks.ProductInfo.Header.OfferLabel")}
+            />
+          </BannerPriceContainer>
+        )}
+        {isServiceUnavailable && (
+          <WarningSection message={I18n.t("Stocks.General.ServiceError")} padBottom />
+        )}
+        {!sell && (
+          <StockAutoFXModal
+            isVisible={isAutoFxModalVisible}
+            onGetExchangeRateAccInfo={onGetExchangeRateAccInfo}
+            onGetExchangeRate={onGetExchangeRate}
+            onConfirmExchange={() => handlerSubmitWithAutoFX()}
+            onCancelExchange={() => setAutoFXModalVisible(false)}
+            orderType={orderType}
+            marketCurrency={marketCurrency}
+            estimatedAmount={estimatedCost}
+            availableCash={!Number.isNaN(Number(accountValue)) ? accountValue : 0}
+            onNavigateWalletProfile={(initialAmount) => {
+              setAutoFXModalVisible(false);
+              onNavigateWalletProfile(initialAmount);
+            }}
+          />
+        )}
+        <StockInvestAccountSection
+          sell={sell}
+          accountTitle={accountTitle}
+          sharesAvailable={isThaiStock ? availableUnitsThaiStocks : sharesAvailable}
+          totalValue={totalValue}
+          marketCurrency={marketCurrency}
+          accountValue={accountValue}
+          realAccountValue={realAccountValue}
+          walletCurrency={walletCurrency}
+          onPressAccountSection={onPressAccountSection}
+          thaiStockAccounts={thaiStockAccounts}
+          selectedAccountId={selectedAccountId}
+          isThaiStock={isThaiStock}
+          lastPrice={lastPrice}
+          portfolioData={portfolioData}
+          onSelectSellAccount={onSelectSellAccount}
+          selectedSellAccount={selectedSellAccount}
+          isOffshoreFund={isOffshoreFund}
+          displayExchangeRateButton={false}
+          onNavigateExchangeCurrency={onNavigateExchangeCurrency}
+          offshorePrecheck={offshorePrecheck}
+          unitsPrecision={unitsPrecision}
+        />
+        {!isOffshoreFund && (
+          <OrderTypeContainer>
+            <PriceSectionTitleText>{priceSectionTitle}</PriceSectionTitleText>
+            <BuyContainer>
+              <OrderTypeButton
+                disabled={!isMarketOpen && !isThaiStock}
+                onPress={() => {
+                  setIsOrderTypeVisible(!isOrderTypeVisible);
+                }}
+                accessibilityLabel={orderType}
+              >
+                <OrderTypeButtonTitleContainer>
+                  <Image source={orderType === LIMIT_ORDER_TYPE ? LimitOrderImg : MarketOrderImg} resizeMode="stretch" />
+                  <OrderTypeSwitchText>
+                    {I18n.t(`Stocks.OrderType.${orderType}.Label`)}
+                  </OrderTypeSwitchText>
+                </OrderTypeButtonTitleContainer>
+                {(isMarketOpen || isThaiStock) && OrderTypeSwitchIcon}
+              </OrderTypeButton>
+            </BuyContainer>
+            <StockInvestOrderDesc orderType={orderType} />
+          </OrderTypeContainer>
+        )}
+        {isOrderTypeVisible && (
+          <BottomModal
+            isVisible={isOrderTypeVisible}
+            onBackdropPress={() => {
+              setIsOrderTypeVisible(false);
+            }}
+          >
+            <OrderTypeTitleContainer>
+              <OrderTypeTitle>{I18n.t("Stocks.Invest.BuyModalTitle")}</OrderTypeTitle>
+            </OrderTypeTitleContainer>
+            {orderTypeList.map(type => {
+              return (
+                <>
+                  <OrderTypeSelectedContainer onPress={() => {
+                        onPressOrderType(type);
+                        setIsOrderTypeVisible(false);
+                  }}
+                  >
+                    <OrderTypeSelectedLayoutContainer>
+                      <OrderTypeSelectedTitleContainer>
+                        <Image
+                          source={type === LIMIT_ORDER_TYPE
+                          ? LimitOrderImg : MarketOrderImg}
+                          resizeMode="stretch"
+                        />
+                        <OrderTypeSelectedAllTextContainer>
+                          <OrderTypeSelectedText>
+                            {I18n.t(`Stocks.OrderType.${type}.Label`)}
+                          </OrderTypeSelectedText>
+                          <Body3 variant="subdued">{I18n.t(`Stocks.OrderType.${type}.Description`)}</Body3>
+                        </OrderTypeSelectedAllTextContainer>
+                      </OrderTypeSelectedTitleContainer>
+                      {type === orderType && <CheckIcon />}
+                    </OrderTypeSelectedLayoutContainer>
+                  </OrderTypeSelectedContainer>
+                  <Divider />
+                </>
+              );
+            })}
+          </BottomModal>
+        )}
+        {!isOffshoreFund && limitPriceSection}
+
+        {!isOffshoreFund && !isMarketOpen && (
+          <Section marginTop={false} reversed noBottomBorder noTopBorder noShadowBorder noPadding>
+            <OutOfHoursNotice>
+              <Warning
+                message={I18n.t("Stocks.Invest.OutOfHoursNotice")}
+                iconName="exclamation-warning"
+                color={palette.yellowPrimary}
+                extraPadding
+              />
+            </OutOfHoursNotice>
+          </Section>
+        )}
+        {/* {isOffshoreFund && fundAmountSectionHeader(sell ? null : priceSectionTitle)} */}
+        <StockInvestAmount
+          {...amountInputProps}
+          onAmountChange={({ units, value, currentInputType }) => {
+            onSharesChange(units, value);
+            onValidate({
+              bestBid,
+              bestAsk,
+              selectedAccountId,
+              orderType,
+              lotSize,
+              minimumShares,
+              sharesAvailable: isThaiStock ? availableUnitsThaiStocks : sharesAvailable,
+              numberOfSharesInput: units,
+              limitPriceInput: limitPrice,
+              availableValue: amountInputProps.availableValue,
+              stockValue: value,
+              isOffshoreFund,
+              isChangeOrderType,
+              currentInputType
+            });
+          }}
+          onFocus={onInputFieldFocus}
+          onBlur={onInputFieldBlur}
+          isThaiStock={isThaiStock}
+          isOffshoreFund={isOffshoreFund}
+          sell={sell}
+          preCheckAggregatedFees={preCheckAggregatedFees}
+          precision={isOffshoreFund && sell ? unitsPrecision : pricePrecision}
+        />
+        {/*! isOffshoreFund && (
+          <>
+            <StockInvestReferralCode
+              referralCode={referralCode}
+              sell={sell}
+              estimatedCost={estimatedCost}
+              onReferralCodeChange={onReferralCodeChange}
+            />
+          </>
+        ) */}
+        {!isOffshoreFund && (
+          <StockInvestCoinCashBack
+            useCashBack={useCashBack}
+            onCoinChange={onCoinChange}
+            estimatedCost={estimatedCost}
+            nCoin={nCoin}
+            sell={sell}
+            preCheckAggregatedFees={preCheckAggregatedFees}
+            preCheckStockValue={preCheckStockValue}
+            navigator={navigator}
+            pricingExchangeRate={pricingExchangeRate}
+            onUseCashBackChange={onUseCashBackChange}
+          />
+        )}
+        {!isOffshoreFund && <StockPaddingContainer />}
+        {isOffshoreFund && (
+          <>
+            <Divider />
+            {!(isOffshoreFund && sell) && (
+              <Container>
+                <Row
+                  noPaddingHorizontal
+                  noPaddingVertical
+                  left={
+                    <Fragment>
+                      <BodyLight>
+                        {isOffshoreFund
+                          ? I18n.t("Funds.FundPreConfirmation.TotalAmount")
+                          : `${I18n.t("Stocks.Invest.EstimatedAmountTitle")} (${walletCurrency})`}
+                      </BodyLight>
+                      {isThaiStock && (
+                        <Caption3Padded variant="subdued">
+                          {I18n.t("Stocks.Invest.EstimatedAmountSubtitle")}
+                        </Caption3Padded>
+                      )}
+                    </Fragment>
+                  }
+                  right={estimatedAmountValue}
+                  leftStyle={{ flex: 2, paddingRight: 1 }}
+                  rightStyle={{ flex: 2, paddingLeft: 1 }}
+                />
+              </Container>
+            )}
+            <Divider />
+            <OffshoreFundUncancelableText>
+              • {I18n.t("FundInvest.Warning.OffshoreFundNoCancel")}
+            </OffshoreFundUncancelableText>
+          </>
+        )}
+        {renderPreCheckFailedMessage(preCheckHardStopErrorMessage)}
+        {renderFXOutofServiceMessage(marketCurrency, isFxOutOfService, getRequiredExchange() > 0)}
+        {showRiskLevelWarning && (
+          <RiskLevelMain
+            level={offshoreFundRiskLevel}
+            highRiskFund={isHighRisk}
+            complexRisk={isComplexRisk}
+            onAccept={onAcceptRiskLevelWarning}
+            onCancel={onCancelRiskLevelWarning}
+            isFundRisk
+          />
+        )}
+        {!isOffshoreFund && <></>}
+      </KeyboardAwareScrollView>
+      {isOffshoreFund ? (
+        <StocksTradeButton
+          {...buttonProps(props, isFxOutOfService, getRequiredExchange() > 0)}
+          buttonOnPress={onPressPreConfirm}
+          isLoading={isOffshoreBuyPrecheckLoading}
+          icon={iconLoading}
+        />
+      ) : (
+        <ButtonContainer accessibilityLabel="StocksInvestBuyButton">
+          <Container>
+            <Row
+              noPaddingHorizontal
+              noPaddingVertical
+              left={
+                <Fragment>
+                  <Caption2Strong variant="subdued">
+                      {I18n.t("Stocks.Invest.EstimatedAmountTitle")}
+                  </Caption2Strong>
+                  {isThaiStock && (
+                    <Caption3Padded variant="subdued">
+                      {I18n.t("Stocks.Invest.EstimatedAmountSubtitle")}
+                    </Caption3Padded>
+                  )}
+                </Fragment>
+              }
+              right={estimatedAmountValue}
+              leftStyle={{ flex: 3, paddingRight: 0 }}
+              rightStyle={{ flex: 2, paddingLeft: 1 }}
+            />
+            <>
+              <Divider style={{ marginTop: 8 }} />
+              <StockInvestEarnPoints {...props} estimatedCost={estimatedCost} />
+            </>
+          </Container>
+          {renderPreCheckFailedMessage(preCheckHardStopErrorMessage)}
+          {renderFXOutofServiceMessage(marketCurrency, isFxOutOfService, getRequiredExchange() > 0)}
+          <StocksTradeButton
+            {...buttonProps(props, isFxOutOfService, getRequiredExchange() > 0)}
+            buttonOnPress={onPressPreConfirm}
+            isLoading={isOffshoreBuyPrecheckLoading}
+            icon={iconLoading}
+            buttonText={
+              sell ? I18n.t("StockSell.FieldLabel.SellButton") : I18n.t("Stocks.Invest.BuyButton")
+            }
+          />
+          {showRiskLevelWarning && (
+            <RiskLevelMain
+              level={offshoreFundRiskLevel}
+              highRiskFund={isHighRisk}
+              complexRisk={isComplexRisk}
+              onAccept={onAcceptRiskLevelWarning}
+              onCancel={onCancelRiskLevelWarning}
+              isFundRisk
+            />
+          )}
+        </ButtonContainer>
+      )}
+    </Fragment>
+  );
+};
+
+StockInvestContent.defaultProps = {
+  price: "",
+  stockCode: "",
+  stockName: "",
+  limitPrice: "",
+  lastPrice: "",
+  unitsPrecision: undefined,
+  priceSectionTitle: "",
+  accountTitle: "",
+  buttonText: "",
+  marketCurrency: "",
+  walletCurrency: "",
+  estimatedCost: "",
+  selectedAccountId: "",
+  onSubmit: () => {},
+  onInputFieldBlur: () => {},
+  onInputFieldFocus: () => {},
+  onShowBreakdown: () => {},
+  canSubmit: false,
+  limitErrorValidationMessage: undefined,
+  preCheckResevedBalance: undefined,
+  preCheckStatus: undefined,
+  preCheckHardStopErrorMessage: undefined,
+  sharesValue: 0,
+  orderType: LIMIT_ORDER_TYPE,
+  onPressOrderType: () => {},
+  sell: false,
+  totalValue: "",
+  marketStatus: "",
+  sharesAvailable: "",
+  onPressAccountSection: () => {},
+  minimumShares: "0",
+  minimumOrderValue: "0",
+  minimumOrderUnit: "",
+  minimumBase: "",
+  sharesErrorMessage: "",
+  offshoreFundRiskLevel: undefined,
+  userRiskLevel: undefined,
+  isComplexRisk: false,
+  onNavigateToFundFactSheet: () => {},
+  onPopNavigateToFundFactSheet: () => {},
+  factsheetUrl: undefined,
+  onNavigateExchangeCurrency: () => {},
+  preCheckAggregatedFees: undefined,
+  isChangeOrderType: false,
+  bestAsk: 0,
+  bestBid: 0,
+  onGetExchangeRate: () => {},
+  onGetExchangeRateAccInfo: () => {},
+  onNavigateTaxRegis: () => {},
+  onOffshoreBuyPrecheck: () => {},
+  onNavigateWalletProfile: () => {},
+  resetExchangeRateState: () => {},
+  offshorePrecheck: undefined,
+  isOffshoreBuyPrecheckLoading: false,
+  isFxOutOfService: false,
+  nCoin: undefined,
+  pricingExchangeRate: undefined,
+  navigator: undefined,
+  preCheckStockValue: undefined,
+  actualFrontLoad: 0,
+  cutOffTime: "",
+  onReferralCodeChange: () => {},
+  onUseCashBackChange: () => {},
+  onCoinChange: () => {},
+  referralCode: "",
+  useCashBack: false,
+  amountInput: undefined
+};
+
+StockInvestContent.propTypes = {
+  bestAsk: PropTypes.string,
+  bestBid: PropTypes.string,
+  price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  stockCode: PropTypes.string,
+  stockName: PropTypes.string,
+  limitPrice: PropTypes.string,
+  lastPrice: PropTypes.string,
+  pricePrecision: PropTypes.number.isRequired,
+  unitsPrecision: PropTypes.number,
+  priceSectionTitle: PropTypes.string,
+  accountTitle: PropTypes.string,
+  estimatedCost: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  buttonText: PropTypes.string,
+  marketCurrency: PropTypes.string,
+  walletCurrency: PropTypes.string,
+  onSubmit: PropTypes.func,
+  onInputFieldBlur: PropTypes.func,
+  onInputFieldFocus: PropTypes.func,
+  onShowBreakdown: PropTypes.func,
+  canSubmit: PropTypes.bool,
+  selectedAccountId: PropTypes.string,
+  limitErrorValidationMessage: PropTypes.string,
+  preCheckStatus: PropTypes.string,
+  preCheckHardStopErrorMessage: PropTypes.string,
+  sharesValue: PropTypes.string,
+  orderType: PropTypes.string,
+  onPressOrderType: PropTypes.func,
+  buttonOnPress: PropTypes.func.isRequired,
+  sell: PropTypes.bool,
+  sharesAvailable: PropTypes.string,
+  totalValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  accountValue: PropTypes.string.isRequired,
+  realAccountValue: PropTypes.string.isRequired,
+  onSharesChange: PropTypes.func.isRequired,
+  onLimitPriceChange: PropTypes.func.isRequired,
+  onValidate: PropTypes.func.isRequired,
+  lotSize: PropTypes.string.isRequired,
+  isServiceUnavailable: PropTypes.bool.isRequired,
+  minimumShares: PropTypes.string,
+  marketStatus: PropTypes.string,
+  onPressAccountSection: PropTypes.func,
+  isThaiStock: PropTypes.bool.isRequired,
+  thaiStockAccounts: ThaiStockAccountsPropTypes.isRequired,
+  minimumOrderValue: PropTypes.string,
+  minimumOrderUnit: PropTypes.string,
+  minimumBase: PropTypes.string,
+  onPreConfirm: PropTypes.func.isRequired,
+  sharesErrorMessage: PropTypes.string,
+  preCheckResevedBalance: PropTypes.string,
+  portfolioData: PropTypes.objectOf(PropTypes.any).isRequired,
+  onSelectSellAccount: PropTypes.func.isRequired,
+  selectedSellAccount: PropTypes.objectOf(PropTypes.any).isRequired,
+  isOffshoreFund: PropTypes.bool.isRequired,
+  offshoreFundRiskLevel: PropTypes.string,
+  userRiskLevel: PropTypes.string,
+  isComplexRisk: PropTypes.bool,
+  onNavigateToFundFactSheet: PropTypes.func,
+  onPopNavigateToFundFactSheet: PropTypes.func,
+  factsheetUrl: PropTypes.string,
+  onNavigateExchangeCurrency: PropTypes.func,
+  preCheckAggregatedFees: PropTypes.string,
+  isChangeOrderType: PropTypes.bool,
+  onGetExchangeRate: PropTypes.func,
+  onGetExchangeRateAccInfo: PropTypes.func,
+  onNavigateTaxRegis: PropTypes.func,
+  onNavigateWalletProfile: PropTypes.func,
+  onOffshoreBuyPrecheck: PropTypes.func,
+  resetExchangeRateState: PropTypes.func,
+  offshorePrecheck: PropTypes.shape({
+    isLoading: PropTypes.bool,
+    response: PropTypes.shape({
+      statusCode: PropTypes.string
+    })
+  }),
+  nCoin: PropTypes.number,
+  pricingExchangeRate: PropTypes.number,
+  onCoinChange: PropTypes.func,
+  navigator: PropTypes.shape({}),
+  isOffshoreBuyPrecheckLoading: PropTypes.bool,
+  isFxOutOfService: PropTypes.bool,
+  actualFrontLoad: PropTypes.number,
+  cutOffTime: PropTypes.string,
+  onReferralCodeChange: PropTypes.func,
+  onUseCashBackChange: PropTypes.func,
+  referralCode: PropTypes.string,
+  preCheckStockValue: PropTypes.string,
+  useCashBack: PropTypes.bool,
+  amountInput: PropTypes.string
+};
+
+export default React.memo(StockInvestContent);

@@ -1,0 +1,203 @@
+import React, { useState, useEffect, useLayoutEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, View } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import {
+  ViewContainer,
+  Header1,
+  Body2,
+  Body3,
+  TextInput,
+  TextOverlineR,
+  PrimaryButton,
+  TextButtonM
+} from "../../components-2";
+
+const maxOtpCodeLength = 6;
+
+const HeaderContainer = styled.View`
+  align-items: center;
+`;
+
+const SubHeaderContainer = styled.View`
+  align-items: center;
+  padding-top: ${props => props.theme.spacingXSmall};
+`;
+
+const SubHeader = styled(Body2)`
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const InputContainer = styled(View)`
+  justify-content: flex-end;
+  margin-top: 56px;
+  margin-horizontal: ${props => props.theme.spacingLarge};
+`;
+
+const ResendContainer = styled(View)`
+  flex-direction: column;
+  align-items: center;
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+const Row = styled(View)`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const ResendDescriptionText = styled(TextButtonM)`
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const ResendLinkEnable = styled(Body3)`
+  color: ${props => props.theme.hintTitle};
+  padding-left: ${props => props.theme.spacingXXSmall};
+`;
+
+const ResendLinkDisabled = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const Timer = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const ReferenceText = styled(TextOverlineR)`
+  flex: 1;
+  text-align: center;
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const ButtonFooterContainer = styled.View`
+  flex: 1;
+  justify-content: flex-end;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-vertical: ${props => props.theme.spacingMedium};
+`;
+
+const OtpEmail = props => {
+  const {
+    emailOtp: { email, otpReference },
+    verifyEmailOtp,
+    invalidOtp,
+    timeLeft,
+    activeResend
+  } = props;
+
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState("");
+  const [isValid, setIsValid] = useState(false);
+
+  const handleCodeChange = text => {
+    setOtp(text);
+    setError("");
+  };
+
+  const onResendOtpPressed = () => {
+    Keyboard.dismiss();
+    setOtp("");
+    setError("");
+    props.onResendOtpPressed();
+  };
+
+  const onSubmit = () => {
+    if (isValid) {
+      Keyboard.dismiss();
+      verifyEmailOtp({
+        otp
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (error === "" && otp.length === maxOtpCodeLength) {
+      setIsValid(true);
+    } else {
+      setIsValid(false);
+    }
+  }, [otp]);
+
+  useLayoutEffect(() => {
+    if (invalidOtp) {
+      setError(I18n.t("Onboarding.OTP.Email.Reference.Invalid"));
+      setIsValid(false);
+    }
+  }, [invalidOtp]);
+
+  return (
+    <ViewContainer variant="light">
+      <HeaderContainer>
+        <Header1>{I18n.t("OTP.Email.Header")}</Header1>
+      </HeaderContainer>
+      <SubHeaderContainer>
+        <SubHeader>{I18n.t("OTP.Email.Description", { email })}</SubHeader>
+      </SubHeaderContainer>
+      <InputContainer>
+        <TextInput
+          accessibilityLabel="txtEmailOTP"
+          placeholder={I18n.t("OTP.Email.Reference.Placeholder")}
+          keyboardType="numeric"
+          returnKeyType="done"
+          value={otp}
+          disabled={!email}
+          onChangeText={handleCodeChange}
+          variant={error === "" ? "valid" : "error"}
+          helperText={error}
+          maxLength={maxOtpCodeLength}
+        />
+      </InputContainer>
+      <ResendContainer>
+        <Row>
+          <ResendDescriptionText>{I18n.t("OTP.Email.Resend.Description")}</ResendDescriptionText>
+          {activeResend ? (
+            <TouchableOpacity onPress={onResendOtpPressed}>
+              <ResendLinkEnable>{I18n.t("OTP.Email.Resend.Link")}</ResendLinkEnable>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <ResendLinkDisabled>{I18n.t("OTP.Email.Resend.Link")}</ResendLinkDisabled>
+              {timeLeft !== null ? (
+                <Timer>{I18n.t("OTP.Email.Resend.Timer", { timeLeft })}</Timer>
+              ) : null}
+            </>
+          )}
+        </Row>
+        {!!otpReference && (
+          <Row>
+            <ReferenceText>
+              {I18n.t("OTP.Email.Reference.Label", {
+                otpReference
+              })}
+            </ReferenceText>
+          </Row>
+        )}
+      </ResendContainer>
+      <ButtonFooterContainer>
+        <PrimaryButton
+          testId="btnConfirm"
+          label={I18n.t("OTP.Email.NextButton")}
+          size="large"
+          onPress={() => onSubmit()}
+          disable={!isValid}
+        />
+      </ButtonFooterContainer>
+    </ViewContainer>
+  );
+};
+
+OtpEmail.propTypes = {
+  emailOtp: PropTypes.shape({
+    email: PropTypes.string.isRequired,
+    otpReference: PropTypes.string.isRequired
+  }).isRequired,
+  verifyEmailOtp: PropTypes.func.isRequired,
+  invalidOtp: PropTypes.bool.isRequired,
+  onResendOtpPressed: PropTypes.func.isRequired,
+  activeResend: PropTypes.bool.isRequired,
+  timeLeft: PropTypes.number.isRequired
+};
+
+export default OtpEmail;

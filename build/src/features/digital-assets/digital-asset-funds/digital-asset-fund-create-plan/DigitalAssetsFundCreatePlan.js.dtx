@@ -1,0 +1,603 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { range } from "lodash";
+import { v4 as uuidV4 } from "uuid";
+import { isEmpty } from "lodash/fp";
+import {
+  DA_FUND_BUY_PLAN_ONCE,
+  DA_FUND_BUY_MONTHLY,
+  CREATE_PLAN_POST_CONFIRM_SCREEN,
+  BUY_POST_CONFIRM_SCREEN
+} from "../digital-assets-funds-constants";
+
+import DigitalAssetsFund from "../../../../components-2/digital-assets-funds/DigitalAssetsFund";
+import Container from "../../../../components-2/digital-assets-funds/Container";
+import { getTodayDate } from "../../../../components-2/digital-assets-funds/Modules";
+
+import {
+  Button,
+  TextInput,
+  MockTextInput,
+  PickerRoller,
+  BottomModal,
+  Icon,
+  Body3,
+  Body1,
+  Header3,
+  ScrollViewContainer,
+  Separator,
+  LoadingScreen
+} from "../../../../components-2";
+import { SelectAccount } from "../../../../components/digital-assets";
+import {
+  OptionAccountPlaceholder,
+  OptionWalletAccount
+} from "../../../../components/digital-assets/options/OptionFundAccount";
+import RiskModal from "../../../../components-2/digital-assets-funds/risk-level-modal";
+import {
+  Warpper,
+  SeparatorBottom,
+  ButtomWarpper,
+  InputContainer,
+  CurvIconContainer
+} from "../../../../components-2/digital-assets-funds/DAFundsStyles";
+
+import { DA_PAYMENT_SYSTEM } from "../../../digital-assets/digital-assets-constants";
+
+import { fundAmountWithCommas } from "../../../../modules/coin-format";
+import { amountValueDisplay } from "../../../../modules/i18n/value-display";
+import { WALLET_PROFILE_SCREEN_ID } from "../../../../redux/navigation/navigation-constants";
+import DigitalAssetsFiatOpenEiWalletModal from "../../digital-assets-fiat-modal/DigitalAssetsFiatOpenEiWalletModal";
+
+const supportedSystems = [DA_PAYMENT_SYSTEM.EI_WALLET];
+
+const DigitalAssetsFundCreatePlan = props => {
+  const {
+    i18n,
+    goNext,
+    fundCompanyId,
+    infoData,
+    getDaFundUserRisk,
+    daFundUserRiskLevel,
+    loadingDAFundUserRiskLevel,
+    isPaymentLoading,
+    paymentList,
+    getDaFundPayment,
+    userInfo,
+    resetDaFundPayment
+  } = props;
+  const [onceActive, setOnceActive] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [dateArray] = useState(range(1, 32));
+
+  const [visibleRisk, setVisibleRisk] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const [paymentMethods, setPaymentMethods] = useState({
+    data: [],
+    isLoading: false,
+    isLoaded: false,
+    isError: false
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [investingAmount, setInvestingAmount] = useState("");
+  const [paymentMethodSelected, setPaymentMethodSelected] = useState(null);
+
+  const [investingAmountValidStat, setInvestingAmountValidStat] = useState(false);
+  const [investingAmountValidMsg, setInvestingAmountValidMsg] = useState("*ขั้นต่ำ 50,000.00 บาท");
+  const [investingAmountVariant, setInvestingAmountVariant] = useState("");
+
+  const [buyScheduleDate, setBuyScheduleDate] = useState(getTodayDate());
+
+  useEffect(() => {
+    if (!isEmpty(paymentMethodSelected) && paymentMethodSelected.linkToOpenAccount) {
+      setTimeout(() => {
+        setIsVisible(true);
+      }, 1000);
+    }
+  }, [paymentMethodSelected]);
+
+  const validateAmount = validAmount => {
+    // handle valid here
+    let validStat = true;
+    let validMsg = "";
+    let variant = "";
+    if (validAmount === 0) {
+      validStat = false;
+      validMsg = "";
+      variant = "warning";
+    } else if (!paymentMethodSelected?.balance) {
+      validStat = false;
+      validMsg = "กรุณาเลือกบัญชีที่ต้องการใช้หักเงิน";
+      variant = "error";
+    } else if (validAmount > Number(paymentMethodSelected?.balance)) {
+      validStat = false;
+      validMsg = `ยอดเงินคงเหลือใน${paymentMethodSelected?.text || "บัญชี"}ไม่พอ`;
+      variant = "error";
+    } else if (validAmount < infoData?.minimumInvestment) {
+      validStat = false;
+      validMsg = `ขั้นต่ำ ${i18n?.localiseCurrency({
+        value: infoData?.minimumInvestment,
+        hideCurrency: true
+      })} บาท`;
+      variant = "error";
+    }
+    setInvestingAmountValidStat(validStat);
+    setInvestingAmountValidMsg(validMsg);
+    setInvestingAmountVariant(variant);
+  };
+
+  const handleAmountInput = ({ nativeEvent }) => {
+    setIsEditing(true);
+    const { text } = nativeEvent;
+    const replacedCommas = text.split(",").join("");
+    const validStat = true;
+    const validMsg = "";
+    const variant = "";
+    const intLength = replacedCommas.split(".")[0].length;
+    let usingValue = String(replacedCommas);
+
+    const regex = new RegExp("^[0-9]*\\.?[0-9]*$");
+
+    if (!Number.isNaN(Number(usingValue)) && intLength <= 10) {
+      if (replacedCommas.match(regex) && intLength > 0) {
+        const numericValue = Number(replacedCommas);
+
+        // handle valid here
+        if (replacedCommas.includes(".")) {
+          const dec = replacedCommas.split(".")[1].length;
+          if (dec > 0 && dec <= 2) {
+            usingValue = numericValue.toFixed(dec);
+          } else if (dec > 2) {
+            usingValue = investingAmount;
+          }
+        }
+        setInvestingAmountValidStat(validStat);
+        setInvestingAmountValidMsg(validMsg);
+        setInvestingAmountVariant(variant);
+      }
+      setInvestingAmount(usingValue);
+    }
+  };
+
+  const handleAmountOnComplete = () => {
+    setIsEditing(false);
+    const text = investingAmount;
+    const textNum = text.replace(/,/g, "");
+    const numbericValue = Number(textNum);
+
+    validateAmount(numbericValue);
+  };
+
+  const onSelectPaymentMethod = paymentMethod => {
+    setPaymentMethodSelected(paymentMethod);
+    validateAmount(investingAmount);
+  };
+
+  const pressRiskConfirm = () => {
+    setVisibleRisk(false);
+    const info = onceActive
+      ? {
+          transactionHash: uuidV4(),
+          buyType: DA_FUND_BUY_PLAN_ONCE,
+          strategy: infoData.fundShortName,
+          strategyDetail: infoData.fundName,
+          fundId: infoData.fundId,
+          fundCode: infoData.fundShortName,
+          companyId: fundCompanyId,
+          paymentMethod: paymentMethodSelected.code,
+          paymentTitle: paymentMethodSelected.text,
+          paymentAcc: paymentMethodSelected.accountNumber,
+          paymentType: paymentMethodSelected.code,
+          amount: String(Number(investingAmount).toFixed(2))
+        }
+      : {
+          transactionHash: uuidV4(),
+          buyType: DA_FUND_BUY_MONTHLY,
+          strategy: infoData.fundShortName,
+          strategyDetail: infoData.fundName,
+          fundId: infoData.fundId,
+          fundCode: infoData.fundShortName,
+          companyId: fundCompanyId,
+          paymentMethod: paymentMethodSelected.code,
+          paymentTitle: paymentMethodSelected.text,
+          paymentAcc: paymentMethodSelected.accountNumber,
+          paymentType: paymentMethodSelected.code,
+          amount: String(Number(investingAmount).toFixed(2)),
+          scheduleDate: buyScheduleDate
+        };
+
+    goNext({
+      info,
+      postconfirmType: onceActive ? BUY_POST_CONFIRM_SCREEN : CREATE_PLAN_POST_CONFIRM_SCREEN,
+      title: "ตรวจสอบข้อมูลการลงทุน"
+    });
+  };
+
+  const pressConfirm = () => {
+    setVisibleRisk(true);
+  };
+
+  const modalCancel = () => {
+    setVisibleRisk(false);
+  };
+
+  const renderAmountInput = () => {
+    return (
+      <TextInput
+        label={i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.Once.InvestingAmount"]}
+        value={investingAmount === "" ? "" : fundAmountWithCommas(investingAmount, 2, false)}
+        onEndEditing={handleAmountOnComplete}
+        onBlur={handleAmountOnComplete}
+        onChange={handleAmountInput}
+        placeholder="0.00"
+        suffixPlaceholder="บาท"
+        variant={investingAmountVariant}
+        helperText={investingAmountValidMsg}
+        keyboardType="decimal-pad"
+      />
+    );
+  };
+
+  const loadPaymentMethods = () => {
+    let paymentMethodsData = paymentList.filter(paymentMethod =>
+      supportedSystems.includes(paymentMethod.code)
+    );
+
+    const hasEiWallet =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET && paymentMethod.isEnabled === true
+      ) !== undefined;
+
+    const isEnabledWalletWithoutPaymentList =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.isEnabled === false &&
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET &&
+          paymentMethod.accountNumber === ""
+      ) !== undefined;
+
+    const isEnabledWalletWithPaymentList =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.isEnabled === false &&
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET &&
+          paymentMethod.accountNumber !== ""
+      ) !== undefined;
+
+    if (isEnabledWalletWithoutPaymentList) {
+      paymentMethodsData = [
+        {
+          accountNumber: "0",
+          code: "GO_TO_EI_WALLET",
+          text: "บัญชีบริหารเงินสด",
+          linkToOpenAccount: true
+        }
+      ];
+    } else if (isEnabledWalletWithPaymentList) {
+      paymentMethodsData.push({
+        accountNumber: "0",
+        code: "GO_TO_EI_WALLET",
+        text: "บัญชีบริหารเงินสด",
+        linkToOpenAccount: true
+      });
+    }
+
+    setPaymentMethods(prevState => ({
+      ...prevState,
+      data: paymentMethodsData,
+      isLoading: false,
+      isLoaded: true,
+      isError: false
+    }));
+
+    if (hasEiWallet) {
+      setPaymentMethodSelected(
+        paymentMethodsData.find(method => method.code === DA_PAYMENT_SYSTEM.EI_WALLET)
+      );
+    }
+
+    if (!hasEiWallet) {
+      setTimeout(() => {
+        setIsVisible(true);
+      }, 1000);
+    }
+  };
+
+  const loadPaymentListMethods = async () => {
+    if (paymentMethods.isLoading || paymentMethods.isLoaded) {
+      return;
+    }
+    setPaymentMethods(prevState => ({ ...prevState, isLoading: true }));
+    await getDaFundPayment();
+  };
+
+  useEffect(() => {
+    loadPaymentListMethods();
+    getDaFundUserRisk({ companyId: fundCompanyId, riskLevel: userInfo.riskLevel });
+  }, []);
+
+  useEffect(() => {
+    if (!isEmpty(paymentList) && !isPaymentLoading) {
+      loadPaymentMethods();
+    }
+  }, [paymentList, isPaymentLoading]);
+
+  const onResetDaFundPayment = async () => {
+    await resetDaFundPayment();
+  };
+
+  return (
+    <>
+      {(paymentMethods.isLoading || loadingDAFundUserRiskLevel) && (
+        <LoadingScreen textVariant="high" />
+      )}
+
+      {paymentMethods.isLoaded && !loadingDAFundUserRiskLevel && !isPaymentLoading && (
+        <>
+          <KeyboardAwareScrollView
+            automaticallyAdjustContentInsets={false}
+            viewIsInsideTabBar
+            extraScrollHeight={70}
+          >
+            <DigitalAssetsFund {...props}>
+              <Warpper>
+                <ScrollViewContainer>
+                  <Container flexDirection="column" justifyContent="flex-start">
+                    <InputContainer>
+                      <Header3 style={{ marginBottom: 8 }}>
+                        {i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.PayingAccount"]}
+                      </Header3>
+                      <SelectAccount
+                        label={
+                          i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.PayingAccount"]
+                        }
+                        options={paymentMethods.data}
+                        renderPlaceholder={() => (
+                          <OptionAccountPlaceholder
+                            title={
+                              i18n.translations[
+                                "DigitalAssets.FiatWithdraw.Main.SelectAccountLabel"
+                              ]
+                            }
+                          />
+                        )}
+                        renderSelected={option => (
+                          <OptionWalletAccount
+                            type={option.code}
+                            account={option.text}
+                            accountNumber={option.accountNumber}
+                            linkToOpenAccount={option.linkToOpenAccount}
+                          />
+                        )}
+                        renderOption={option => (
+                          <OptionWalletAccount
+                            type={option.code}
+                            account={option.text}
+                            accountNumber={option.accountNumber}
+                            linkToOpenAccount={option.linkToOpenAccount}
+                            isOption
+                          />
+                        )}
+                        keyExtractor={item => item.accountNumber}
+                        selectedAccount={paymentMethodSelected}
+                        setSelectedAccount={onSelectPaymentMethod}
+                      />
+                      <Header3 style={{ marginTop: 8 }}>
+                        {i18n.translations["DigitalAssets.FiatDeposit.Main.BalanceRemain"]}:{" "}
+                        {amountValueDisplay(paymentMethodSelected?.balance)}{" "}
+                        {i18n.translations["General.Currencies.THB"]}
+                      </Header3>
+                    </InputContainer>
+                    <Separator variant="full" />
+                    <View style={{ padding: 16 }}>
+                      <Header3 style={{ marginBottom: 8 }}>
+                        {i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.BuyingType"]}
+                      </Header3>
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-around",
+                        textAlign: "center",
+                        borderBottomWidth: 1,
+                        borderBottomColor: "#EAEAEA"
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() => {
+                          setOnceActive(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          borderBottomWidth: 2.5,
+                          borderRadius: 2,
+                          borderBottomColor: onceActive ? "#855AFF" : "#FFFFFF",
+                          justifyContent: "center"
+                        }}
+                      >
+                        <Body1
+                          style={{
+                            textAlign: "center",
+                            color: onceActive ? "#855AFF" : "#7E7E7E",
+                            padding: 10
+                          }}
+                        >
+                          {i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.Once.Header"]}
+                        </Body1>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setOnceActive(false);
+                        }}
+                        style={{
+                          flex: 1,
+                          borderBottomWidth: 2.5,
+                          borderBottomColor: onceActive ? "#FFFFFF" : "#855AFF",
+                          justifyContent: "center"
+                        }}
+                      >
+                        <Body1
+                          style={{
+                            textAlign: "center",
+                            color: onceActive ? "#7E7E7E" : "#855AFF",
+                            padding: 10
+                          }}
+                        >
+                          {i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.Monthly.Header"]}
+                        </Body1>
+                      </TouchableOpacity>
+                    </View>
+
+                    {onceActive ? (
+                      <>
+                        {/* <InputContainer>
+                        <TextInput
+                          label={
+                            i18n.translations[
+                              "DigitalAssetsFunds.Fund.CreatingPlan.Once.EffectiveDate"
+                            ]
+                          }
+                          placeholder={getEffectiveDate(i18n)}
+                          disabled
+                        />
+                        <Body3 style={{ textAlign: "center", marginTop: 16, color: "#7E7E7E" }}>
+                          {
+                            i18n.translations[
+                              "DigitalAssetsFunds.Fund.CreatingPlan.Once.EffectiveDateDetail"
+                            ]
+                          }
+                        </Body3>
+                      </InputContainer> */}
+                        <InputContainer>{renderAmountInput()}</InputContainer>
+                      </>
+                    ) : (
+                      <>
+                        <InputContainer>
+                          <MockTextInput
+                            label={
+                              i18n.translations[
+                                "DigitalAssetsFunds.Fund.CreatingPlan.Monthly.MonthlyDate"
+                              ]
+                            }
+                            placeholder="เลือกวันที่"
+                            clickFunction={() => {
+                              setShowModal(!showModal);
+                            }}
+                            value={buyScheduleDate}
+                            rightComponent={
+                              <CurvIconContainer>
+                                <Icon name="calendar" size="icon24" />
+                              </CurvIconContainer>
+                            }
+                            height={48}
+                          />
+
+                          <BottomModal isVisible={showModal}>
+                            <PickerRoller
+                              confirmText="ตกลง"
+                              selectedValue={buyScheduleDate}
+                              pickerData={dateArray}
+                              onConfirm={value => {
+                                setShowModal(!showModal);
+                                setBuyScheduleDate(value);
+                              }}
+                            />
+                          </BottomModal>
+
+                          <Body3 style={{ textAlign: "center", marginTop: 16, color: "#7E7E7E" }}>
+                            {
+                              i18n.translations[
+                                "DigitalAssetsFunds.Fund.CreatingPlan.Monthly.MonthlyDateDetail"
+                              ]
+                            }
+                          </Body3>
+                        </InputContainer>
+                        <InputContainer>{renderAmountInput()}</InputContainer>
+                      </>
+                    )}
+                  </Container>
+                  <SeparatorBottom variant="full" />
+                </ScrollViewContainer>
+                <RiskModal
+                  isVisible={visibleRisk}
+                  onConfirm={() => pressRiskConfirm()}
+                  onCancel={() => modalCancel()}
+                  userRiskLevel={
+                    daFundUserRiskLevel ? daFundUserRiskLevel.currentRisKLevel : infoData.riskLevel
+                  }
+                  strategyRiskLevel={infoData.riskLevel}
+                />
+                <DigitalAssetsFiatOpenEiWalletModal
+                  isVisible={isVisible}
+                  close={() => setIsVisible(false)}
+                  openEiWallet={() => {
+                    onResetDaFundPayment();
+                    props.navigator.pop({ animated: false });
+                    props.navigator.push({
+                      screen: WALLET_PROFILE_SCREEN_ID,
+                      title: props.i18n.translations["Wallet.AccountTitle"],
+                      backButtonTitle: "",
+                      animationType: "slide-horizontal",
+                      navigatorStyle: { tabBarHidden: true }
+                    });
+                  }}
+                />
+              </Warpper>
+            </DigitalAssetsFund>
+          </KeyboardAwareScrollView>
+          <ButtomWarpper>
+            <Button
+              label={i18n.translations["DigitalAssetsFunds.Fund.CreatingPlan.ConfirmButton"]}
+              size="large"
+              onPress={() => pressConfirm()}
+              disable={
+                isEditing === true ||
+                investingAmountValidStat === false ||
+                (!onceActive && !buyScheduleDate) ||
+                (!isEmpty(paymentMethodSelected) &&
+                  paymentMethodSelected?.code === DA_PAYMENT_SYSTEM.GO_TO_EI_WALLET)
+              }
+            />
+          </ButtomWarpper>
+        </>
+      )}
+    </>
+  );
+};
+
+DigitalAssetsFundCreatePlan.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  i18n: PropTypes.shape({
+    translations: PropTypes.object,
+    getLabel: PropTypes.func,
+    localiseDate: PropTypes.func,
+    localiseCurrency: PropTypes.func
+  }).isRequired,
+  goNext: PropTypes.func.isRequired,
+  fundCompanyId: PropTypes.number.isRequired,
+  infoData: PropTypes.shape().isRequired,
+  loadingDAFundUserRiskLevel: PropTypes.bool.isRequired,
+  daFundUserRiskLevel: PropTypes.shape({
+    currentRisKLevel: PropTypes.number
+  }).isRequired,
+  getDaFundUserRisk: PropTypes.func.isRequired,
+  userInfo: PropTypes.oneOfType([PropTypes.array, PropTypes.object]).isRequired,
+  isPaymentLoading: PropTypes.bool.isRequired,
+  paymentList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  getDaFundPayment: PropTypes.func.isRequired,
+  resetDaFundPayment: PropTypes.func.isRequired,
+};
+
+export default DigitalAssetsFundCreatePlan;

@@ -1,0 +1,103 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { View } from "react-native";
+import I18n from "react-native-i18n";
+import { Header2, Body3, Icon } from "../../../components-2";
+import theme from "../../../theme";
+import { amountValueDisplay } from "../../../modules/i18n/value-display";
+import WalletDAFiatActivity from "./WalletDAFiatAcitivity";
+import WalletIcon from "../../wallet-main/wallet-icon";
+import WalletActionPanel from "../../wallet-main/wallet-action-panel";
+
+const ChevronBackground = styled.View(props => ({
+  marginTop: props.theme.spacingXXSmallValue,
+  marginLeft: props.theme.spacingXXSmallValue,
+  backgroundColor: props.theme.explanationBackgroundColor,
+  borderRadius: props.theme.spacingXXLarge,
+  height: props.theme.spacingMediumValue,
+  color: props.theme.radioInputSelectedButton
+}));
+
+const WalletDAFiat = props => {
+  const {
+    switchToDAAssetTab,
+    navigateToDeposit,
+    navigateToWithdraw,
+    navigateToTrade,
+    digitalAssetsPortfolioCoinValue
+  } = props;
+
+  return (
+    <View style={{ marginBottom: 88 }}>
+      <WalletActionPanel
+        iconActions={[
+          {
+            key: "deposit",
+            icon: "deposit",
+            text: I18n.t("WalletMain.DAFiat.Deposit"),
+            onPress: navigateToDeposit
+          },
+          {
+            key: "withdraw",
+            icon: "withdraw",
+            text: I18n.t("WalletMain.DAFiat.Withdraw"),
+            onPress: navigateToWithdraw
+          },
+          {
+            key: "trade",
+            icon: "da-asset",
+            text: I18n.t("WalletMain.DAFiat.Trade"),
+            onPress: navigateToTrade
+          }
+        ]}
+      />
+
+      <View style={{ backgroundColor: theme.backgroundTertiaryGrey, height: 4 }} />
+
+      <TouchableOpacity onPress={switchToDAAssetTab}>
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderColor: theme.contentColorLight,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <WalletIcon bgIcon={theme.backgroundLighterBlue} iconName="DAAsset" iconSize="icon16" />
+            <Body3 style={{ marginLeft: 4 }}>{I18n.t("WalletMain.WalletList.DAAsset")}</Body3>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Header2 style={{ marginRight: 4 }}>
+              {amountValueDisplay(digitalAssetsPortfolioCoinValue).trim() || "0.00"}
+            </Header2>
+            <Body3 style={{ color: theme.contentColorHigh }}>
+              {I18n.t("General.Currencies.THB")}
+            </Body3>
+            <ChevronBackground>
+              <Icon name="chevron-right-2" color={theme.radioInputSelectedButton} size="icon16" />
+            </ChevronBackground>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <WalletDAFiatActivity {...props} />
+    </View>
+  );
+};
+
+WalletDAFiat.propTypes = {
+  switchToDAAssetTab: PropTypes.func.isRequired,
+  navigateToDeposit: PropTypes.func.isRequired,
+  navigateToWithdraw: PropTypes.func.isRequired,
+  navigateToTrade: PropTypes.func.isRequired,
+  digitalAssetsPortfolioCoinValue: PropTypes.number.isRequired
+};
+
+export default WalletDAFiat;

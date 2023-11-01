@@ -1,0 +1,202 @@
+import React, { useCallback } from "react";
+
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+
+import styled, { withTheme } from "styled-components/native";
+import { Linking } from "react-native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import { getConfig } from "../../../Config";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import {
+  HELP_MODAL_CALL_BACK_BACK_BUTTON,
+  HELP_MODAL_CALL_EBIZ_BUTTON,
+  HELP_MODAL_LINE_CHAT_BUTTON,
+  HELP_MODAL_CALL_BACK_BUTTON,
+  HELP_MODAL_CLOSE_BUTTON
+} from "../../../modules/analytics/analytics-constants";
+
+import { Icon, Header1, Body2, SVGIcon } from "../../../components-2";
+import { navigationPushScreen } from "../../../modules/navigation";
+import { tabBarHiddenStyle, onboardingNavbarStyle } from "../../../modules/navigation/defaultStyle";
+import { getCurentDateDASlipFormat } from "../../../modules/format";
+
+const Container = styled.View`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+`;
+
+const BodyContainer = styled.View`
+  background-color: ${props => props.theme.backgroundWhite};
+  border-top-left-radius: ${props => props.theme.spacingMedium};
+  border-top-right-radius: ${props => props.theme.spacingMedium};
+  padding: ${props => props.theme.spacingMedium};
+  padding-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const HeaderContainer = styled.View`
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+`;
+
+const Title = styled(Header1)`
+  text-align: center;
+`;
+
+const SubTitle = styled(Body2)`
+  text-align: center;
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const CloseContainer = styled.View`
+  position: absolute;
+  right: ${props => props.theme.spacingMedium};
+  top: ${props => props.theme.spacingMedium};
+`;
+
+const CloseIcon = styled(Icon).attrs({
+  name: "close-2",
+  color: "black"
+})``;
+
+const Row = styled(TouchableOpacity)`
+  flex-direction: row;
+  align-items: center;
+  padding-horizontal: ${props => props.theme.spacingXXSmall};
+  padding-vertical: ${props => props.theme.spacingSmall};
+`;
+
+export const PhoneIcon = styled(Icon).attrs(() => ({
+  name: "phone-with-signal",
+  size: "icon16"
+}))``;
+
+const Text = styled(Body2)`
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+const HelpContact = props => {
+  const { screenName, errorCode, onPressBack: propsOnPressBack } = props;
+  const { CONTACT_US_SCBS_CALLCENTER, INVX_LINE_OA_URL } = getConfig();
+
+  const trackingParam = useCallback(() => {
+    const parameter = {
+      screen_name: screenName
+    };
+    if (errorCode) {
+      parameter.error_code = errorCode;
+    }
+    return parameter;
+  }, [screenName, errorCode]);
+
+  const openPhoneApp = () => {
+    const phoneNumber = `tel:${CONTACT_US_SCBS_CALLCENTER}`;
+    Linking.openURL(phoneNumber);
+    trackEvent(HELP_MODAL_CALL_EBIZ_BUTTON, trackingParam());
+  };
+
+  const openLineApp = useCallback(() => {
+    const dateStr = getCurentDateDASlipFormat();
+    const message = I18n.t("Onboarding.HelpContact.Line.Message", {
+      screenName,
+      date: dateStr.split("-")[0],
+      time: dateStr.split("-")[1]
+    });
+    const encodeMessage = encodeURIComponent(message);
+
+    Linking.openURL(`${INVX_LINE_OA_URL}/?${encodeMessage}`);
+    trackEvent(HELP_MODAL_LINE_CHAT_BUTTON, trackingParam());
+  }, []);
+
+  const openAdminAppointments = () => {
+    Navigation.dismissModal({ animationType: "none" });
+
+    const params = {
+      screen: "scheduleCallBack",
+      backButtonHidden: true,
+      navigatorStyle: {
+        ...tabBarHiddenStyle,
+        ...onboardingNavbarStyle,
+        navBarCustomView: "backButtonNavigationBar",
+        navBarCustomViewInitialProps: {
+          title: I18n.t("Onboarding.ScheduleCallBack.NavigationTitle"),
+          defaultStyle: {},
+          onPressBack: () => {
+            propsOnPressBack();
+            trackEvent(HELP_MODAL_CALL_BACK_BACK_BUTTON, trackingParam());
+          }
+        }
+      }
+    };
+
+    navigationPushScreen(params, 500, () =>
+      trackEvent(HELP_MODAL_CALL_BACK_BUTTON, trackingParam())
+    );
+  };
+
+  const contactUsList = [
+    {
+      svgIconName: "LinealPhone",
+      title: I18n.t("Onboarding.HelpContact.Phone"),
+      onPress: openPhoneApp
+    },
+    {
+      svgIconName: "LinealPerson",
+      title: I18n.t("Onboarding.HelpContact.EBiz"),
+      onPress: openAdminAppointments
+    },
+    {
+      svgIconName: "Line",
+      title: I18n.t("Onboarding.HelpContact.Line.Label"),
+      onPress: openLineApp
+    }
+  ];
+
+  return (
+    <Container>
+      <BodyContainer>
+        <HeaderContainer>
+          <Title>{I18n.t("Onboarding.HelpContact.Title")}</Title>
+          <SubTitle>{I18n.t("Onboarding.HelpContact.SubTitle")}</SubTitle>
+        </HeaderContainer>
+        <CloseContainer>
+          <TouchableOpacity
+            onPress={() => {
+              Navigation.dismissModal({ animationType: "none" });
+              trackEvent(HELP_MODAL_CLOSE_BUTTON, trackingParam());
+            }}
+          >
+            <CloseIcon />
+          </TouchableOpacity>
+        </CloseContainer>
+        {contactUsList.map(item => {
+          const { title, svgIconName, onPress } = item;
+          return (
+            <Row key={title} onPress={() => onPress()}>
+              <SVGIcon name={svgIconName} />
+              <Text>{title}</Text>
+            </Row>
+          );
+        })}
+      </BodyContainer>
+    </Container>
+  );
+};
+
+HelpContact.defaultProps = {
+  errorCode: undefined,
+  onPressBack: () => {}
+};
+
+HelpContact.propTypes = {
+  screenName: PropTypes.string.isRequired,
+  errorCode: PropTypes.string,
+  onPressBack: PropTypes.func
+};
+
+export default withTheme(HelpContact);

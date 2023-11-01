@@ -1,0 +1,48 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+const ItemContainer = styled(TouchableOpacity)`
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  align-content: center;
+  border-radius: 8px;
+  background-color: ${props => props.theme.contentColorWhite};
+  border-width: ${props => props.selected ? 2 : 1}px;
+  border-color: ${props =>
+    // eslint-disable-next-line no-nested-ternary
+    props.disabled ? props.theme.contentColorDisabled
+      : props.selected ? props.theme.contentColorCTAPurple
+        : props.theme.contentColorLight};
+  padding-horizontal: 18px;
+  padding-vertical: 10px;
+`;
+
+class SelectTextRow extends PureComponent {
+  render() {
+    const { disabled, onPress, selected, children } = this.props;
+    return (
+      <ItemContainer disabled={disabled} onPress={() => onPress(!selected)} selected={selected}>
+        {children}
+      </ItemContainer>
+    );
+  }
+}
+
+export default SelectTextRow;
+
+SelectTextRow.defaultProps = {
+  children: null,
+  disabled: false,
+  onPress: () => {},
+  selected: false
+};
+
+SelectTextRow.propTypes = {
+  children: PropTypes.arrayOf(PropTypes.element),
+  disabled: PropTypes.bool,
+  onPress: PropTypes.func,
+  selected: PropTypes.bool
+};

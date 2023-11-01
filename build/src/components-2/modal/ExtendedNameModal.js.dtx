@@ -1,0 +1,125 @@
+import React, { PureComponent, Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import InformationalModal from "./InformationalModal";
+import { Body3 } from "../text/Text";
+import Icon from "../icon/Icon";
+
+const ICON_WIDTH = 24;
+
+const EllipsisIcon = styled(Icon).attrs(props => ({
+  name: "ellipsis",
+  size: "icon8",
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const TouchableIcon = styled(TouchableOpacity).attrs(props => ({
+  hitSlop: props.theme.iconHitSlopSmall
+}))`
+  width: ${ICON_WIDTH}px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 2px;
+`;
+
+const TouchableIconButtonOnly = styled(TouchableOpacity).attrs(props => ({
+  hitSlop: props.theme.iconHitSlopSmall
+}))`
+  width: ${ICON_WIDTH}px;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 2px;
+`;
+
+const NameText = styled(Body3).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const InformationMessage = styled(Body3)`
+  margin-top: 16px;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const NameTitleContainer = styled.View`
+  justify-content: center;
+`;
+const NameTitle = styled.View``;
+
+class ExtendedNameModal extends PureComponent {
+  state = {
+    modalVisible: false,
+    titleWidth: null
+  };
+
+  toggleModal = () => {
+    this.setState(prevState => ({
+      modalVisible: !prevState.modalVisible
+    }));
+  };
+
+  handleTitleLayout = ({ nativeEvent }) => {
+    const titleWidth = nativeEvent.layout.width;
+    this.setState({
+      titleWidth
+    });
+  };
+
+  render() {
+    const { buttonOnly, assetCode, assetName, variant, signPost, preTitle } = this.props;
+    const { modalVisible, titleWidth } = this.state;
+    const titleTextWidth = titleWidth - ICON_WIDTH;
+
+    return (
+      <Fragment>
+        {buttonOnly ? (
+          <TouchableIconButtonOnly onPress={this.toggleModal}>
+            <EllipsisIcon size="icon8" />
+          </TouchableIconButtonOnly>
+        ) : (
+          <NameTitleContainer onLayout={this.handleTitleLayout}>
+            <NameTitle style={{ width: titleTextWidth }}>
+              <NameText variant={variant}>{!buttonOnly ? assetName : ""}</NameText>
+            </NameTitle>
+            <TouchableIcon onPress={this.toggleModal}>
+              <EllipsisIcon />
+            </TouchableIcon>
+          </NameTitleContainer>
+        )}
+
+        <InformationalModal
+          preTitle={preTitle}
+          signPost={signPost}
+          title={assetCode}
+          visible={modalVisible}
+          onRequestClose={this.toggleModal}
+        >
+          <InformationMessage>{assetName}</InformationMessage>
+        </InformationalModal>
+      </Fragment>
+    );
+  }
+}
+
+ExtendedNameModal.defaultProps = {
+  variant: "subdued-reversed",
+  buttonOnly: false
+};
+
+ExtendedNameModal.propTypes = {
+  assetCode: PropTypes.string.isRequired,
+  assetName: PropTypes.string.isRequired,
+  signPost: PropTypes.string.isRequired,
+  preTitle: PropTypes.string.isRequired,
+  variant: PropTypes.string,
+  buttonOnly: PropTypes.bool
+};
+
+export default ExtendedNameModal;

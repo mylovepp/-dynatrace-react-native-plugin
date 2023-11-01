@@ -1,0 +1,168 @@
+import React from "react";
+import { TouchableHighlight } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { SvgXml } from "react-native-svg";
+import PropTypes from "prop-types";
+import Tooltip from "react-native-walkthrough-tooltip";
+import { View, ScrollView } from "react-native";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+import { Row, Body2, Header1, PrimaryButton, SecondaryButton } from "../../components-2";
+
+const ContentWrapper = styled.View`
+  height: ${props => (props.height ? props.height : 312)}px;
+  width: ${props => (props.width ? props.width : 264)}px;
+  border-radius: ${props => props.theme.spacingMedium};
+`;
+
+const ButtonContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  flex-wrap: nowrap;
+`;
+
+const ContentContainer = styled.View`
+  padding: 8px 8px 0px;
+`;
+
+const ImageContent = styled.Image`
+  width: 100%;
+  border-radius: 10px;
+`;
+
+const TutorialTooltip = props => {
+  const {
+    placement,
+    isVisible,
+    sourceImage,
+    sourceSvgImage,
+    title,
+    description,
+    contentBody,
+    onPressSkip,
+    onPressNext,
+    onPressComplete,
+    contentHeight,
+    contentWidth
+  } = props;
+  return (
+    <Tooltip
+      childrenWrapperStyle={props.childrenWrapperStyle}
+      childContentSpacing={props.childContentSpacing}
+      displayInsets={props.displayInsets}
+      parentWrapperStyle={props.parentWrapperStyle}
+      arrowSize={{ width: 16, height: 10 }}
+      contentStyle={{ ...props.contentStyle, borderRadius: 16 }}
+      placement={placement}
+      isVisible={isVisible}
+      onClose={() => {}}
+      accessible={false}
+      content={
+        <ScrollView>
+          <TouchableHighlight accessible={false}>
+            <ContentWrapper height={contentHeight} width={contentWidth}>
+              {sourceImage && <ImageContent source={sourceImage} />}
+              {sourceSvgImage && <SvgXml xml={sourceSvgImage} />}
+              <ContentContainer>
+                {title && <Header1>{title}</Header1>}
+                {description && <Body2>{description}</Body2>}
+                {contentBody && contentBody}
+              </ContentContainer>
+              <Row
+                containerStyle={{ paddingLeft: 8, paddingRight: 8 }}
+                left={
+                  onPressSkip && (
+                    <ButtonContainer>
+                      <SecondaryButton
+                        style={{ borderColor: "#fff" }}
+                        size="small"
+                        label={i18n.t("Tutorial.Button.Skip")}
+                        onPress={onPressSkip}
+                      />
+                    </ButtonContainer>
+                  )
+                }
+                middle={
+                  onPressComplete && (
+                    <PrimaryButton
+                      size="small"
+                      label={i18n.t("Tutorial.Button.Complete")}
+                      onPress={onPressComplete}
+                      fullWidth
+                    />
+                  )
+                }
+                right={
+                  onPressNext && (
+                    <ButtonContainer>
+                      <PrimaryButton
+                        size="small"
+                        label={i18n.t("Tutorial.Button.Next")}
+                        onPress={onPressNext}
+                      />
+                    </ButtonContainer>
+                  )
+                }
+              />
+            </ContentWrapper>
+          </TouchableHighlight>
+        </ScrollView>
+      }
+    >
+      {isVisible && (
+        <View
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            zIndex: 1000
+          }}
+        />
+      )}
+      {props.children}
+    </Tooltip>
+  );
+};
+
+TutorialTooltip.defaultProps = {
+  placement: "bottom",
+  isVisible: false,
+  children: null,
+  sourceImage: null,
+  sourceSvgImage: null,
+  title: null,
+  description: null,
+  onPressSkip: null,
+  onPressNext: null,
+  onPressComplete: null,
+  contentHeight: null,
+  contentWidth: null,
+  childContentSpacing: null,
+  displayInsets: null,
+  parentWrapperStyle: null,
+  childrenWrapperStyle: null,
+  contentStyle: null,
+  contentBody: null
+};
+
+TutorialTooltip.propTypes = {
+  placement: PropTypes.string,
+  isVisible: PropTypes.bool,
+  children: PropTypes.node,
+  sourceImage: PropTypes.string,
+  sourceSvgImage: PropTypes.string,
+  title: PropTypes.string,
+  description: PropTypes.string,
+  onPressSkip: PropTypes.func,
+  onPressNext: PropTypes.func,
+  onPressComplete: PropTypes.func,
+  contentHeight: PropTypes.number,
+  contentWidth: PropTypes.number,
+  childContentSpacing: PropTypes.number,
+  displayInsets: PropTypes.shape(PropTypes.any),
+  parentWrapperStyle: PropTypes.shape(PropTypes.any),
+  childrenWrapperStyle: PropTypes.shape(PropTypes.any),
+  contentStyle: PropTypes.shape(PropTypes.any),
+  contentBody: PropTypes.node
+};
+
+export default TutorialTooltip;

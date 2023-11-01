@@ -1,0 +1,136 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React from "react";
+import { Platform, StatusBar } from "react-native";
+import styled, { css } from "styled-components/native";
+import { ifProp } from "styled-tools";
+import { Icon } from "../../components-2";
+
+const statusBarHeight = StatusBar.currentHeight || 24;
+
+/** ******************************************* */
+// Styles
+/** ******************************************* */
+
+const NavBarContainer = styled.View(props => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  height:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXLargeValue * 3}px`
+      : props.theme.spacingXLargeValue * 3 - statusBarHeight,
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXLargeValue + 14}px`
+      : `${props.theme.spacingXXLargeValue + 14 - statusBarHeight}px`,
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: !props.isNoBackgroundColor && props.theme.backgroundSecondaryPurple,
+  borderBottomLeftRadius: props.isShowBottomRadius && props.theme.spacingMedium,
+  borderBottomRightRadius: props.isShowBottomRadius && props.theme.spacingMedium,
+  boxShadow:
+    props.isShowBottomRadius &&
+    `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const IconButton = styled(TouchableOpacity)``;
+
+const LeftContainer = styled.View(() => ({
+  flex: 1,
+  flexDirection: "row",
+  justifyContent: "flex-start"
+}));
+
+const MiddleContainer = styled.View(() => ({
+  flex: 3,
+  alignItems: "center"
+}));
+
+const RightContainer = styled.View(props => ({
+  flex: props.rightContainerSize || 1,
+  flexDirection: "row",
+  justifyContent: "flex-end"
+}));
+
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const TitleText = styled.Text`
+  color: ${props => props.theme.contentColorVeryHigh}
+    ${ifProp(
+      { variant: "title-regular" },
+      css`
+        ${props => props.theme.graphikNav}
+      `,
+      css`
+        ${props => props.theme.display3}
+      `
+    )};
+`;
+
+const NavigationBar = props => {
+  const {
+    testId,
+    title,
+    isShowBottomRadius,
+    onPressBackButton,
+    rightComponent,
+    variant,
+    isNoBackgroundColor,
+    rightContainerSize
+  } = props;
+
+  return (
+    <NavBarContainer
+      isShowBottomRadius={isShowBottomRadius}
+      isNoBackgroundColor={isNoBackgroundColor}
+    >
+      <LeftContainer>
+        {onPressBackButton && (
+          <IconButton
+            accessible
+            accessibilityLabel={testId}
+            testID={testId}
+            onPress={onPressBackButton}
+          >
+            <BackIcon />
+          </IconButton>
+        )}
+      </LeftContainer>
+      <MiddleContainer>
+        <TitleText variant={variant} numberOfLines={1}>
+          {title}
+        </TitleText>
+      </MiddleContainer>
+      <RightContainer rightContainerSize={rightContainerSize}>{rightComponent}</RightContainer>
+    </NavBarContainer>
+  );
+};
+
+NavigationBar.defaultProps = {
+  testId: undefined,
+  title: "",
+  isShowBottomRadius: true,
+  onPressBackButton: null,
+  rightComponent: null,
+  variant: "",
+  isNoBackgroundColor: false,
+  rightContainerSize: undefined
+};
+
+NavigationBar.propTypes = {
+  testId: PropTypes.string,
+  title: PropTypes.string,
+  isShowBottomRadius: PropTypes.bool,
+  onPressBackButton: PropTypes.func,
+  rightComponent: PropTypes.node,
+  variant: PropTypes.string,
+  isNoBackgroundColor: PropTypes.bool,
+  rightContainerSize: PropTypes.number
+};
+
+export default NavigationBar;

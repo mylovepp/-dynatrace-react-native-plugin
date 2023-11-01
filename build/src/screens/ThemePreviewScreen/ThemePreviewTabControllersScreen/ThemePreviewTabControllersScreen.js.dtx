@@ -1,0 +1,200 @@
+// @ts-nocheck
+import React, { Component } from "react";
+import { Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+
+import styled from "styled-components/native";
+import APSL from "apsl-react-native-button";
+
+import { BaseTabs, ChipTabs, ComboTabs, SegmentTabs, ViewContainer } from "../../../components-2";
+
+const Background = styled(ViewContainer).attrs({ isFullScreen: true, variant: "light" })({
+  paddingTop: 32
+});
+
+const Scrollable = styled.ScrollView({
+  paddingHorizontal: "20px"
+});
+
+const Fluff = styled.View({
+  height: 120
+});
+
+const ButtonContainer = styled.View(() => ({
+  flexDirection: "row"
+}));
+
+const Button = styled(APSL)(props => ({
+  flex: 1,
+  marginRight: "8px",
+  height: "32px",
+  maxWidth: "60px",
+  backgroundColor: props.active ? props.theme.ctaPurple : props.theme.backgroundWhite
+}));
+
+const TitleContainer = styled.View(props => ({
+  flexDirection: "row",
+  marginVertical: props.theme.spacingLarge,
+  alignItems: "flex-start",
+  paddingHorizontal: props.theme.spacingMediumLarge
+}));
+
+const Title = styled.Text({ fontWeight: 500, color: "#111" });
+
+const SHORT_LABEL = "Label";
+const LONG_LABEL = "Very Long Label";
+const SHORT_THAI_LABEL = "ทั้งหมด";
+const LONG_THAI_LABEL = "สภาวะทางอุดมคติ";
+
+class ThemePreviewTabControllersScreen extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      selectedTab: "1",
+      isAlert: false,
+      isLongLabel: false,
+      isThai: false,
+      isScrollable: false,
+      tabs: [
+        {
+          id: "1",
+          text: this.getLabel(),
+          alert: false
+        },
+        {
+          id: "2",
+          text: this.getLabel(),
+          alert: false
+        },
+        {
+          id: "3",
+          text: this.getLabel(),
+          alert: false
+        }
+      ]
+    };
+  }
+
+  getLabel = (isThai = false, isLong = false) => {
+    if (isThai) {
+      return isLong ? LONG_THAI_LABEL : SHORT_THAI_LABEL;
+    }
+    return isLong ? LONG_LABEL : SHORT_LABEL;
+  };
+
+  toggleAlert = () => {
+    const updated = this.state.tabs.map(tab => ({
+      ...tab,
+      alert: !this.state.isAlert
+    }));
+    this.setState(old => ({ ...old, isAlert: !old.isAlert, tabs: updated }));
+  };
+
+  toggleScrolalble = () => {
+    this.setState(old => ({ ...old, isScrollable: !old.isScrollable }));
+  };
+
+  toggleLabel = () => {
+    this.setState(old => ({
+      ...old,
+      isLongLabel: !old.isLongLabel,
+      tabs: this.state.tabs.map(tab => ({
+        ...tab,
+        text: this.getLabel(old.isThai, !old.isLongLabel)
+      }))
+    }));
+  };
+
+  toggleLang = () => {
+    this.setState(old => ({
+      ...old,
+      isThai: !old.isThai,
+      tabs: old.tabs.map(tab => ({
+        ...tab,
+        text: this.getLabel(!old.isThai, old.isLongLabel)
+      }))
+    }));
+  };
+
+  addTab = () => {
+    const updated = [
+      ...this.state.tabs,
+      {
+        id: `${this.state.tabs.length + 1}`,
+        text: this.getLabel(),
+        alert: this.state.isAlert
+      }
+    ];
+    this.setState(old => ({ ...old, tabs: updated }));
+  };
+
+  removeTab = () => {
+    if (this.state.tabs.length === 1) { return; }
+    const updated = [...this.state.tabs];
+    updated.pop();
+    this.setState(old => ({ ...old, tabs: updated }));
+  };
+
+  render() {
+    const defaultProps = {
+      scrollable: this.state.isScrollable,
+      selectedTab: this.state.selectedTab,
+      tabs: this.state.tabs,
+      onTabPress: id => {
+        this.setState({ selectedTab: id });
+      }
+    };
+    return (
+      <Background>
+        <Scrollable>
+          <ButtonContainer>
+            <Button onPress={this.addTab}>+</Button>
+            <Button onPress={this.removeTab}>-</Button>
+          </ButtonContainer>
+          <ButtonContainer>
+            <Button active={this.state.isLongLabel} onPress={this.toggleLabel}>
+              Label
+            </Button>
+            <Button active={this.state.isAlert} onPress={this.toggleAlert}>
+              Alert
+            </Button>
+            <Button active={this.state.isThai} onPress={this.toggleLang}>
+              Lang
+            </Button>
+            <Button active={this.state.isScrollable} onPress={this.toggleScrolalble}>
+              Scroll
+            </Button>
+          </ButtonContainer>
+          <View>
+            <Text>1. minimum tab 1</Text>
+            <Text>2. only Segmented and Chip variants is scrollable</Text>
+          </View>
+
+          <TitleContainer>
+            <Title>Base Tab</Title>
+          </TitleContainer>
+          <BaseTabs {...defaultProps} />
+          <TitleContainer>
+            <Title>Chip Tab</Title>
+          </TitleContainer>
+          <ChipTabs {...defaultProps} />
+          <TitleContainer>
+            <Title>Combo Tabs</Title>
+          </TitleContainer>
+          <ComboTabs {...defaultProps} />
+          <TitleContainer>
+            <Title>Segment Tabs - S</Title>
+          </TitleContainer>
+          <SegmentTabs {...defaultProps} size="small" />
+          <TitleContainer>
+            <Title>Segment Tabs - M</Title>
+          </TitleContainer>
+          <SegmentTabs {...defaultProps} size="medium" />
+          <Fluff />
+        </Scrollable>
+      </Background>
+    );
+  }
+}
+
+export default ThemePreviewTabControllersScreen;

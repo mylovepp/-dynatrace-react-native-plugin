@@ -1,0 +1,158 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useEffect } from "react";
+import { Animated, Easing, Platform } from "react-native";
+import styled from "styled-components/native";
+import { Body2, Header1, Icon } from "../../../../components-2";
+import {
+  TutorialWatchlistRemoveAssetStep,
+  TutorialWatchlistSortAssetStep
+} from "../../../tutorial/watchlist";
+
+const activeAnimated = new Animated.Value(0);
+
+const dragStyle = {
+  ...Platform.select({
+    ios: {
+      transform: [
+        {
+          scale: activeAnimated.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.05]
+          })
+        }
+      ],
+      shadowRadius: activeAnimated.interpolate({
+        inputRange: [0, 1],
+        outputRange: [2, 10]
+      })
+    },
+
+    android: {
+      transform: [
+        {
+          scale: activeAnimated.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.07]
+          })
+        }
+      ],
+      elevation: activeAnimated.interpolate({
+        inputRange: [0, 1],
+        outputRange: [2, 6]
+      })
+    }
+  })
+};
+
+const CardView = styled(Animated.View)(props => ({
+  backgroundColor: props.theme.backgroundLightColor,
+  display: "flex",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  paddingVertical: props.theme.spacingMedium
+}));
+
+const LeftContainer = styled.View(() => ({
+  flex: 1,
+  flexDirection: "row"
+}));
+
+const MiddleContainer = styled.View(props => ({
+  flex: 2,
+  marginLeft: props.theme.spacingLarge,
+  justifyContent: "center"
+}));
+
+const RightContainer = styled.View(props => ({
+  display: "flex",
+  flex: 1,
+  width: `${props.theme.spacingMediumLargeValue * 5}px`,
+  flexDirection: "row",
+  justifyContent: "flex-end"
+}));
+
+const SymbolText = styled(Header1).attrs(() => ({
+  numberOfLines: 1
+}))(props => ({
+  marginLeft: props.theme.spacingXSmall
+}));
+
+const AssetName = styled(Body2).attrs(() => ({
+  numberOfLines: 1
+}))``;
+
+const BinIcon = styled(Icon).attrs(props => ({
+  name: "delete",
+  size: "icon24",
+  color: props.theme.graphRed
+}))``;
+
+const CardItem = ({ testId, assetMappings, data, isActive, onDeleteItem, isTutorial }) => {
+  useEffect(() => {
+    Animated.timing(activeAnimated, {
+      duration: 300,
+      easing: Easing.bounce,
+      toValue: Number(isActive)
+    }).start();
+  }, [isActive]);
+  const { symbol, assetType } = data;
+  const assetName = assetMappings.find(
+    each => each.assetType === assetType && each.assetCode === symbol
+  )?.assetName;
+
+  return (
+    <CardView isActive={isActive} style={[isActive ? dragStyle : null]}>
+      <LeftContainer>
+        {isTutorial
+          ? <TutorialWatchlistSortAssetStep>
+            <Icon name="grip-lines" size="icon24" />
+            </TutorialWatchlistSortAssetStep>
+          : <Icon name="grip-lines" size="icon24" />
+        }
+        <SymbolText>{symbol}</SymbolText>
+      </LeftContainer>
+      <MiddleContainer>
+        <AssetName variant="subdued">{assetName || "-"}</AssetName>
+      </MiddleContainer>
+      <RightContainer>
+        <TouchableOpacity
+          accessible={false}
+          accessibilityLabel={`${testId}${symbol}`}
+          onPress={() => {
+            onDeleteItem(data);
+          }}
+        >
+          {isTutorial
+            ? <TutorialWatchlistRemoveAssetStep>
+              <BinIcon name="delete" size="icon24" />
+              </TutorialWatchlistRemoveAssetStep>
+            : <BinIcon name="delete" size="icon24" />
+          }
+        </TouchableOpacity>
+      </RightContainer>
+    </CardView>
+  );
+};
+
+CardItem.defaultProps = {
+  assetMappings: [],
+  isActive: false,
+  isTutorial: false,
+  testId: undefined
+};
+
+CardItem.propTypes = {
+  assetMappings: PropTypes.instanceOf(PropTypes.array),
+  data: PropTypes.shape({
+    symbol: PropTypes.string,
+    assetType: PropTypes.string,
+    reference: PropTypes.shape({})
+  }).isRequired,
+  isActive: PropTypes.bool,
+  onDeleteItem: PropTypes.func.isRequired,
+  isTutorial: PropTypes.bool,
+  testId: PropTypes.string
+};
+
+export default CardItem;

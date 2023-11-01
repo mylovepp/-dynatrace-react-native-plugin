@@ -1,0 +1,203 @@
+import React, { useCallback, useEffect, useState, memo } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Linking } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import braze from "react-native-appboy-sdk";
+
+import { debounce } from "lodash";
+
+import { Header1 } from "../../components-2";
+import i18n from "../../modules/i18n";
+import Banner from "./Cards//Banner";
+
+import { BRAZE_WEBVIEW_SCREEN_ID } from "../../redux/navigation/navigation-constants";
+
+import InvxBanner from "./InvxBanner";
+
+const TouchableContainer = styled(TouchableOpacity)``;
+const UntouchableContainer = styled.View``;
+
+const Container = styled.View`
+  background-color: ${props => props.theme.backgroundTransparent};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const HeaderTitle = styled(Header1)(props => ({
+  marginTop: props.theme.spacingLarge,
+  marginBottom: props.theme.spacingMedium,
+  marginLeft: props.theme.spacingMedium
+}));
+
+const SpaceContainer = styled.View`
+  width: 8px;
+`;
+const ContentCardContainer = styled.FlatList.attrs({
+  horizontal: true,
+  showsHorizontalScrollIndicator: false,
+  contentContainerStyle: {
+    paddingHorizontal: 16
+  },
+  // eslint-disable-next-line react/display-name
+  ItemSeparatorComponent: () => <SpaceContainer />
+})`
+  background-color: ${props => props.theme.backgroundTransparent};
+  height: 180px;
+`;
+
+const ContentCard = ({ isFreemiumMode, navigator }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [contentCards, setContentCards] = useState([]);
+  const [advertisements, setAdvertisements] = useState([]);
+  let cards = [];
+
+  const initialBrazeListener = useCallback(() => {
+    return braze.addListener(braze.Events.CONTENT_CARDS_UPDATED, async () => {
+      const updatedCards = await braze.getContentCards();
+      if (updatedCards?.length > 0) {
+        const hasNewCard = !updatedCards.every(updatedCard =>
+          cards.some(card => updatedCard.id === card.id)
+        );
+
+        cards = updatedCards;
+
+        if (hasNewCard) {
+          // braze.launchContentCards();
+          updateContentCards(updatedCards);
+        }
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    const subscription = initialBrazeListener();
+    braze.requestContentCardsRefresh();
+
+    const interval = setInterval(() => {
+      braze.requestContentCardsRefresh();
+    }, 5000);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, []);
+
+  const updateContentCards = useCallback(updatedCards => {
+    if (isFreemiumMode) {
+      const filterContentCards = updatedCards
+        .filter(v => v.extras.type === "content-card" && v.extras.only !== "premium")
+        .sort((a, b) => a.extras.ordering - b.extras.ordering);
+      setContentCards(filterContentCards);
+      const filterBannerCards = updatedCards
+        .filter(v => v.extras.type === "banner" && v.extras.only !== "premium")
+        .sort((a, b) => a.extras.ordering - b.extras.ordering);
+      setAdvertisements(filterBannerCards);
+
+      brazeLogImpression(filterContentCards);
+      brazeLogImpression(filterBannerCards);
+    } else {
+      const filterContentCards = updatedCards
+        .filter(v => v.extras.type === "content-card" && v.extras.only !== "freemium")
+        .sort((a, b) => a.extras.ordering - b.extras.ordering);
+      setContentCards(filterContentCards);
+      const filterBannerCards = updatedCards
+        .filter(v => v.extras.type === "banner" && v.extras.only !== "freemium")
+        .sort((a, b) => a.extras.ordering - b.extras.ordering);
+      setAdvertisements(filterBannerCards);
+
+      brazeLogImpression(filterContentCards);
+      brazeLogImpression(filterBannerCards);
+    }
+  }, []);
+
+  const handleOnPress = useCallback(cardItem => {
+    const isDeeplink = cardItem.url?.startsWith("scbseasyinvest://");
+    const { url = null, openURLInWebView = false } = cardItem;
+    // Open website
+    if (url && !isDeeplink) {
+      if (!openURLInWebView) {
+        Linking.openURL(cardItem.url);
+      } else {
+        navigator.push({
+          screen: BRAZE_WEBVIEW_SCREEN_ID,
+          title: "",
+          backButtonTitle: "",
+          animationType: "slide-horizontal",
+          navigatorStyle: { tabBarHidden: true },
+          passProps: { url: cardItem.url }
+        });
+      }
+    }
+
+    // Open Deeplink
+    if (isDeeplink) {
+      Linking.openURL(cardItem.url);
+    }
+    braze.logContentCardClicked(cardItem.id);
+  }, []);
+
+  const debounceHandleOnPress = debounce(handleOnPress, 1500, {
+    leading: true,
+    trailing: false
+  });
+
+  const renderContentCardItem = ({ item }) => {
+    const CardContainer = item.url !== null ? TouchableContainer : UntouchableContainer;
+    if (item.type === "Banner") {
+      return (
+        <CardContainer activeOpacity={0.7} onPress={() => debounceHandleOnPress(item)}>
+          <Banner cardItem={item} />
+        </CardContainer>
+      );
+    }
+    return null;
+  };
+  renderContentCardItem.propTypes = {
+    item: PropTypes.shape().isRequired
+  };
+
+  if (contentCards.length <= 0 && advertisements.length <= 0) {
+    return <></>;
+  }
+
+  const brazeLogImpression = dataList => {
+    dataList.forEach(item => {
+      // eslint-disable-next-line react/prop-types
+      const cardId = item.id;
+      braze.logContentCardImpression(cardId);
+    });
+  };
+
+  return (
+    <>
+      {isLoading && <></>}
+      {!isLoading && (contentCards.length > 0 || advertisements.length > 0) && (
+        <Container>
+          <HeaderTitle>{i18n.t("Feature.RecommendedForYou")}</HeaderTitle>
+          {contentCards.length > 0 && (
+            <ContentCardContainer
+              data={contentCards}
+              horizontal
+              renderItem={item => renderContentCardItem(item)}
+            />
+          )}
+          {advertisements.length > 0 && (
+            <InvxBanner advertisements={advertisements} handleOnPress={handleOnPress} />
+          )}
+        </Container>
+      )}
+    </>
+  );
+};
+
+ContentCard.defaultProps = {};
+ContentCard.propTypes = {
+  isFreemiumMode: PropTypes.bool.isRequired,
+  navigator: PropTypes.func.isRequired
+};
+
+export default memo(ContentCard);

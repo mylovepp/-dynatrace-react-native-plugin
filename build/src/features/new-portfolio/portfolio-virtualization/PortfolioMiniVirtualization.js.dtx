@@ -1,0 +1,161 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled, { useTheme } from "styled-components/native";
+import i18n from "react-native-i18n";
+
+import { NewDonutChart } from "../../../components";
+import { Icon, Header3, TextOverlineR } from "../../../components-2";
+
+import SummaryText from "./SummaryText";
+
+const CardContainer = styled.View`
+  margin: 16px;
+  background-color: ${props => props.theme.backgroundLightColor};
+  border-radius: 16px;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.2;
+  shadow-radius: 4px;
+  shadow-offset: 0px 2px;
+`;
+
+const CardBodyContainer = styled.View`
+  padding: 16px;
+  background-color: ${props => props.theme.backgroundLightColor};
+  z-index: 1;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+`;
+
+const CardFooterContainer = styled.View`
+  padding: 24px 18px 8px 16px;
+  background-color: ${props => props.theme.scbSecondaryBlue};
+  margin-top: -16px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+`;
+
+const TextSecondaryBlue = styled(Header3).attrs()`
+  color: ${props => props.theme.contentColorWhite} !important;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+`;
+
+const GraphContainer = styled.View`
+  width: 90px;
+`;
+
+const SummaryContainer = styled.View`
+    flex: 1;
+    padding-bottom: 3px;
+`;
+
+const ArrowContainer = styled.View`
+    align-items: center;
+    justify-content: center;
+`;
+
+const UsernameText = styled(Header3)`
+    margin-top: 16px;
+    margin-left: 16px;
+    margin-bottom: -8px;
+    color: ${props => props.theme.scbPrimaryPurple};
+`;
+
+const PortfolioMiniVirtualization = props => {
+  const {
+    onPressWarningSign,
+    incompleteData,
+    donutData,
+    title,
+    unrealizedPLValue,
+    unrealizedPLPercentage,
+    totalAssetValue,
+    updateDateText,
+    hideWarningSign,
+    onPressPortfolio,
+    onPressPortfolioAll
+  } = props;
+  const theme = useTheme();
+
+  return (
+    <>
+      <UsernameText>{title}</UsernameText>
+      <CardContainer>
+        <CardBodyContainer>
+          <TouchableOpacity onPress={onPressPortfolio}>
+            <Row><TextOverlineR>{i18n.t("Portfolio.HomeCard.Label1")}</TextOverlineR></Row>
+            <Row>
+              <GraphContainer>
+                <NewDonutChart data={donutData} innerRadius="40%" donutSize={65} />
+              </GraphContainer>
+              <SummaryContainer>
+                <SummaryText
+                  i18n={i18n}
+                  onPressWarningSign={onPressWarningSign}
+                  incompleteData={incompleteData}
+                  title={title}
+                  unrealizedPLValue={unrealizedPLValue}
+                  unrealizedPLPercentage={unrealizedPLPercentage}
+                  totalAssetValue={totalAssetValue}
+                  updateDateText={updateDateText}
+                  hideWarningSign={hideWarningSign}
+                  useMiniView
+                />
+              </SummaryContainer>
+              <ArrowContainer>
+                <Icon name="chevron-right-2" size="icon24" color={theme.contentColorHigh} />
+              </ArrowContainer>
+            </Row>
+          </TouchableOpacity>
+        </CardBodyContainer>
+        <CardFooterContainer>
+          <TouchableOpacity onPress={() => onPressPortfolioAll()}>
+            <Row>
+              <SummaryContainer>
+                <TextSecondaryBlue>{i18n.t("Portfolio.HomeCard.Label2")}</TextSecondaryBlue>
+              </SummaryContainer>
+              <ArrowContainer>
+                <Icon name="chevron-right-2" color={theme.contentColorWhite} size="icon16" />
+              </ArrowContainer>
+            </Row>
+          </TouchableOpacity>
+        </CardFooterContainer>
+      </CardContainer>
+    </>
+  );
+};
+
+PortfolioMiniVirtualization.defaultProps = {
+  onPressWarningSign: () => { },
+  donutData: [],
+  title: "",
+  unrealizedPLValue: 0,
+  unrealizedPLPercentage: 0,
+  totalAssetValue: 0,
+  incompleteData: false,
+  updateDateText: undefined,
+  hideWarningSign: false
+};
+
+PortfolioMiniVirtualization.propTypes = {
+  onPressWarningSign: PropTypes.func,
+  incompleteData: PropTypes.bool,
+  title: PropTypes.string,
+  unrealizedPLValue: PropTypes.number,
+  unrealizedPLPercentage: PropTypes.number,
+  totalAssetValue: PropTypes.number,
+  donutData: PropTypes.shape({
+    color: PropTypes.string,
+    key: PropTypes.string,
+    value: PropTypes.number
+  }),
+  updateDateText: PropTypes.string,
+  hideWarningSign: PropTypes.bool,
+  onPressPortfolio: PropTypes.func.isRequired,
+  onPressPortfolioAll: PropTypes.func.isRequired
+};
+
+export default PortfolioMiniVirtualization;

@@ -1,0 +1,625 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes, { shape } from "prop-types";
+import QRCode from "react-native-qrcode-svg";
+import Clipboard from "@react-native-community/clipboard";
+import { View, Platform, ScrollView } from "react-native";
+import styled from "styled-components/native";
+import { showInAppNotification } from "../../../modules/navigation";
+import ManualScreenShot from "../../../components/screenshot/ManualScreenShot";
+import { getConfig } from "../../../Config";
+import { PickerModal } from "../../../components";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { coinWithCommas } from "../../../modules/coin-format";
+import {
+  Separator,
+  SecondaryButton,
+  Body3,
+  Body2,
+  PrimaryButton,
+  Header1,
+  LoadingIndicator,
+  ViewContainer,
+  CheckBox,
+  TextOverlineR,
+  Icon
+} from "../../../components-2";
+import {
+  trackCryptoDepositInfoClick,
+  trackCryptoDepositInfoSelect
+} from "../../../modules/analytics/analytics-utils";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import TagQRModal from "./DigitalAssetsTagModal";
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
+// **** styled-components ****
+const ContentLabel = styled(Body3)`
+  color: rgb(78, 80, 84);
+`;
+
+const ContentText = styled(Body2)`
+  color: rgb(10, 11, 13);
+  padding-right: 30px;
+`;
+
+const WarningText1 = styled(TextOverlineR)`
+  color: rgb(147, 151, 159);
+`;
+
+const WarningText2 = styled(TextOverlineR)`
+  color: rgb(78, 80, 84);
+`;
+
+const WarningText3 = styled(TextOverlineR)`
+  color: rgb(10, 11, 13);
+`;
+
+const ColumnBox = styled(View)`
+  margin-bottom: 10;
+  flex-direction: column;
+`;
+
+const RowBox = styled(View)`
+  display: flex;
+  padding-horizontal: ${props => props.theme.spacingMedium}
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const CenterBox = styled(View)`
+  justify-content: center;
+  align-items: center;
+`;
+
+const WarningBox = styled(View)`
+  background-color: #ffffff;
+  flex-direction: column;
+  padding-top: 20;
+  padding-left: 24;
+  padding-right: 24;
+`;
+
+const QRBox = styled(View)`
+  background-color: #ffffff;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  top: 2;
+  padding-left: 16;
+  padding-right: 16;
+  padding-top: 32;
+  padding-bottom: 32;
+`;
+
+const RateContainer = styled.View`
+  background-color: ${props => props.theme.backgroundLightColor};
+  padding-left: ${props => props.theme.spacingSmall};
+  shadow-color: ${props => (props.noShadowBorder ? "transparent" : props.theme.boxShadowColor)};
+  shadow-opacity: 0.2;
+  shadow-radius: 2px;
+  shadow-offset: 2px 2px;
+`;
+
+const BodyContainer = styled.View`
+  flex: 1;
+  background-color: #ffffff;
+`;
+
+const FooterContainer = styled.View`
+  align-items: flex-end;
+  justify-content: flex-end;
+  margin: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.backgroundLightColor};
+`;
+
+const ScreenCaptureContainer = styled.View`
+  background-color: #ebecf0;
+`;
+
+const ScreenHeaderCaptureContainer = styled.View`
+  background-color: #ffffff;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding-top: ${props =>
+    // eslint-disable-next-line no-nested-ternary
+    props.smallPaddingTop ? props.theme.spacingXLarge : Platform.OS === "android" ? 20 : 70};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const ScreenBodyCaptureContainer = styled.View`
+  top: -9999;
+  left: -9999;
+  width: 100%;
+  position: absolute;
+  background-color: #ebecf0;
+`;
+
+const IconChevronRight = styled(Icon).attrs({
+  name: "chevron-right-2"
+})``;
+
+const TextContainer = styled.View`
+  margin-top: 24px;
+`;
+
+const HeadText = styled(Header1)``;
+
+const CheckBoxContainer = styled.View`
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+
+const CheckBoxGroup = styled.View`
+  flex-direction: row;
+  margin-left: 5px;
+  margin-bottom: 20px;
+  padding-right: 20px;
+`;
+
+const BodyCheckBoxContainer = styled.View`
+  padding-left: 24px;
+  padding-right: 24px;
+`;
+
+const CalloutCustom = styled(Body3)`
+  margin-left: 5px;
+  margin-right: 5px;
+`;
+
+const DigitalAssetsDeposit = ({
+  depositAddress,
+  depositTemplates,
+  getDepositAddress,
+  getAllDepositTemplates,
+  accountId,
+  digitalAssetCode,
+  digitalAssetID,
+  minimumDeposit,
+  allInstrumentsList,
+  navigator,
+  loadingDepositAddress,
+  loadingDepositTemplates,
+  i18n,
+  onPressWallet,
+  unmaskUserConfig,
+  genWalletAddress
+}) => {
+  const [isLoadingBar, setIsLoadingBar] = useState(true);
+  const [screenshotTaken, setScreenshotTaken] = useState(false);
+  const [screenshot, setScreenshot] = useState();
+  const [isAddressCopying, setIsAddressCopying] = useState(false);
+  const [isTagCopying, setIsTagCopying] = useState(false);
+
+  const [displayNetworkModal, setDisplayNetworkModal] = useState(false);
+  const [selectedNetwork, setSelectedNetwork] = useState(null);
+  const [providerId, setProviderId] = useState(null);
+
+  const [visibleTagModal, setVisibleTagModal] = useState(false);
+
+  const initNavBar = () => {
+    const daInstrument = allInstrumentsList.find(i => i.base === digitalAssetCode);
+    navigator.setStyle({
+      backButtonHidden: true,
+      overrideBackPress: true,
+      navBarCustomView: "digitalAssetNavBarWithCoinIcon",
+      navBarCustomViewInitialProps: {
+        onPressBack: () => {
+          trackCryptoDepositInfoClick(digitalAssetCode, "Back", "-");
+          navigator.pop();
+        },
+        showBackButton: true,
+        showIcon: true,
+        title: `${i18n.translations["DigitalAssets.Wallet.Main.DepositTitle"]} ${digitalAssetCode}`,
+        icon: daInstrument?.icon || null
+      }
+    });
+    setIsLoadingBar(false);
+  };
+
+  useEffect(() => {
+    initNavBar();
+    getAllDepositTemplates({ productId: digitalAssetID });
+    genWalletAddress({ productId: digitalAssetID });
+    unmaskUserConfig();
+  }, []);
+
+  useEffect(() => {
+    if (depositTemplates.length > 0) {
+      setSelectedNetwork(depositTemplates[0].network);
+      setProviderId(depositTemplates[0].providerId);
+    }
+  }, [depositTemplates]);
+
+  useEffect(() => {
+    getDepositAddress({
+      accountId,
+      productId: digitalAssetID,
+      accountProviderId: providerId,
+      digitalAssetCode
+    });
+  }, [selectedNetwork]);
+
+  const getNetworkByName = networkName => {
+    const daNetwork = depositTemplates.find(network => network.network === networkName);
+    return daNetwork;
+  };
+
+  const handleSelectNetwork = value => {
+    trackCryptoDepositInfoSelect(digitalAssetCode, "Network", selectedNetwork);
+    const curNetwork = getNetworkByName(value);
+    setSelectedNetwork(value);
+    setProviderId(curNetwork.providerId);
+    setDisplayNetworkModal(false);
+  };
+
+  useEffect(() => {
+    if (isAddressCopying) {
+      let count = 3;
+      const interval = setInterval(() => {
+        if (count > 0) {
+          count--;
+        } else {
+          setIsAddressCopying(false);
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+  }, [isAddressCopying]);
+
+  useEffect(() => {
+    if (isTagCopying) {
+      let count = 3;
+      const interval = setInterval(() => {
+        if (count > 0) {
+          count--;
+        } else {
+          setIsTagCopying(false);
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+  }, [isTagCopying]);
+
+  const onScreenshotTaken = () => {
+    setScreenshotTaken(true);
+    showInAppNotification(navigator, {
+      text: "Notification.Text.DepositInfoSavedGallery",
+      variant: "success"
+    });
+  };
+
+  const openTagModal = () => {
+    setVisibleTagModal(true);
+  };
+
+  const onTagModalClose = () => {
+    setVisibleTagModal(false);
+  };
+
+  const renderNetwork = () => {
+    return depositTemplates.length > 1 ? (
+      <TouchableOpacity
+        onPress={() => {
+          if (depositTemplates.length > 1) {
+            setDisplayNetworkModal(true);
+          }
+        }}
+      >
+        <RowBox>
+          <ColumnBox style={{ flex: 10 }}>
+            <ContentLabel>{i18n.translations["DigitalAssets.Deposit.Label.Network"]}</ContentLabel>
+            <ContentText>{selectedNetwork}</ContentText>
+            <PickerModal
+              items={depositTemplates.map(({ network }) => network)}
+              hideModal={() => setDisplayNetworkModal(false)}
+              selectedValue={selectedNetwork}
+              confirmText="ยืนยัน"
+              isVisible={displayNetworkModal}
+              onValueChange={handleSelectNetwork}
+            />
+          </ColumnBox>
+          <CenterBox>
+            <IconChevronRight />
+          </CenterBox>
+        </RowBox>
+      </TouchableOpacity>
+    ) : (
+      <RowBox>
+        <ColumnBox style={{ flex: 10 }}>
+          <ContentLabel>{i18n.translations["DigitalAssets.Deposit.Label.Network"]}</ContentLabel>
+          <ContentText>{selectedNetwork}</ContentText>
+        </ColumnBox>
+      </RowBox>
+    );
+  };
+
+  const saveImage = () => {
+    screenshot.takeAction(getConfig().SLIP_ALBUM_NAME);
+  };
+
+  const showHeader = () => {
+    const daInstrument = allInstrumentsList.find(i => i.base === digitalAssetCode);
+    return (
+      <ScreenHeaderCaptureContainer smallPaddingTop={!screenshotTaken}>
+        <CoinImageIcon uri={daInstrument?.icon || null} width={27} height={27} />
+        <ContentText>{` ${i18n.translations["DigitalAssets.Deposit.Label.Deposit"]} ${depositAddress.product}`}</ContentText>
+      </ScreenHeaderCaptureContainer>
+    );
+  };
+
+  const showBody = () => {
+    return (
+      <RateContainer>
+        <QRBox>
+          {depositAddress.address.length > 0 ? (
+            <QRCode
+              style={{ flex: 1 }}
+              value={depositAddress.address}
+              color="black"
+              backgroundColor="white"
+              size={150}
+            />
+          ) : (
+            <></>
+          )}
+        </QRBox>
+        {depositTemplates.length > 0 ? renderNetwork() : <></>}
+        <Separator variant="full" />
+        <RowBox>
+          <ColumnBox style={{ flex: 10 }}>
+            <ContentLabel>{`${depositAddress.product} ${i18n.translations["DigitalAssets.Deposit.Label.Address"]}`}</ContentLabel>
+            <ContentText>{depositAddress.address && depositAddress.address}</ContentText>
+          </ColumnBox>
+          <CenterBox>
+            <SecondaryButton
+              startIcon="copy"
+              size="small"
+              label="คัดลอก"
+              onPress={() => {
+                trackCryptoDepositInfoClick(digitalAssetCode, "Address", selectedNetwork);
+                if (!isAddressCopying && !isTagCopying) {
+                  setIsAddressCopying(true);
+                  Clipboard.setString(depositAddress.address);
+                  showInAppNotification(navigator, {
+                    text: "DigitalAssets.Notification.DADeposit.CopyDepositAddress",
+                    variant: "success"
+                  });
+                }
+              }}
+            />
+          </CenterBox>
+        </RowBox>
+        <Separator variant="full" />
+        {depositAddress?.tag !== undefined && depositAddress?.tag !== "" ? (
+          <RowBox>
+            <ColumnBox style={{ flex: 11 }}>
+              <ContentLabel>{`${depositAddress.product} ${depositAddress.tagLabel}`}</ContentLabel>
+              <ContentText>{depositAddress.tag}</ContentText>
+            </ColumnBox>
+            <CenterBox style={{ paddingRight: 5 }}>
+              <SecondaryButton
+                startIcon="qrcode"
+                size="small"
+                label="QR Code"
+                onPress={openTagModal}
+              />
+            </CenterBox>
+            <CenterBox>
+              <SecondaryButton
+                startIcon="copy"
+                size="small"
+                label="คัดลอก"
+                onPress={() => {
+                  trackCryptoDepositInfoClick(digitalAssetCode, "TagMemo", selectedNetwork);
+                  if (!isTagCopying && !isAddressCopying) {
+                    setIsTagCopying(true);
+                    Clipboard.setString(depositAddress.tag);
+                    showInAppNotification(navigator, {
+                      text: "DigitalAssets.Notification.DADeposit.CopyDepositTagMemo",
+                      variant: "success"
+                    });
+                  }
+                }}
+              />
+            </CenterBox>
+          </RowBox>
+        ) : (
+          <></>
+        )}
+        <Separator variant="full" />
+      </RateContainer>
+    );
+  };
+
+  const showDescription = () => {
+    return (
+      <View>
+        <WarningBox>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <View style={{ marginBottom: 5 }}>
+              <WarningText2>
+                {i18n.translations["DigitalAssets.Deposit.Label.MinimumDepoist"]}
+              </WarningText2>
+            </View>
+            {depositAddress.product.length > 0 ? (
+              <View style={{ marginBottom: 8 }}>
+                <WarningText3>
+                  {`${coinWithCommas(minimumDeposit)} ${depositAddress.product}`}
+                </WarningText3>
+              </View>
+            ) : (
+              <></>
+            )}
+          </View>
+
+          <WarningText1>
+            {i18n.getLabel("DigitalAssets.Deposit.Label.Description1", {
+              product: digitalAssetCode
+            })}
+          </WarningText1>
+          <WarningText1>
+            {i18n.getLabel("DigitalAssets.Deposit.Label.Description2", {
+              product: selectedNetwork
+            })}
+          </WarningText1>
+          <WarningText1>
+            {i18n.getLabel("DigitalAssets.Deposit.Label.Description3", {
+              product: selectedNetwork
+            })}
+          </WarningText1>
+        </WarningBox>
+      </View>
+    );
+  };
+
+  const showCheckButton = () => {
+    return (
+      <BodyContainer>
+        {showDescription()}
+        <BodyCheckBoxContainer>
+          <TextContainer>
+            <HeadText>{i18n.translations["DigitalAssets.Deposit.TermAndPolicy.Title"]}</HeadText>
+          </TextContainer>
+          <CheckBoxContainer>
+            <CheckBoxGroup>
+              <CheckBox value disabled />
+              <CalloutCustom>
+                {i18n.translations["DigitalAssets.Deposit.TermAndPolicy.CheckBox1"]}
+              </CalloutCustom>
+            </CheckBoxGroup>
+
+            <CheckBoxGroup>
+              <CheckBox value disabled />
+              <CalloutCustom>
+                {i18n.translations["DigitalAssets.Deposit.TermAndPolicy.CheckBox2"]}
+              </CalloutCustom>
+            </CheckBoxGroup>
+          </CheckBoxContainer>
+        </BodyCheckBoxContainer>
+      </BodyContainer>
+    );
+  };
+
+  return (
+    <>
+      {isLoadingBar || loadingDepositAddress || loadingDepositTemplates ? (
+        <ViewContainer variant="screen" isFullScreen>
+          <LoadingContainer>
+            <LoadingIndicator size="large" />
+          </LoadingContainer>
+        </ViewContainer>
+      ) : (
+        <ViewContainer variant="light" isFullScreen style={{ backgroundColor: "#ffffff" }}>
+          <ScrollView
+            style={{ flex: 1, backgroundColor: "#ffffff", height: "90%" }}
+            contentContainerStyle={{
+              flexGrow: 1
+            }}
+          >
+            <BodyContainer>
+              {showBody()}
+              {showCheckButton()}
+            </BodyContainer>
+          </ScrollView>
+          <FooterContainer>
+            <PrimaryButton
+              onPress={() => {
+                trackCryptoDepositInfoClick(digitalAssetCode, "Save", selectedNetwork);
+                saveImage();
+              }}
+              size="large"
+              label={i18n.translations["DigitalAssets.Deposit.Label.SavedGallery"]}
+            />
+            <SecondaryButton
+              onPress={() => {
+                trackCryptoDepositInfoClick(digitalAssetCode, "Wallet", selectedNetwork);
+                onPressWallet();
+              }}
+              size="large"
+              label={i18n.translations["DigitalAssets.Deposit.Label.BackButton"]}
+            />
+          </FooterContainer>
+          <ScreenCaptureContainer>
+            <ScreenBodyCaptureContainer>
+              <ManualScreenShot
+                ref={ref => setScreenshot(ref)}
+                onScreenshotTaken={() => onScreenshotTaken()}
+              >
+                {showHeader()}
+                {showBody()}
+                {showCheckButton()}
+              </ManualScreenShot>
+            </ScreenBodyCaptureContainer>
+          </ScreenCaptureContainer>
+        </ViewContainer>
+      )}
+      {visibleTagModal ? (
+        <TagQRModal
+          i18n={i18n}
+          isVisible={visibleTagModal}
+          onClose={onTagModalClose}
+          digitalAssetCode={depositAddress.product}
+          destinationTag={depositAddress.tag}
+          tagLabel={depositAddress.tagLabel}
+          navigator={navigator}
+        />
+      ) : (
+        <></>
+      )}
+    </>
+  );
+};
+
+export const AddressType = shape({
+  product: PropTypes.string,
+  tag: PropTypes.string,
+  address: PropTypes.string
+});
+
+export const DepositTemplatesType = shape({
+  providerId: PropTypes.number,
+  network: PropTypes.string
+});
+
+DigitalAssetsDeposit.defaultProps = {
+  getDepositAddress: () => {},
+  depositAddress: {
+    product: "",
+    tag: "",
+    address: ""
+  },
+  loadingDepositAddress: false,
+  getAllDepositTemplates: () => {},
+  depositTemplates: [],
+  loadingDepositTemplates: false
+};
+
+DigitalAssetsDeposit.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  accountId: PropTypes.number.isRequired,
+  getDepositAddress: PropTypes.func,
+  depositAddress: PropTypes.objectOf(AddressType),
+  loadingDepositAddress: PropTypes.bool,
+  getAllDepositTemplates: PropTypes.func,
+  depositTemplates: PropTypes.arrayOf(DepositTemplatesType),
+  loadingDepositTemplates: PropTypes.bool,
+  allInstrumentsList: PropTypes.arrayOf(PropTypes.any).isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+
+  digitalAssetCode: PropTypes.string.isRequired,
+  digitalAssetID: PropTypes.number.isRequired,
+  minimumDeposit: PropTypes.number.isRequired,
+  onPressWallet: PropTypes.func.isRequired,
+  unmaskUserConfig: PropTypes.func.isRequired,
+  genWalletAddress: PropTypes.func.isRequired
+};
+
+export default DigitalAssetsDeposit;

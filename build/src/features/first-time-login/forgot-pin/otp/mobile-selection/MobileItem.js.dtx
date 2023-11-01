@@ -1,0 +1,70 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Header2, Icon } from "../../../../../components-2";
+
+const Container = styled.View`
+  display: flex;
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingSmall};
+  padding-vertical: ${props => props.theme.spacingMedium};
+  border-radius: 10;
+  align-items: center;
+  align-content: center;
+  border-width: 2;
+  border-color: ${props =>
+    props.selected ? props.theme.contentColorCTAPurple : props.theme.contentColorLight};
+`;
+
+const CircleContainer = styled.View`
+  width: 32;
+  height: 32;
+  border-radius: 32;
+  align-items: center;
+  justify-content: center;
+  padding-left: 1;
+  margin-left: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.scbPrimaryPurple};
+`;
+
+const MobilePhoneIcon = styled(Icon).attrs(props => ({
+  name: "phone-2",
+  size: "icon24",
+  color: props.theme.contentColorWhite
+}))``;
+
+const MobileLabel = styled(Header2)`
+  margin-left: 9;
+  margin-top: 5;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const MobileItem = props => {
+  const { selected, mobileInfo, onMobileSelected } = props;
+
+  return (
+    <TouchableOpacity onPress={() => onMobileSelected(mobileInfo)}>
+      <Container selected={selected}>
+        <CircleContainer>
+          <MobilePhoneIcon />
+        </CircleContainer>
+        <MobileLabel>{mobileInfo.mobile}</MobileLabel>
+      </Container>
+    </TouchableOpacity>
+  );
+};
+
+MobileItem.defaultProps = {
+  selected: false
+};
+
+MobileItem.propTypes = {
+  mobileInfo: PropTypes.shape({
+    mobile: PropTypes.string
+  }).isRequired,
+  selected: PropTypes.bool,
+  onMobileSelected: PropTypes.func.isRequired
+};
+
+export default MobileItem;

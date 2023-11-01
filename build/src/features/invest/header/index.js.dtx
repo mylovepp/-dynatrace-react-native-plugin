@@ -1,0 +1,107 @@
+import React, { memo, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { BackHandler, Platform } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import { Display1, Display3, SectionBackground, SearchBar, Icon } from "@invx/components-2";
+import { getExtendTopNavBarHeight } from "@invx/modules/navigation/defaultStyle";
+
+import { analyticTracking } from "../utils";
+
+const Container = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big"
+})`
+  padding-top: ${getExtendTopNavBarHeight()};
+  padding-bottom: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+const BigTitleText = styled(Display1)`
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+const TitleText = styled(Display3)`
+  width: 100%;
+  position: absolute;
+  text-align: center;
+  z-index: -1;
+`;
+const TitleContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+
+const handleOnBackPress = (navigator, onPress) => {
+  if (onPress) {
+    return onPress();
+  }
+  return navigator.pop();
+};
+
+const handleCallback = () => {
+  analyticTracking("Search");
+};
+
+const Header = ({
+  title,
+  displaySearch,
+  displayBackButton,
+  onBackPress,
+  navigator,
+  assetClassToSearch
+}) => {
+  const onBack = () => {
+    handleOnBackPress(navigator, onBackPress);
+  };
+
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      BackHandler.addEventListener("hardwareBackPress", onBack);
+    }
+    return () => {
+      if (Platform.OS === "android") {
+        BackHandler.removeEventListener("hardwareBackPress", onBack);
+      }
+    };
+  }, []);
+
+  return (
+    <Container>
+      {displayBackButton ? (
+        <TitleContainer>
+          <TouchableOpacity onPress={() => handleOnBackPress(navigator, onBackPress)}>
+            <BackIcon />
+          </TouchableOpacity>
+          <TitleText>{title}</TitleText>
+        </TitleContainer>
+      ) : (
+        <BigTitleText>{title}</BigTitleText>
+      )}
+      {displaySearch && (
+        <SearchBar assetClassToSearch={assetClassToSearch} callback={handleCallback} />
+      )}
+    </Container>
+  );
+};
+
+Header.defaultProps = {
+  displaySearch: true,
+  displayBackButton: true,
+  onBackPress: null,
+  navigator: {},
+  assetClassToSearch: ""
+};
+Header.propTypes = {
+  title: PropTypes.string.isRequired,
+  displaySearch: PropTypes.bool,
+  displayBackButton: PropTypes.bool,
+  onBackPress: PropTypes.func,
+  navigator: PropTypes.shape(),
+  assetClassToSearch: PropTypes.string
+};
+export default memo(Header);

@@ -1,0 +1,207 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { Fragment } from "react";
+import { Platform, StatusBar } from "react-native";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+import { Body3, Icon, Header1, TextInput, Display3 } from "../../../../components-2";
+import { TutorialWatchlistEditNameStep } from "../../../tutorial/watchlist";
+
+const statusBarHeight = StatusBar.currentHeight || 24;
+
+/** ******************************************* */
+// Styles
+/** ******************************************* */
+const NavBarContainer = styled.View(props => ({
+  display: "flex",
+  position: "relative",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  height:
+    Platform.OS === "ios"
+      ? `${
+          props.noContent
+            ? props.theme.spacingXLargeValue * 3
+            : props.theme.spacingXSmallValue * 9.5
+        }px`
+      : `${
+          props.noContent
+            ? props.theme.spacingXLargeValue * 3
+            : props.theme.spacingXSmallValue * 9.5 - statusBarHeight
+        }px`,
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXLargeValue + 14}px`
+      : `${props.theme.spacingXXLargeValue + 14 - statusBarHeight}px`,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const LeftIconButton = styled(TouchableOpacity)(() => ({}));
+
+const RightIconButton = styled(TouchableOpacity)(props => ({
+  position: "absolute",
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXLargeValue + 14}px`
+      : `${props.theme.spacingXXLargeValue + 14 - statusBarHeight}px`,
+  paddingHorizontal: props.theme.spacingMedium,
+  right: 0
+}));
+
+const Container = styled.View(props => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  borderBottomLeftRadius: props.theme.spacingMedium,
+  borderBottomRightRadius: props.theme.spacingMedium,
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const InputContainer = styled.View(() => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center"
+}));
+
+const InputWrapper = styled.View(props => ({
+  paddingTop: props.theme.spacingXSmall,
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  borderBottomLeftRadius: props.theme.spacingMedium,
+  borderBottomRightRadius: props.theme.spacingMedium,
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const NumberOfAssetLabel = styled.View(() => ({
+  display: "flex",
+  flexDirection: "row",
+  alignSelf: "flex-start"
+}));
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const ConfirmHeader = styled(Header1)`
+  color: ${props =>
+    props.isDisabled ? props.theme.textDisableColor : props.theme.contentColorCTAPurple};
+`;
+
+const AssetCountLabel = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const TitleContainer = styled.View(() => ({
+  flex: 1
+}));
+
+const Title = styled(Display3)(props => ({
+  color: props.theme.navBarTextColor,
+  textAlign: "center"
+}));
+
+const WatchlistEditorHeader = props => {
+  const {
+    isDisabled,
+    navigator,
+    onPressLeftButton,
+    onPressRightButton,
+    onChangeText,
+    watchlistName,
+    watchlistCount,
+    isNameDuplicated
+  } = props;
+
+  const handleOnRightButtonPressed = () => {
+    onPressRightButton();
+  };
+
+  const handleOnBackButtonPressed = () => {
+    onPressLeftButton();
+    navigator.pop();
+  };
+
+  return (
+    <Fragment>
+      <NavBarContainer>
+        <LeftIconButton onPress={handleOnBackButtonPressed}>
+          <BackIcon />
+        </LeftIconButton>
+        <TitleContainer>
+          <Title>{i18n.translate("FavoriteWatchlist.WatchlistEditor.Title")}</Title>
+        </TitleContainer>
+        <RightIconButton disabled={isDisabled} onPress={handleOnRightButtonPressed}>
+          <ConfirmHeader isDisabled={isDisabled}>
+            {i18n.translate("FavoriteWatchlist.WatchlistEditor.Confirm")}
+          </ConfirmHeader>
+        </RightIconButton>
+      </NavBarContainer>
+      <InputWrapper>
+        <TutorialWatchlistEditNameStep>
+          <InputContainer>
+            <TextInput
+              maxLength={100}
+              variant={isNameDuplicated ? "error" : ""}
+              helperText={
+                isNameDuplicated
+                  ? i18n.translate("FavoriteWatchlist.BottomDialog.AddWatchlistDialog.Error")
+                  : ""
+              }
+              onChangeText={value => onChangeText(value)}
+              containerStyle={{
+                paddingBottom: 0,
+                paddingTop: 0,
+                marginTop: 0,
+                paddingRight: 8,
+                flex: 1
+              }}
+              placeholder={i18n.translate("FavoriteWatchlist.WatchlistEditor.FavWatchlistName")}
+              value={watchlistName}
+            />
+          </InputContainer>
+        </TutorialWatchlistEditNameStep>
+      </InputWrapper>
+      <Container>
+        <NumberOfAssetLabel>
+          <AssetCountLabel>
+            {i18n.translate("FavoriteWatchlist.WatchlistEditor.NumberOfAsset", {
+              count: watchlistCount
+            })}
+          </AssetCountLabel>
+        </NumberOfAssetLabel>
+      </Container>
+    </Fragment>
+  );
+};
+
+WatchlistEditorHeader.defaultProps = {
+  onPressRightButton: () => {},
+  onPressLeftButton: () => {},
+  onChangeText: () => {},
+  isDisabled: false,
+  watchlistCount: 0,
+  watchlistName: "",
+  isNameDuplicated: false
+};
+
+WatchlistEditorHeader.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  isDisabled: PropTypes.bool,
+  onPressRightButton: PropTypes.func,
+  onPressLeftButton: PropTypes.func,
+  onChangeText: PropTypes.func,
+  watchlistCount: PropTypes.number,
+  watchlistName: PropTypes.string,
+  isNameDuplicated: PropTypes.bool
+};
+
+export default WatchlistEditorHeader;

@@ -1,0 +1,46 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import PortfolioAccountCard from "../portfolio-account-card/PortfolioAccountCard";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import { DA_LANDING_EVENT, CASH_PORTFOLIO } from "../../../modules/analytics/analytics-constants";
+
+const PortfolioWalletDigitalAssets = ({
+  i18n,
+  walletAmountDA,
+  onPress,
+  isDigitalAssetsUnavailable
+}) => {
+  if (walletAmountDA === 0 && !isDigitalAssetsUnavailable) {
+    return <></>;
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        onPress();
+        trackEvent(DA_LANDING_EVENT, { param: CASH_PORTFOLIO });
+      }}
+    >
+      <PortfolioAccountCard
+        accountName={i18n.translations["Portfolio.Cash.DigitalAssets.Title"]}
+        unitDesc={i18n.translations["Portfolio.Cash.DigitalAssets.SubTitle"]}
+        cost={i18n.amountValueDisplay(walletAmountDA)}
+        accountNo=""
+        currency={i18n.translations["General.Currencies.THB"]}
+        isDigitalAssetsUnavailable={isDigitalAssetsUnavailable}
+      />
+    </TouchableOpacity>
+  );
+};
+
+PortfolioWalletDigitalAssets.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  walletAmountDA: PropTypes.number.isRequired,
+  onPress: PropTypes.func.isRequired,
+  isDigitalAssetsUnavailable: PropTypes.bool.isRequired
+};
+
+export default PortfolioWalletDigitalAssets;

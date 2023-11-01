@@ -1,0 +1,750 @@
+/* eslint-disable react/no-unused-prop-types */
+import React, { Component } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { isIphoneX } from "react-native-iphone-screen-helper";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { get } from "lodash";
+import { OFFSHORE_ACCOUNT_STATUS } from "@invx/features/fxconversion/fxconversion-constants";
+import { Navigation } from "react-native-navigation";
+import { SearchTab } from "@invx/redux/search/search-constants";
+
+import {
+  ViewContainer,
+  ChipTabs,
+  ScrollViewContainer,
+  MessageBottomModal,
+  UnderConstructionBanner
+} from "../../components-2";
+import { localiseCurrency } from "../../modules/i18n";
+import theme from "../../theme";
+import {
+  WALLET_SUMMARY_MAIN_WALLET,
+  WALLET_SUMMARY_FX_WALLET,
+  WALLET_SUMMARY_DA_THAI_BAHT_WALLET,
+  WALLET_SUMMARY_DA_WALLET,
+  WALLET_SUMMARY_COIN_WALLET,
+  WALLET_INDICATOR_MAIN_WALLET,
+  WALLET_INDICATOR_FX_WALLET,
+  WALLET_INDICATOR_DA_THAI_BAHT_WALLET,
+  WALLET_INDICATOR_DA_WALLET,
+  WALLET_INDICATOR_COIN_WALLET,
+  WALLET_INVX_WALLET,
+  WALLET_FX_WALLET,
+  WALLET_SUMMARY_PAGE,
+  WALLET_COIN_WALLET,
+  WALLET_DA_ASSET,
+  WALLET_DA_FIAT,
+  WALLET_DA_ASSET_DEPOSIT,
+  WALLET_DA_ASSET_WITHDRAW,
+  WALLET_DA_ASSET_TRADE,
+  WALLET_DA_ASSET_TO_DA_CASH,
+  WALLET_DA_FIAT_TOPUP,
+  WALLET_DA_FIAT_CASHOUT,
+  WALLET_DA_FIAT_BUYSELL,
+  WALLET_DA_FIAT_TO_DA_ASSET
+} from "../../modules/analytics/analytics-constants";
+import { trackEvent, trackCurrentScreen } from "../../modules/analytics/AnalyticsService";
+import WalletCarousel from "../../features/wallet-main/wallet-carousel";
+import WalletCard from "../../features/wallet-main/wallet-card";
+import WalletDAAsset from "../../features/wallet-summary/wallet-da-asset";
+import WalletDAAssetCard from "../../features/wallet-summary/wallet-da-asset/WalletDAAssetCard";
+import WalletDetail from "../../features/wallet-summary/wallet-detail";
+import {
+  WALLET_MAIN_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_LIST_SCREEN_ID,
+  DIGITAL_ASSETS_FIAT_DEPOSIT_ID,
+  DIGITAL_ASSETS_FIAT_WITHDRAW_ID
+} from "../../redux/navigation/navigation-constants";
+import { INVXWalletCard } from "../../features/wallet/wallet-profile-card";
+import INVXWalletActivity from "../../features/wallet/invx-wallet-activity";
+import INVXCoinCard from "../../features/invx-coin/invx-coin-card";
+import INVXCoinActivity from "../../features/invx-coin/invx-coin-activity";
+import FxWalletCard from "../../features/fxconversion/fx-wallet/fx-wallet-card";
+import FxWalletDetails from "../../features/fxconversion/fx-wallet/fx-wallet-details";
+import { PAGE_ID, exceptionModalData } from "../../features/wallet-main//wallet-utils";
+import { getBalanceTopup } from "../../features/invx-coin/invx-coin-utils";
+import bgCardSummary from "../../../assets/images/wallet/background-card-total.png";
+import WalletDAFiat from "../../features/wallet-summary/wallet-da-fiat";
+import WalletDAFiatCard from "../../features/wallet-summary/wallet-da-fiat/WalletDAFiatCard";
+import {
+  TutorialWalletChipSlideStep,
+  TutorialWalletChipTapStep,
+  TutorialWalletCardSlideStep,
+  TutorialWalletDetailStep
+} from "../../features/tutorial/wallet";
+
+const MainContainer = styled(ViewContainer)`
+  margin-bottom: ${props =>
+    isIphoneX() ? props.theme.spacingDrawUnderNavValue : props.theme.spacingXXLarge};
+`;
+
+const ChipContainer = styled.View`
+  padding-top: 12px;
+  padding-bottom: 12px;
+`;
+
+const DetailContainer = styled.View`
+  flex: 1;
+  background-color: ${props => props.theme.backgroundWhite};
+  border-top-left-radius: ${props => props.theme.spacingMedium};
+  border-top-right-radius: ${props => props.theme.spacingMedium};
+`;
+
+class WalletMainScreen extends Component {
+  constructor(props) {
+    super(props);
+    props.navigator.setStyle({
+      navBarCustomView: "walletNavScreen",
+      navBarCustomViewInitialProps: {
+        title: I18n.t("BottomMenuTitle.Wallet")
+      },
+      navBarBackgroundColor: theme.navigation
+    });
+
+    const pageId = this.getPageId();
+    const deeplinkToDa =
+      [PAGE_ID.DA_WALLET, PAGE_ID.DA_ASSET].includes(pageId) && props.deeplinkParam.pageId;
+    const deeplinkToFX = PAGE_ID.FX_WALLET === Number(props.deeplinkParam.pageId);
+    this.state = {
+      selectedPageId: deeplinkToDa || deeplinkToFX ? PAGE_ID.SUMMARY : pageId,
+      onDragTab: false,
+      refreshing: false,
+      isTabSelected: true,
+      exceptionData: null
+    };
+    this.trackingCurrentScreen(pageId);
+    this.props.navigator.addOnNavigatorEvent(this.onNavigatorEvent.bind(this));
+
+    if (deeplinkToDa) {
+      setTimeout(() => {
+        this.setState({ selectedPageId: pageId });
+      }, 900);
+    }
+    if (deeplinkToFX) {
+      setTimeout(() => {
+        this.setState({ selectedPageId: PAGE_ID.FX_WALLET });
+      }, 1000);
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    const {
+      loadingBalances,
+      user,
+      currentScreenId,
+      initTutorial,
+      screenTutorialSteps,
+      apexAuthenticated,
+      navigator
+    } = this.props;
+    if (prevProps.loadingBalances && !loadingBalances) {
+      // eslint-disable-next-line react/no-did-update-set-state
+      this.setState({ refreshing: false });
+    }
+
+    if (!prevProps.apexAuthenticated && apexAuthenticated) {
+      this.props.getAccountPosition();
+    }
+
+    if (
+      prevProps.user !== user ||
+      prevProps.currentScreenId !== currentScreenId ||
+      prevProps.initTutorial !== initTutorial ||
+      prevProps.screenTutorialSteps !== screenTutorialSteps ||
+      prevProps.navigator !== navigator ||
+      prevState.selectedPageId !== this.state.selectedPageId
+    ) {
+      if (
+        user?.email &&
+        currentScreenId === WALLET_MAIN_SCREEN_ID &&
+        this.state.selectedPageId === PAGE_ID.SUMMARY
+      ) {
+        initTutorial({
+          email: user?.email,
+          navigator,
+          screenId: WALLET_MAIN_SCREEN_ID,
+          screenTutorialSteps
+        });
+      }
+    }
+  }
+
+  onNavigatorEvent(event) {
+    if (this.state.isTabSelected) {
+      this.setState({ isTabSelected: false });
+      return;
+    }
+    if (event.id === "bottomTabSelected") {
+      this.setState({
+        selectedPageId: PAGE_ID.SUMMARY
+      });
+    }
+  }
+
+  getPageId = () => {
+    const pageId = get(this.props, "pageId", PAGE_ID.SUMMARY);
+    const deeplinkPageId = Number(get(this.props, "deeplinkParam.pageId", PAGE_ID.SUMMARY));
+    if (pageId && this.getWalletList().includes(pageId)) {
+      return pageId;
+    }
+    if (deeplinkPageId && this.getWalletList().includes(deeplinkPageId)) {
+      return deeplinkPageId;
+    }
+    return PAGE_ID.SUMMARY;
+  };
+
+  pageIdToIndex = pageId => {
+    const pageIndex = this.getWalletList().findIndex(page => page === pageId);
+    return pageIndex >= 0 ? pageIndex : 0;
+  };
+
+  pageIndexToId = index => {
+    return this.getWalletList()[index];
+  };
+
+  onRefresh = () => {
+    const { selectedPageId } = this.state;
+    const {
+      user,
+      fetchWalletProfile,
+      fetchAccountStatus,
+      loadAccountCurrencyList,
+      fetchAccountBalanceList,
+      onFetchPortfolioWalletInfo
+    } = this.props;
+    this.setState({ refreshing: true });
+    switch (selectedPageId) {
+      case PAGE_ID.SUMMARY:
+        fetchAccountStatus();
+        fetchAccountBalanceList();
+        onFetchPortfolioWalletInfo(user.userId);
+        setTimeout(() => {
+          this.setState({ refreshing: false });
+        }, 1000);
+        break;
+      case PAGE_ID.INVX_WALLET:
+        // Fixme refresh innovestX wallet
+        fetchWalletProfile(user.userId);
+        break;
+      case PAGE_ID.FX_WALLET:
+        fetchAccountStatus();
+        loadAccountCurrencyList();
+        fetchAccountBalanceList();
+        setTimeout(() => {
+          this.setState({ refreshing: false });
+        }, 1000);
+        break;
+      case PAGE_ID.DA_ASSET:
+        setTimeout(() => {
+          this.setState({ refreshing: false });
+        }, 1000);
+        break;
+      case PAGE_ID.DA_WALLET:
+        setTimeout(() => {
+          this.setState({ refreshing: false });
+        }, 1000);
+        break;
+      case PAGE_ID.COIN_WALLET:
+        // Fixme refresh innovestX wallet
+        fetchWalletProfile(user.userId);
+        break;
+      default:
+        break;
+    }
+  };
+
+  trackingCurrentScreen = tabId => {
+    const {
+      externalCustomerId,
+      deeplinkParam: { pageId, channelOrCampaign, inApp }
+    } = this.props;
+    let firebaseParams = { user_id: externalCustomerId };
+    if (pageId) {
+      firebaseParams = Object.assign(firebaseParams, {
+        channelOrCampaign,
+        in_app: inApp ? "true" : "false"
+      });
+    }
+    switch (tabId) {
+      case PAGE_ID.SUMMARY:
+        trackCurrentScreen(WALLET_SUMMARY_PAGE, firebaseParams);
+        break;
+      case PAGE_ID.INVX_WALLET:
+        trackCurrentScreen(WALLET_INVX_WALLET, firebaseParams);
+        break;
+      case PAGE_ID.FX_WALLET:
+        trackCurrentScreen(WALLET_FX_WALLET, firebaseParams);
+        break;
+      case PAGE_ID.DA_ASSET:
+        trackCurrentScreen(WALLET_DA_ASSET, firebaseParams);
+        break;
+      case PAGE_ID.DA_WALLET:
+        trackCurrentScreen(WALLET_DA_FIAT, firebaseParams);
+        break;
+      case PAGE_ID.COIN_WALLET:
+        trackCurrentScreen(WALLET_COIN_WALLET, firebaseParams);
+        break;
+      default:
+        break;
+    }
+  };
+
+  trackSummaryChangeTab = ({ tabId, exceptionTitle }) => {
+    switch (tabId) {
+      case PAGE_ID.INVX_WALLET:
+        trackEvent(WALLET_SUMMARY_MAIN_WALLET);
+        if (!this.props.userProfile?.walletIdEncrypted) {
+          this.setState({
+            exceptionData: exceptionModalData(I18n.t("WalletSummary.Exception.Header.INVXWallet"))
+          });
+          return;
+        }
+        break;
+      case PAGE_ID.FX_WALLET:
+        trackEvent(WALLET_SUMMARY_FX_WALLET);
+        if (exceptionTitle) {
+          this.setState({
+            exceptionData: exceptionModalData(exceptionTitle)
+          });
+          return;
+        }
+        break;
+      case PAGE_ID.DA_ASSET:
+        trackEvent(WALLET_SUMMARY_DA_WALLET);
+        break;
+      case PAGE_ID.DA_WALLET:
+        trackEvent(WALLET_SUMMARY_DA_THAI_BAHT_WALLET);
+        break;
+      case PAGE_ID.COIN_WALLET:
+        trackEvent(WALLET_SUMMARY_COIN_WALLET);
+        if (!this.props.userProfile?.walletIdEncrypted) {
+          this.setState({
+            exceptionData: exceptionModalData(I18n.t("WalletSummary.Exception.Header.INVXCoin"))
+          });
+          return;
+        }
+        break;
+      default:
+        break;
+    }
+
+    this.trackingCurrentScreen(tabId);
+    this.setState({ selectedPageId: tabId, onDragTab: false });
+  };
+
+  trackIndicatorChangeTab = tabId => {
+    switch (tabId) {
+      case PAGE_ID.INVX_WALLET:
+        trackEvent(WALLET_INDICATOR_MAIN_WALLET);
+        break;
+      case PAGE_ID.FX_WALLET:
+        trackEvent(WALLET_INDICATOR_FX_WALLET);
+        break;
+      case PAGE_ID.DA_ASSET:
+        trackEvent(WALLET_INDICATOR_DA_WALLET);
+        break;
+      case PAGE_ID.DA_WALLET:
+        trackEvent(WALLET_INDICATOR_DA_THAI_BAHT_WALLET);
+        break;
+      case PAGE_ID.COIN_WALLET:
+        trackEvent(WALLET_INDICATOR_COIN_WALLET);
+        break;
+      default:
+        break;
+    }
+
+    this.trackingCurrentScreen(tabId);
+    this.setState({ selectedPageId: tabId, onDragTab: false });
+  };
+
+  changeTabByChip = tabId => {
+    this.trackIndicatorChangeTab(tabId);
+  };
+
+  changeTabByCard = index => {
+    const tabId = this.pageIndexToId(index);
+    this.trackIndicatorChangeTab(tabId);
+  };
+
+  summaryCard = () => {
+    const { digitalAssetsPortfolioCoinValue, balances } = this.props;
+    const total =
+      this.getAmountByType("wallet") +
+      this.getAmountByType("offshore-wallet") +
+      this.getAmountByType("digital-assets") +
+      digitalAssetsPortfolioCoinValue +
+      (Number(getBalanceTopup(balances)?.totAmt.replace(/,/g, "")) || 0);
+
+    return (
+      <WalletCard
+        headerText={I18n.t("WalletSummary.Card.Header")}
+        balance={this.displayCurrencyFormat(total)}
+        currency={I18n.t("WalletSummary.Card.Currency")}
+        remark={I18n.t("WalletSummary.Card.Remark")}
+        fontRemarkColor={theme.contentColorHigh}
+        imagePath={bgCardSummary}
+      />
+    );
+  };
+
+  summaryDetail = () => {
+    const {
+      apexAuthenticated,
+      digitalAssetsIsBCP,
+      digitalAssetsAccountExist,
+      digitalAssetsPortfolioCoinValue,
+      accountStatusState,
+      accountBalanceListState,
+      accountCreateState,
+      balances,
+      userProfile,
+      latestUpdatedDate,
+      navigator
+    } = this.props;
+    return (
+      <WalletDetail
+        digitalAssetsServiceDown={!apexAuthenticated || digitalAssetsIsBCP}
+        digitalAssetsAccountExist={digitalAssetsAccountExist}
+        walletAmount={this.getAmountMoneyFormat("wallet")}
+        fxAmount={this.getAmountMoneyFormat("offshore-wallet")}
+        fxSubtitle={I18n.t("WalletSummary.Detail.FXSubtitle", { date: latestUpdatedDate })}
+        accountStatusState={accountStatusState}
+        accountBalanceListState={accountBalanceListState}
+        accountCreateState={accountCreateState}
+        daWalletAmount={this.getAmountMoneyFormat("digital-assets")}
+        daAssetAmount={this.displayCurrencyFormat(digitalAssetsPortfolioCoinValue)}
+        invxCoinAmount={getBalanceTopup(balances)?.totAmt || "0.00"}
+        navigator={navigator}
+        userProfile={userProfile}
+        changeTab={this.trackSummaryChangeTab}
+        showErrorModal={exceptionData => this.setState({ exceptionData })}
+      />
+    );
+  };
+
+  displayCurrencyFormat = (value, hideCurrency = true) => {
+    return localiseCurrency({
+      value,
+      precision: 2,
+      currency: I18n.t("TaxManagement.Currency.THB"),
+      hideCurrency
+    });
+  };
+
+  getWalletList = () => {
+    const {
+      digitalAssetsAccountExist,
+      accountStatusState,
+      userProfile,
+      digitalAssetsIsBCP,
+      apexAuthenticated
+    } = this.props;
+    const { DONE } = OFFSHORE_ACCOUNT_STATUS;
+    const statuses = accountStatusState?.data?.map(i => i.status) || [];
+
+    const fxHasDone = statuses.includes(DONE);
+
+    const digitalAssetsServiceDown = !apexAuthenticated || digitalAssetsIsBCP;
+
+    return [
+      PAGE_ID.SUMMARY,
+      ...(userProfile?.walletIdEncrypted ? [PAGE_ID.INVX_WALLET] : []),
+      ...(fxHasDone ? [PAGE_ID.FX_WALLET] : []),
+      ...(!digitalAssetsServiceDown && digitalAssetsAccountExist ? [PAGE_ID.DA_WALLET] : []),
+      ...(digitalAssetsAccountExist ? [PAGE_ID.DA_ASSET] : []),
+      ...(userProfile?.walletIdEncrypted ? [PAGE_ID.COIN_WALLET] : [])
+    ];
+  };
+
+  getWalletPage = pageId => {
+    const { navigator, digitalAssetsIsBCP } = this.props;
+
+    const pages = {
+      [PAGE_ID.SUMMARY]: {
+        text: I18n.t("WalletMain.WalletList.All"),
+        card: this.summaryCard(),
+        details: this.summaryDetail(),
+        refreshing: this.state.refreshing1
+      },
+      [PAGE_ID.INVX_WALLET]: {
+        text: I18n.t("WalletMain.WalletList.InnovestX"),
+        card: <INVXWalletCard navigator={navigator} />,
+        details: <INVXWalletActivity navigator={navigator} />,
+        refreshing: this.state.refreshing2
+      },
+      [PAGE_ID.FX_WALLET]: {
+        text: I18n.t("WalletMain.WalletList.FXWallet"),
+        card: <FxWalletCard navigator={navigator} />,
+        details: <FxWalletDetails navigator={navigator} />,
+        refreshing: this.state.refreshing2
+      },
+      [PAGE_ID.DA_WALLET]: {
+        text: I18n.t("WalletMain.WalletList.DAWallet"),
+        card: <WalletDAFiatCard />,
+        details: (
+          <WalletDAFiat
+            switchToDAAssetTab={() => {
+              trackEvent(WALLET_DA_FIAT_TO_DA_ASSET);
+              this.setState({ selectedPageId: PAGE_ID.DA_ASSET });
+            }}
+            navigateToDeposit={() => {
+              trackEvent(WALLET_DA_FIAT_TOPUP);
+              this.props.navigator.push({
+                screen: DIGITAL_ASSETS_FIAT_DEPOSIT_ID,
+                backButtonHidden: true,
+                overrideBackPress: true,
+                animationType: "slide-horizontal"
+              });
+            }}
+            navigateToWithdraw={() => {
+              trackEvent(WALLET_DA_FIAT_CASHOUT);
+              this.props.navigator.push({
+                screen: DIGITAL_ASSETS_FIAT_WITHDRAW_ID,
+                backButtonHidden: true,
+                overrideBackPress: true,
+                animationType: "slide-horizontal"
+              });
+            }}
+            navigateToTrade={() => {
+              trackEvent(WALLET_DA_FIAT_BUYSELL);
+              this.props.setAssetClassToSearch(SearchTab.DIGITAL_ASSETS);
+              Navigation.handleDeepLink({
+                link: "App.openSearch"
+              });
+            }}
+          />
+        ),
+        refreshing: this.state.refreshing3
+      },
+      [PAGE_ID.DA_ASSET]: {
+        text: I18n.t("WalletMain.WalletList.DAAsset"),
+        card: <WalletDAAssetCard navigator={navigator} />,
+        details: (
+          <WalletDAAsset
+            switchToDACashTab={() => {
+              trackEvent(WALLET_DA_ASSET_TO_DA_CASH);
+              this.setState({ selectedPageId: PAGE_ID.DA_WALLET });
+            }}
+            navigator={navigator}
+            navigateToDeposit={() => {
+              trackEvent(WALLET_DA_ASSET_DEPOSIT);
+              this.props.navigator.push({
+                screen: DIGITAL_ASSETS_COIN_LIST_SCREEN_ID,
+                backButtonHidden: true,
+                overrideBackPress: true,
+                animationType: "slide-horizontal",
+                passProps: {
+                  pageName: "digitalAssetsDeposit"
+                }
+              });
+            }}
+            navigateToWithdraw={() => {
+              trackEvent(WALLET_DA_ASSET_WITHDRAW);
+              this.props.navigator.push({
+                screen: DIGITAL_ASSETS_COIN_LIST_SCREEN_ID,
+                backButtonHidden: true,
+                overrideBackPress: true,
+                animationType: "slide-horizontal",
+                passProps: {
+                  pageName: "digitalAssetsWithdraw",
+                  isBCP: digitalAssetsIsBCP
+                }
+              });
+            }}
+            navigateToTrade={() => {
+              trackEvent(WALLET_DA_ASSET_TRADE);
+              this.props.setAssetClassToSearch(SearchTab.DIGITAL_ASSETS);
+              Navigation.handleDeepLink({
+                link: "App.openSearch"
+              });
+            }}
+          />
+        ),
+        refreshing: this.state.refreshing5
+      },
+      [PAGE_ID.COIN_WALLET]: {
+        text: I18n.t("WalletMain.WalletList.Coin"),
+        card: <INVXCoinCard navigator={navigator} />,
+        details: <INVXCoinActivity navigator={navigator} />,
+        refreshing: this.state.refreshing3
+      }
+    };
+
+    return pages[pageId];
+  };
+
+  getChipTabs = () => {
+    return this.getWalletList().map(pageId => {
+      const walletPage = this.getWalletPage(pageId);
+      return {
+        id: pageId,
+        text: walletPage.text
+      };
+    });
+  };
+
+  getAmountByType = type => {
+    const { cashList } = this.props;
+    return Number(cashList.find(item => item.type === type)?.amount) || 0;
+  };
+
+  getAmountMoneyFormat = type => {
+    const amount = this.getAmountByType(type);
+    if (!amount) {
+      return "0.00";
+    }
+    return this.displayCurrencyFormat(amount);
+  };
+
+  renderCard = () => {
+    return this.getWalletList().map(pageId => this.getWalletPage(pageId).card);
+  };
+
+  renderDetail = () => {
+    const { selectedPageId } = this.state;
+    return this.getWalletPage(selectedPageId).details;
+  };
+
+  renderBottomModal = () => {
+    const { exceptionData } = this.state;
+    let options = null;
+    if (exceptionData) {
+      options = { ...exceptionData, onModalClose: () => this.setState({ exceptionData: null }) };
+    }
+
+    return (
+      options && (
+        <MessageBottomModal
+          isVisible
+          media={<UnderConstructionBanner size="illus78" />}
+          title={options.title}
+          content={options.content}
+          buttons={[
+            {
+              variant: "primary",
+              label: options.button,
+              onPress: options.onModalClose
+            }
+          ]}
+          onModalClose={options.onModalClose}
+        />
+      )
+    );
+  };
+
+  render() {
+    const { selectedPageId, refreshing, onDragTab } = this.state;
+    const sneak = 25;
+    return (
+      <MainContainer variant="screen" isFullScreen>
+        <TutorialWalletChipSlideStep>
+          <TutorialWalletChipTapStep>
+            <ChipContainer>
+              <ChipTabs
+                scrollable
+                selectedTab={selectedPageId}
+                unselectedColor={theme.tabNavigation}
+                tabs={this.getChipTabs()}
+                autoScrolling={!onDragTab}
+                onTabPress={id => this.changeTabByChip(id)}
+                onScroll={() => this.setState({ onDragTab: true })}
+              />
+            </ChipContainer>
+          </TutorialWalletChipTapStep>
+        </TutorialWalletChipSlideStep>
+        <TutorialWalletCardSlideStep>
+          <WalletCarousel
+            pageIndex={this.pageIdToIndex(selectedPageId)}
+            sneak={sneak}
+            onChange={index => this.changeTabByCard(index)}
+          >
+            {this.renderCard()}
+          </WalletCarousel>
+        </TutorialWalletCardSlideStep>
+        <DetailContainer>
+          <ScrollViewContainer
+            accessibilityLabel="wallet-main-screen-scrollview"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={this.onRefresh}
+                tintColor={theme.contentColorMedium}
+                colors={[theme.contentColorMedium]}
+              />
+            }
+          >
+            <TutorialWalletDetailStep>{this.renderDetail()}</TutorialWalletDetailStep>
+          </ScrollViewContainer>
+        </DetailContainer>
+        {this.renderBottomModal()}
+      </MainContainer>
+    );
+  }
+}
+
+WalletMainScreen.defaultProps = {
+  pageId: 0,
+  deeplinkParam: {
+    pageId: 0,
+    channelOrCampaign: "",
+    inApp: false
+  },
+  onFetchPortfolioWalletInfo: () => {}
+};
+
+const balanceType = PropTypes.shape({
+  titleEN: PropTypes.string,
+  titleTH: PropTypes.string,
+  ccyCode: PropTypes.string,
+  avalAmt: PropTypes.string,
+  totAmt: PropTypes.string,
+  holdAmt: PropTypes.string,
+  interestAmt: PropTypes.string,
+  percent: PropTypes.string
+});
+
+WalletMainScreen.propTypes = {
+  pageId: PropTypes.number,
+  deeplinkParam: PropTypes.shape({
+    pageId: PropTypes.number,
+    channelOrCampaign: PropTypes.string,
+    inApp: PropTypes.bool
+  }),
+  loadingBalances: PropTypes.bool.isRequired,
+  userId: PropTypes.string.isRequired,
+  externalCustomerId: PropTypes.string.isRequired,
+  latestUpdatedDate: PropTypes.string.isRequired,
+  digitalAssetsPortfolioCoinValue: PropTypes.number.isRequired,
+  cashList: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])).isRequired,
+  userProfile: PropTypes.shape().isRequired,
+  user: PropTypes.shape({
+    userId: PropTypes.string.isRequired,
+    email: PropTypes.string.isRequired
+  }).isRequired,
+  balances: PropTypes.arrayOf(balanceType).isRequired,
+  fetchWalletProfile: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+    addOnNavigatorEvent: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  getAccountPosition: PropTypes.func.isRequired,
+  currentScreenId: PropTypes.string.isRequired,
+  digitalAssetsIsBCP: PropTypes.bool.isRequired,
+  digitalAssetsAccountExist: PropTypes.bool.isRequired,
+  fetchAccountStatus: PropTypes.func.isRequired,
+  loadAccountCurrencyList: PropTypes.func.isRequired,
+  fetchAccountBalanceList: PropTypes.func.isRequired,
+  setAssetClassToSearch: PropTypes.func.isRequired,
+  accountStatusState: PropTypes.objectOf(PropTypes.any).isRequired,
+  apexAuthenticated: PropTypes.bool.isRequired,
+  accountBalanceListState: PropTypes.objectOf(PropTypes.any).isRequired,
+  accountCreateState: PropTypes.objectOf(PropTypes.any).isRequired,
+  initTutorial: PropTypes.func.isRequired,
+  screenTutorialSteps: PropTypes.objectOf(PropTypes.any).isRequired,
+  onFetchPortfolioWalletInfo: PropTypes.func
+};
+
+export default WalletMainScreen;

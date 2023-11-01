@@ -1,0 +1,151 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { Header1, BottomModal, Icon } from "../../../components-2";
+import CoinImageIcon from "../../../components/icon/CoinImageIcon";
+import {
+  DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_WITHDRAW_SCREEN_ID,
+  DIGITAL_ASSET_PRODUCT_INFORMATION_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+import WalletDAModalOption from "./WalletDAModalOption";
+
+const Header = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const HeaderLeft = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 8px;
+`;
+
+const WalletDAAssetModal = ({
+  isVisible,
+  closeModal,
+  coin,
+  product,
+  instrument,
+  isBCP,
+  navigator
+}) => {
+  const navigateToDeposit = () => {
+    closeModal();
+
+    setTimeout(() => {
+      navigator.push({
+        screen: DIGITAL_ASSETS_COIN_DEPOSIT_SCREEN_ID,
+        backButtonHidden: true,
+        overrideBackPress: true,
+        animationType: "slide-horizontal",
+        title: "",
+        passProps: {
+          digitalAssetCode: coin.assetId,
+          availableBalance: coin.quantity,
+          digitalAssetID: coin.productId,
+          accountId: coin.accountNo,
+          minimumDeposit: product?.TickSize,
+          titleNavber: `${I18n.t("DigitalAssets.Wallet.Main.DepositTitle")} ${coin.assetId}`
+        },
+        animated: false
+      });
+    }, 160);
+  };
+
+  const navigateToWithdraw = () => {
+    closeModal();
+
+    setTimeout(() => {
+      navigator.push({
+        screen: DIGITAL_ASSETS_COIN_WITHDRAW_SCREEN_ID,
+        backButtonHidden: true,
+        overrideBackPress: true,
+        animationType: "slide-horizontal",
+        title: "",
+        passProps: {
+          digitalAssetCode: coin.assetId,
+          availableBalance: Number(coin.quantity) - Number(coin.hold),
+          balance: coin.quantity,
+          hold: coin.hold,
+          digitalAssetID: coin.productId,
+          accountId: coin.accountNo,
+          iconSvg: instrument?.icon,
+          decimalPlaces: product?.DecimalPlaces ?? 8,
+          isBCP
+        },
+        animated: false
+      });
+    }, 160);
+  };
+
+  const navigateToTrade = () => {
+    closeModal();
+
+    if (!instrument) {
+      return;
+    }
+
+    setTimeout(() => {
+      navigator.push({
+        screen: DIGITAL_ASSET_PRODUCT_INFORMATION_SCREEN_ID,
+        backButtonTitle: "",
+        animationType: "slide-horizontal",
+        navigatorStyle: {
+          navBarHidden: false,
+          tabBarHidden: true
+        },
+        passProps: {
+          InstrumentId: instrument.instrumentId,
+          Symbol: instrument.pair
+        }
+      });
+    }, 160);
+  };
+
+  return (
+    <BottomModal isVisible={isVisible} onModalClose={closeModal}>
+      <Header>
+        <HeaderLeft>
+          <CoinImageIcon uri={instrument?.icon} width={24} height={24} />
+          <Header1 style={{ marginLeft: 8 }}>{coin.assetId}</Header1>
+        </HeaderLeft>
+        <TouchableOpacity onPress={closeModal}>
+          <Icon name="close-2" size={24} />
+        </TouchableOpacity>
+      </Header>
+
+      <WalletDAModalOption
+        icon="deposit"
+        label={I18n.t("WalletMain.DAAsset.Deposit")}
+        onPress={navigateToDeposit}
+      />
+      <WalletDAModalOption
+        icon="withdraw"
+        label={I18n.t("WalletMain.DAAsset.Withdraw")}
+        onPress={navigateToWithdraw}
+      />
+      <WalletDAModalOption
+        icon="da-asset"
+        label={I18n.t("WalletMain.DAAsset.Trade")}
+        onPress={navigateToTrade}
+      />
+    </BottomModal>
+  );
+};
+
+WalletDAAssetModal.propTypes = {
+  isVisible: PropTypes.bool.isRequired,
+  closeModal: PropTypes.func.isRequired,
+  coin: PropTypes.shape().isRequired,
+  product: PropTypes.shape().isRequired,
+  instrument: PropTypes.shape().isRequired,
+  isBCP: PropTypes.bool.isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired
+};
+
+export default WalletDAAssetModal;

@@ -1,0 +1,259 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { ScrollView, Dimensions } from "react-native";
+import CoinImageWithTradingSignIcon from "../../../../../components/icon/CoinImageWithTradingSignIcon";
+import { BottomModal } from "../../../../../components";
+import { digitalAssetPriceValueDisplay } from "../../../../../modules/i18n/value-display";
+import { Status } from "../../../../../modules/digital-asset/activity-constant";
+import { Body2, PrimaryButton, SecondaryButton } from "../../../../../components-2";
+import {
+  ButtonContainer,
+  ButtonRow,
+  Row,
+  LabelText,
+  ModalValueText as ValueText,
+  BaseProductText,
+  ModalHeaderContainer as HeaderContainer,
+  ModalTitle as Title,
+  Grabber
+} from "../../styled";
+import { getIconSize } from "../../utils";
+
+const { height } = Dimensions.get("window");
+
+// There is an issue about scroll view in current 'react-native-modal' version
+// when we provide 'scroll-direction' prop to it, hence we need to
+// wrap <TouchableOpacity /> around content to make it scrollable.
+const ScrollContainer = ({ children }) => {
+  return (
+    <ScrollView>
+      <TouchableOpacity>
+        <>{children}</>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+ScrollContainer.propTypes = {
+  children: PropTypes.element.isRequired
+};
+
+const OrderCancelModal = ({
+  isModalVisible,
+  hideModal,
+  order,
+  cancelOrder,
+  getFeeFromTradesHistory,
+  tradingSn
+}) => {
+  const {
+    orderId,
+    icon,
+    createdDateTs,
+    baseProductSymbol,
+    quoteProductSymbol,
+    price,
+    side,
+    status,
+    baseAmount,
+    orderValue
+  } = order;
+
+  const [orderFee, setOrderFee] = useState(0);
+
+  useEffect(() => {
+    getFeeFromTradesHistory({ orderId }, setOrderFee);
+  }, []);
+
+  const headerComponent = () => (
+    <HeaderContainer>
+      <Grabber />
+      <Title>{I18n.t("DigitalAssets.Activity.CancelModal.Title")}</Title>
+    </HeaderContainer>
+  );
+
+  const getContentRows = () => {
+    if (side === "Buy") {
+      return [
+        {
+          label: `${I18n.t("DigitalAssets.Activity.CancelModal.AmountBuy")} (${baseProductSymbol})`,
+          value: baseAmount
+        },
+        {
+          label: `${I18n.t("DigitalAssets.Activity.CancelModal.Price")} (${quoteProductSymbol})`,
+          value: digitalAssetPriceValueDisplay(price)
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.InvestmentType"),
+          value: I18n.t("DigitalAssets.Activity.CancelModal.LimitBuy")
+        },
+        {
+          label: `${I18n.t("DigitalAssets.Activity.CancelModal.Fee")} (${quoteProductSymbol})`,
+          value: digitalAssetPriceValueDisplay(orderFee.toString(), 2, false)
+        },
+        {
+          label: `${I18n.t(
+            "DigitalAssets.Activity.CancelModal.ValueAfterFee"
+          )} (${quoteProductSymbol})`,
+          value: orderValue
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.BankAccount"),
+          value: I18n.t("DigitalAssets.Activity.CancelModal.DaBankAccount")
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.CreationTime"),
+          value: createdDateTs
+        }
+      ];
+    } else if (side === "Sell") {
+      return [
+        {
+          label: `${I18n.t(
+            "DigitalAssets.Activity.CancelModal.AmountSell"
+          )} (${baseProductSymbol})`,
+          value: baseAmount
+        },
+        {
+          label: `${I18n.t("DigitalAssets.Activity.CancelModal.Price")} (${quoteProductSymbol})`,
+          value: digitalAssetPriceValueDisplay(price)
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.InvestmentType"),
+          value: I18n.t("DigitalAssets.Activity.CancelModal.LimitSell")
+        },
+        {
+          label: `${I18n.t("DigitalAssets.Activity.CancelModal.Fee")} (${quoteProductSymbol})`,
+          value: digitalAssetPriceValueDisplay(orderFee.toString(), 2, false)
+        },
+        {
+          label: `${I18n.t(
+            "DigitalAssets.Activity.CancelModal.ValueAfterFee"
+          )} (${quoteProductSymbol})`,
+          value: orderValue
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.BankAccount"),
+          value: I18n.t("DigitalAssets.Activity.CancelModal.DaBankAccount")
+        },
+        {
+          label: I18n.t("DigitalAssets.Activity.CancelModal.CreationTime"),
+          value: createdDateTs
+        }
+      ];
+    }
+
+    return [];
+  };
+
+  const contentRows = getContentRows();
+
+  const iconSize = getIconSize();
+
+  const getCoinLabel = () => {
+    if (side === "Buy") {
+      return I18n.t("DigitalAssets.Activity.CancelModal.CoinBuy");
+    } else if (side === "Sell") {
+      return I18n.t("DigitalAssets.Activity.CancelModal.CoinSell");
+    }
+    return "";
+  };
+
+  const ContentWrapperComponent = height <= 750 ? ScrollContainer : undefined;
+
+  return (
+    <BottomModal
+      headerComponent={headerComponent}
+      isVisible={isModalVisible}
+      hideModal={hideModal}
+      hiddenDivider
+      propagateSwipe
+      ContentWrapperComponent={ContentWrapperComponent}
+    >
+      <>
+        <ContentContainer>
+          <Row>
+            <LabelText>{getCoinLabel()}</LabelText>
+            <CoinRow>
+              <CoinImageWithTradingSignIcon
+                uri={icon}
+                width={iconSize}
+                height={iconSize}
+                tradingSn={tradingSn}
+              />
+              <BaseProductText>{baseProductSymbol}</BaseProductText>
+            </CoinRow>
+          </Row>
+          {contentRows.map(row => (
+            <Row key={row.label}>
+              <LabelText>{row.label}</LabelText>
+              <ValueText>{row.value}</ValueText>
+            </Row>
+          ))}
+          {status === Status.PartiallyMatched && (
+            <Message>
+              {I18n.t("DigitalAssets.Activity.CancelModal.PartiallyMatchedWarning")}
+            </Message>
+          )}
+        </ContentContainer>
+        <ButtonRow>
+          <ButtonContainer>
+            <SecondaryButton
+              onPress={hideModal}
+              label={I18n.t("DigitalAssets.Activity.CancelModal.Cancel")}
+              size="large"
+              fullWidth
+            />
+          </ButtonContainer>
+          <ButtonContainer>
+            <PrimaryButton
+              onPress={cancelOrder}
+              label={I18n.t("DigitalAssets.Activity.CancelModal.Confirm")}
+              size="large"
+              fullWidth
+            />
+          </ButtonContainer>
+        </ButtonRow>
+      </>
+    </BottomModal>
+  );
+};
+
+OrderCancelModal.propTypes = {
+  isModalVisible: PropTypes.bool.isRequired,
+  hideModal: PropTypes.func.isRequired,
+  order: PropTypes.shape({
+    price: PropTypes.string.isRequired,
+    side: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+    baseProductId: PropTypes.number.isRequired,
+    baseProductSymbol: PropTypes.string.isRequired,
+    quoteProductSymbol: PropTypes.string.isRequired,
+    baseAmount: PropTypes.string.isRequired,
+    orderValue: PropTypes.string.isRequired,
+    orderId: PropTypes.number.isRequired,
+    icon: PropTypes.string.isRequired,
+    createdDateTs: PropTypes.string.isRequired
+  }).isRequired,
+  cancelOrder: PropTypes.func.isRequired,
+  getFeeFromTradesHistory: PropTypes.func.isRequired,
+  tradingSn: PropTypes.shape({}).isRequired
+};
+
+export default OrderCancelModal;
+
+const ContentContainer = styled.View``;
+
+const CoinRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+`;
+
+const Message = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  padding: 16px 16px 0px 16px;
+`;

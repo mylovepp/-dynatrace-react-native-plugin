@@ -1,0 +1,114 @@
+import React, { useState, useEffect } from "react";
+import { Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View, SafeAreaView, Dimensions } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import {
+  CodeField,
+  Cursor,
+  useBlurOnFulfill,
+  useClearByFocusCell
+} from "react-native-confirmation-code-field";
+import theme from "../../theme";
+
+const CODE_LENGTH = 6;
+
+const Container = styled(SafeAreaView)`
+  min-height: 300;
+`;
+
+const PinNumberInput = props => {
+  const { code, codeLength, onChangeCode, variant } = props;
+  const [value, setValue] = useState("");
+
+  const windowWidth = Dimensions.get("window").width;
+
+  const ref = useBlurOnFulfill({ value, cellCount: codeLength });
+  const [codeFieldProps, getCellOnLayout] = useClearByFocusCell({
+    value,
+    setValue
+  });
+
+  useEffect(() => {
+    if ((code && code.length === CODE_LENGTH) || code === "") {
+      setValue(code);
+    }
+  }, [code]);
+
+  const handleChange = val => {
+    setValue(val);
+    onChangeCode(val);
+  };
+
+  const checkVariant = () => {
+    switch (variant) {
+      case "typing":
+        return theme.ctaPurple;
+      case "error":
+        return theme.graphRed;
+      default:
+        return theme.contentColorLight;
+    }
+  };
+
+  const getRootStyle = () => {
+    let style = { margin: 20, marginHorizontal: 42 };
+    if (windowWidth < 321) {
+      style = { margin: 8, marginHorizontal: 8 };
+    } else if (windowWidth < 376) {
+      style = { margin: 8, marginHorizontal: 20 };
+    }
+    return style;
+  };
+
+  return (
+    <Container>
+      <CodeField
+        accessibilityLabel="txtPin"
+        testID="txtPin"
+        ref={ref}
+        {...codeFieldProps}
+        value={value}
+        onFulfill={handleChange}
+        onChangeText={handleChange}
+        cellCount={codeLength}
+        rootStyle={getRootStyle()}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        renderCell={({ index, symbol, isFocused }) => (
+          <View key={index} onLayout={getCellOnLayout(index)}>
+            <Text
+              style={{
+                width: 43,
+                height: 48,
+                fontSize: 22,
+                lineHeight: 42,
+                borderColor: checkVariant(),
+                borderRadius: 12,
+                borderWidth: 2,
+                textAlign: "center"
+              }}
+            >
+              {symbol || (isFocused ? <Cursor /> : null)}
+            </Text>
+          </View>
+        )}
+      />
+    </Container>
+  );
+};
+
+PinNumberInput.defaultProps = {
+  code: "",
+  variant: "default",
+  codeLength: CODE_LENGTH
+};
+
+PinNumberInput.propTypes = {
+  code: PropTypes.string,
+  codeLength: PropTypes.number,
+  onChangeCode: PropTypes.func.isRequired,
+  variant: PropTypes.oneOf(["default", "typing", "error"])
+};
+
+export default PinNumberInput;

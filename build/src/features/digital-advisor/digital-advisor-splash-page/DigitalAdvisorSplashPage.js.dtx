@@ -1,0 +1,325 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { startTabBasedApp } from "../../../modules/navigation";
+import { getIsFreemuimIntelligentPortEnabled } from "../../../Config";
+
+import { Body2, Header1, Header2, Icon, PrimaryButton, ViewContainer } from "../../../components-2";
+
+const barChart = require("../../../../assets/images/digital-advisor/splash-page/bar-chart.png");
+const intelligentLogo = require("../../../../assets/images/digital-advisor/splash-page/intelligent-logo.png");
+const vector = require("../../../../assets/images/digital-advisor/splash-page/vector.png");
+const section1Image = require("../../../../assets/images/digital-advisor/splash-page/icon-1.png");
+const section2Image = require("../../../../assets/images/digital-advisor/splash-page/icon-2.png");
+
+const LeftContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "flex-start",
+  position: "absolute",
+  left: 20,
+  top: 50
+}));
+
+const IconButton = styled(TouchableOpacity)`
+  padding: ${props => props.theme.spacingXXSmall};
+  background-color: "rgba(255, 255, 255, 0.5)";
+  border-radius: 32px;
+`;
+
+const BackIcon = styled(Icon).attrs(props => {
+  return {
+    name: "chevron-left-2",
+    size: "icon24",
+    color: props.color
+  };
+})``;
+
+const BackgroundContainer = styled.View`
+  background-color: ${props => props.theme.backgroundRoboSplashPagePurple};
+  padding-bottom: 8px;
+  margin-bottom: ${props => (props.variant === "home" ? 0 : props.theme.spacingXSmallValue)};
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  shadow-radius: 1;
+  shadow-offset: ${props => (props.noBorder ? "0px 0px" : "0px 2px")};
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: ${props => (props.noShadow ? "0" : "0.15")};
+`;
+
+const CardContainer = styled.View`
+  background-color: white;
+  margin-bottom: 8;
+  margin-left: 16;
+  margin-right: 16;
+  border-radius: 16;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.2;
+  shadow-radius: 4;
+  shadow-offset: 0px 2px;
+  padding: 16px 16px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-around;
+`;
+
+const CaptionHeader = styled(Header2)`
+  color: ${props => props.theme.textDarkestColor};
+  text-align: left;
+`;
+
+const CaptionDescription = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  text-align: left;
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const CardFooter = styled(Header2)`
+  margin-right: auto;
+  padding-left: 8px;
+  color: ${props => props.theme.scbPrimaryPurple};
+`;
+
+const CardContent = styled.View`
+  width: 45%;
+`;
+
+const CaptionContainer = styled.View`
+  margin-left: 16;
+`;
+
+const ContentContainer = styled.ScrollView`
+  margin-left: ${props => props.theme.spacingMedium};
+  margin-right: ${props => props.theme.spacingMedium};
+`;
+
+const DescriptionBlog = styled.View`
+  border-bottom-color: ${props => props.theme.dividerColor};
+  border-bottom-width: 1px;
+  padding-top: 24px;
+  padding-bottom: 24px;
+`;
+
+const DescriptionContainer = styled.View`
+  flex-direction: row;
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+  width: 85%;
+`;
+
+const Description = styled(Body2)`
+  color: ${props => props.theme.textDarkestColor};
+`;
+
+const SubDescriptionContainer = styled.View`
+  flex-direction: row;
+  margin-top: ${props => props.theme.spacingXXSmall};
+  align-items: center;
+  margin-left: 10px;
+`;
+
+const SubDescription = styled(Body2)`
+  color: ${props => props.theme.textDarkestColor};
+  margin-left: 10px;
+`;
+
+const DescriptionContentHeader = styled(Header1)`
+  color: ${props => props.theme.scbPrimaryPurple};
+`;
+
+const ImageContainer = styled.View`
+  margin-left: ${props => props.theme.spacingSmallValue};
+`;
+
+const LogoContainer = styled.View`
+  border-radius: 32px;
+  background-color: ${props => props.theme.backgroundHomePurple};
+  padding: ${props => props.theme.spacingSmallValue}px;
+  max-height: 56px;
+`;
+
+const DescriptionVectorImage = styled(Image).attrs({
+  resizeMode: "contain"
+})`
+  max-width: 20px;
+  max-height: 20px;
+`;
+
+const DescriptionImage = styled(Image).attrs({
+  resizeMode: "contain"
+})`
+  max-width: 32px;
+  height: 32px;
+`;
+
+const LogoImage = styled(Image).attrs({
+  resizeMode: "contain"
+})`
+  margin-top: 50px;
+  max-width: 161px;
+`;
+
+const ChartImage = styled(Image).attrs({
+  resizeMode: "contain"
+})`
+  position: absolute;
+  top: 0;
+  right: 0;
+`;
+
+const Footer = styled.View`
+  bottom: ${props => props.theme.spacingMediumLarge};
+  padding: 0 ${props => props.theme.spacingMedium};
+`;
+
+class DigitalAdvisor extends Component {
+  constructor(props) {
+    super(props);
+    this.cardContents = [
+      {
+        key: "1",
+        header: "DigitalAdvisor.SplashPageNewDesign.Caption1Label",
+        caption: "DigitalAdvisor.SplashPageNewDesign.Caption1Text"
+      },
+      {
+        key: "2",
+        header: "DigitalAdvisor.SplashPageNewDesign.Caption2Label",
+        caption: "DigitalAdvisor.SplashPageNewDesign.Caption2Text"
+      }
+    ];
+
+    this.description = [
+      {
+        key: "1",
+        description: "DigitalAdvisor.SplashPageNewDesign.Content1Description",
+        header: "DigitalAdvisor.SplashPageNewDesign.Content1Header",
+        image: section1Image,
+        subDescription: [
+          "DigitalAdvisor.SplashPageNewDesign.Content1SubDescription1",
+          "DigitalAdvisor.SplashPageNewDesign.Content1SubDescription2",
+          "DigitalAdvisor.SplashPageNewDesign.Content1SubDescription3"
+        ]
+      },
+      {
+        key: "2",
+        description: "DigitalAdvisor.SplashPageNewDesign.Content2Description",
+        header: "DigitalAdvisor.SplashPageNewDesign.Content2Header",
+        image: section2Image
+      }
+    ];
+  }
+
+  componentDidMount = () => {
+    this.props.navigator.setStyle({
+      navBarHidden: true
+    });
+  }
+
+  handlePress = () => {
+    const { popupLoginScreen } = this.props;
+    if (getIsFreemuimIntelligentPortEnabled()) {
+      this.props.onSplashPageLoaded({ isReplace: true });
+    } else if (this.props.isFreemiumMode) {
+      popupLoginScreen();
+    } else {
+      this.props.onSplashPageLoaded({ isReplace: true });
+    }
+  };
+
+  handleGoback = () => {
+    const { isDisplayInvestScreen, navigator } = this.props;
+    if (isDisplayInvestScreen) {
+      navigator.pop();
+    } else {
+      startTabBasedApp();
+    }
+  };
+
+  renderCardContents = item => {
+    return (
+      <CardContent key={item}>
+        <CaptionHeader>{I18n.translate(item.header)}</CaptionHeader>
+        <CaptionDescription>{I18n.translate(item.caption)}</CaptionDescription>
+      </CardContent>
+    );
+  };
+
+  renderDescriptionContents = (item, index) => {
+    return (
+      <DescriptionBlog style={[index === 1 && { borderBottomColor: "transparent" }]} key={item}>
+        <DescriptionContainer>
+          <LogoContainer>
+            <DescriptionImage source={item.image} />
+          </LogoContainer>
+          <CaptionContainer>
+            <DescriptionContentHeader>{I18n.translate(item.header)}</DescriptionContentHeader>
+            <Description>{I18n.translate(item.description)}</Description>
+          </CaptionContainer>
+        </DescriptionContainer>
+        {!!item.subDescription &&
+          item.subDescription.map(key => {
+            return (
+              <SubDescriptionContainer key={key}>
+                <DescriptionVectorImage source={vector} />
+                <SubDescription>{I18n.translate(key)}</SubDescription>
+              </SubDescriptionContainer>
+            );
+          })}
+      </DescriptionBlog>
+    );
+  };
+
+  render() {
+    return (
+      <ViewContainer>
+        <BackgroundContainer variant="portfolio" noBorder="true" noShadow="true">
+          <LeftContainer style={{ zIndex: 1 }}>
+            <IconButton outline="true" onPress={this.handleGoback}>
+              <BackIcon color="white" />
+            </IconButton>
+          </LeftContainer>
+          <ImageContainer>
+            <LogoImage source={intelligentLogo} />
+            <ChartImage source={barChart} />
+          </ImageContainer>
+          <CardContainer>
+            {this.cardContents.map(key => {
+              return this.renderCardContents(key);
+            })}
+            <CardFooter>{I18n.t("DigitalAdvisor.SplashPageNewDesign.Caption3Label")}</CardFooter>
+          </CardContainer>
+        </BackgroundContainer>
+        <ContentContainer>
+          {this.description.map((key, index) => {
+            return this.renderDescriptionContents(key, index);
+          })}
+        </ContentContainer>
+        <Footer>
+          <PrimaryButton
+            size="large"
+            label={I18n.t("DigitalAdvisor.SplashPageNewDesign.NextButton")}
+            onPress={this.handlePress}
+          />
+        </Footer>
+      </ViewContainer>
+    );
+  }
+}
+
+DigitalAdvisor.defaultProps = {
+  isDisplayInvestScreen: false
+};
+
+DigitalAdvisor.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  isFreemiumMode: PropTypes.func.isRequired,
+  onSplashPageLoaded: PropTypes.func.isRequired,
+  popupLoginScreen: PropTypes.func.isRequired,
+  isDisplayInvestScreen: PropTypes.bool
+};
+
+export default DigitalAdvisor;

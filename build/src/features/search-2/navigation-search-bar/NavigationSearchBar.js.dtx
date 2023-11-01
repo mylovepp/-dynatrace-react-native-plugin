@@ -1,0 +1,141 @@
+/* eslint-disable no-unused-expressions */
+import React, { useEffect, useState, useRef } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+
+import { Display3, SectionBackground, SearchInput, Icon } from "@invx/components-2";
+import { getExtendTopNavBarHeight } from "@invx/modules/navigation/defaultStyle";
+import { SearchTab } from "@invx/redux/search/search-constants";
+
+import { debounce } from "../utils";
+import SearchTabBar from "../components/search-tab-bar";
+
+const Container = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big"
+})`
+  padding-top: ${getExtendTopNavBarHeight()};
+  padding-bottom: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const TitleText = styled(Display3)`
+  width: 100%;
+  position: absolute;
+  text-align: center;
+  z-index: -1;
+`;
+const TitleContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+const SearchInputContainer = styled.View`
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+
+const handleOnBackPress = (navigator, onPress) => {
+  if (onPress) {
+    return onPress();
+  }
+  return navigator.pop();
+};
+
+let debounceSearchCaller = null;
+const handleDebounceSubmitSearch = onSubmitSearch => debounce(onSubmitSearch, 1000);
+
+const NavigationSearchBar = ({
+  onBackPress,
+  navigator,
+  selectedTab,
+  onSubmitSearch,
+  searchValue
+}) => {
+  const [activeTab, setActiveTab] = useState(selectedTab);
+  const [searchText, setSearchText] = useState(searchValue);
+  const currentTab = useRef();
+
+  useEffect(() => {
+    setSearchText(searchValue);
+  }, [searchValue]);
+
+  useEffect(() => {
+    if (selectedTab) {
+      currentTab.current = selectedTab;
+      setActiveTab(selectedTab);
+    }
+  }, [selectedTab]);
+
+  useEffect(() => {
+    if (searchText && currentTab.current === activeTab) {
+      // search with debounce (delay 1000 ms)
+      debounceSearchCaller?.cancel();
+      debounceSearchCaller = handleDebounceSubmitSearch(onSubmitSearch);
+      debounceSearchCaller(searchText, activeTab);
+    } else {
+      // search immediately when searchText is empty or tab is changed
+      currentTab.current = activeTab;
+      debounceSearchCaller?.cancel();
+      onSubmitSearch(searchText, activeTab);
+    }
+  }, [searchText, activeTab]);
+
+  const handleOnTabPress = tabId => {
+    setActiveTab(tabId);
+  };
+  const handleOnSearchTextChange = value => {
+    setSearchText(value);
+  };
+  const handleOnClearSearch = () => {
+    setSearchText("");
+  };
+
+  return (
+    <Container>
+      <TitleContainer>
+        <TouchableOpacity
+          testID="backButton"
+          onPress={() => handleOnBackPress(navigator, onBackPress)}
+        >
+          <BackIcon />
+        </TouchableOpacity>
+        <TitleText testID="lblSearchTitle">{I18n.t("Search.Title")}</TitleText>
+      </TitleContainer>
+
+      <SearchInputContainer>
+        <SearchInput
+          testID="searchInput"
+          placeholder={I18n.t("Search.SearchInput.Placeholder")}
+          value={searchText}
+          onClear={handleOnClearSearch}
+          onChangeText={handleOnSearchTextChange}
+        />
+      </SearchInputContainer>
+
+      <SearchTabBar testID="searchTabBar" activeTab={activeTab} onTabPress={handleOnTabPress} />
+    </Container>
+  );
+};
+
+NavigationSearchBar.defaultProps = {
+  onBackPress: null,
+  navigator: {},
+  selectedTab: SearchTab.ALL,
+  searchValue: ""
+};
+NavigationSearchBar.propTypes = {
+  onBackPress: PropTypes.func,
+  onSubmitSearch: PropTypes.func.isRequired,
+  navigator: PropTypes.shape(),
+  selectedTab: PropTypes.oneOf(Object.values(SearchTab)),
+  searchValue: PropTypes.string
+};
+export default NavigationSearchBar;

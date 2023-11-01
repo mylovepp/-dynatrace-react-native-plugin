@@ -1,0 +1,576 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, Linking } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components";
+import I18n from "react-native-i18n";
+import cloneDeep from "lodash/cloneDeep";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { tabBarHiddenStyle } from "../../modules/navigation/defaultStyle";
+import {
+  ViewContainer,
+  Header1,
+  Header3,
+  NumberInput,
+  TextInput,
+  PrimaryButton,
+  Separator,
+  ScrollViewContainer as DefaultScrollViewContainer,
+  LoadingScreen,
+  TouchableOpacityDebounced,
+  Icon,
+  TextButtonS
+} from "../../components-2";
+import { inputToNumberDisplay } from "../../modules/format";
+import { safeTranslate } from "../../modules/i18n";
+import { TAX_MANAGEMENT_INITIAL_SCREEN_ID } from "../../redux/navigation/navigation-constants";
+import {
+  SCREEN_CHANGE_EVENT,
+  TAX_MANAGEMENT_TAX_INCOME_TIPS,
+  TAX_MANAGEMENT_TAX_INCOME_TIPS_EXPENSE,
+  TAX_MANAGEMENT_TAX_INCOME_SAVE,
+  TAX_MANAGEMENT_CONTENT_TAX_INCOME
+} from "../../modules/analytics/analytics-constants";
+import { trackEvent, trackCurrentScreen } from "../../modules/analytics/AnalyticsService";
+import {
+  getConfigValue,
+  getTipData,
+  navigateToTipScreen
+} from "../../features/tax-management/tax-management-utils";
+import { GeneralError, BackButtonAlert } from "../../features/tax-management/tax-management-dialog";
+
+const ScrollViewContainer = styled(DefaultScrollViewContainer)`
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+const InputContainer = styled.View`
+  margin-left: ${props => props.theme.spacingMediumLargeValue};
+  margin-right: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const SubmitContainer = styled.View`
+  padding-left: ${props => props.theme.spacingMediumLargeValue};
+  padding-right: ${props => props.theme.spacingMediumLargeValue};
+  padding-bottom: ${props => (Platform.OS === "android" ? props.theme.spacingXSmall : "0")};
+`;
+
+const FadeBox = styled.View`
+  box-shadow: 0px -2px 4px ${props => props.theme.sdkBorderColor};
+`;
+
+const BottomSeparator = styled(Separator)`
+  margin-bottom: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const TaxSeparator = styled(Separator)`
+  margin-top: ${props => props.theme.spacingMediumLargeValue};
+  margin-bottom: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const ButtonLeft = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-self: flex-end;
+`;
+
+const PrivacyContainer = styled.View`
+  align-items: center;
+  margin-top: ${props => props.theme.spacingXSmallValue};
+  margin-bottom: ${props => props.theme.spacingXXLargeValue};
+  padding-left: ${props => props.theme.spacingMediumLargeValue};
+  padding-right: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const PrivacyRow = styled.View`
+  flex: 1;
+  flex-direction: row;
+`;
+
+const PrivacyLabel = styled(Header3)`
+  color: ${props =>
+    props.type === "link" ? props.theme.ctaPurple : props.theme.contentColorMedium};
+  text-align: center;
+`;
+
+const TextInputContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmallValue};
+  margin-bottom: ${props => props.theme.spacingXSmallValue};
+`;
+
+const TotalContainer = styled.View`
+  margin-top: ${props => props.theme.spacingMediumValue};
+  margin-bottom: ${props => props.theme.spacingMediumValue};
+`;
+
+const TipButton = styled(TouchableOpacityDebounced)`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const TipButtonText = styled(TextButtonS)(props => ({
+  color: props.theme.ctaPurple,
+  marginRight: props.theme.spacingXXSmall
+}));
+
+const TipButtonIcon = styled(Icon).attrs(props => ({
+  color: props.theme.ctaPurple,
+  size: "icon16",
+  name: "info-2"
+}))``;
+
+const TRANSLATE_KEYS = {
+  Errors: "TaxManagement.PageIncome.Errors"
+};
+
+const FIELD_TAX_DEDUCTION = ["salaryAmt", "bonusAmt", "freelanceAmt"];
+
+const InfoIcon = styled(Icon).attrs(props => ({
+  color: props.theme.ctaPurple,
+  name: "info-2"
+}))``;
+
+class TaxManagementIncomeScreen extends Component {
+  constructor(props) {
+    super(props);
+    const { taxData, isNewTax } = this.props;
+    this.state = {
+      taxData: isNewTax ? {} : cloneDeep(taxData),
+      taxDeduct: 0,
+      isSubmit: false,
+      valid: true,
+      errors: {},
+      isEditData: false,
+      isBackButton: false
+    };
+
+    props.navigator.setStyle({
+      ...tabBarHiddenStyle,
+      navBarCustomView: "defaultCenterTextNavbar",
+      navBarCustomViewInitialProps: {
+        title: I18n.t("TaxManagement.PageIncome.ScreenTitle"),
+        endComponent: (
+          <TouchableOpacityDebounced onPress={this.handleIncomeTipPress}>
+            <InfoIcon />
+          </TouchableOpacityDebounced>
+        ),
+        onBack: () =>
+          this.state.isEditData ? this.setState({ isBackButton: true }) : props.navigator.pop()
+      }
+    });
+  }
+
+  componentDidMount() {
+    const { taxData, taxDeduct } = this.state;
+    const { taxTemplate, user } = this.props;
+    trackCurrentScreen(SCREEN_CHANGE_EVENT, {
+      firebase_screen: TAX_MANAGEMENT_CONTENT_TAX_INCOME,
+      user_id: user.externalCustomerId
+    });
+    if (!taxDeduct) {
+      const total = this.calculateTotal(0, "");
+      // eslint-disable-next-line react/no-did-mount-set-state
+      this.setState({ taxDeduct: total });
+    }
+    if (!taxData.income && taxTemplate.income) {
+      // eslint-disable-next-line react/no-did-mount-set-state
+      this.setState({ taxData: cloneDeep(taxTemplate) });
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { navigator, isNewTax, popCount, errorResponse } = this.props;
+    const { taxData } = this.state;
+    if (!taxData.income && nextProps.taxTemplate.income) {
+      this.setState({ taxData: cloneDeep(nextProps.taxTemplate) });
+    }
+    if (!nextProps.loading && this.state.isSubmit) {
+      this.setState({ isSubmit: false, isEditData: false });
+
+      if (errorResponse) {
+        return;
+      }
+      if (isNewTax) {
+        for (let i = 0; i < (popCount || 2); i++) {
+          navigator.pop({ animeted: false });
+        }
+        setTimeout(() => {
+          navigator.push({
+            screen: TAX_MANAGEMENT_INITIAL_SCREEN_ID,
+            backButtonHidden: true,
+            navigatorStyle: {
+              tabBarHidden: true
+            }
+          });
+        }, 800);
+        return;
+      }
+      navigator.pop({ animeted: false });
+    }
+  }
+
+  setTaxValue = (value, fieldName) => {
+    const { taxData } = this.state;
+    taxData.income[fieldName] = value?.numericValue || 0;
+    if (FIELD_TAX_DEDUCTION.includes(fieldName)) {
+      this.setState({ taxDeduct: this.calculateTotal(value?.numericValue, fieldName) });
+    }
+    this.validateFormValue(taxData);
+    this.setState({ taxData, isEditData: true });
+  };
+
+  getTaxValue = fieldName => {
+    const { taxData } = this.state;
+    if (!taxData.income) {
+      return 0;
+    }
+    return taxData.income[fieldName];
+  };
+
+  validateFormValue = taxData => {
+    const errs = {};
+    const {
+      salaryAmt,
+      bonusAmt,
+      salaryWHT,
+      freelanceAmt,
+      freelanceWHT,
+      otherAmt,
+      otherWHT
+    } = taxData.income;
+    const whtError = safeTranslate(`${TRANSLATE_KEYS.Errors}.WHTExceedsIncome`);
+    const salaryWHTError = salaryWHT > salaryAmt + bonusAmt;
+    errs.salaryWHT = salaryWHTError ? whtError : null;
+
+    const freelanceWHTError = freelanceWHT > freelanceAmt;
+    errs.freelanceWHT = freelanceWHTError ? whtError : null;
+
+    const otherWHTError = otherWHT > otherAmt;
+    errs.otherWHT = otherWHTError ? whtError : null;
+    const valid = Object.values(errs).every(err => err == null);
+    this.setState(old => ({ ...old, valid, errors: { ...old.errors, ...errs } }));
+  };
+
+  saveIncome = () => {
+    const { isNewTax, currentYear, saveTaxData } = this.props;
+    trackEvent(TAX_MANAGEMENT_TAX_INCOME_SAVE);
+    this.setState({ isSubmit: true, isBackButton: false });
+    if (isNewTax) {
+      saveTaxData(new Date().getFullYear(), this.state.taxData);
+    } else {
+      saveTaxData(currentYear, this.state.taxData);
+    }
+  };
+
+  calculateTotal = (value, fieldName) => {
+    const { taxConfig } = this.props;
+    let sum = 0;
+    FIELD_TAX_DEDUCTION.forEach(field => {
+      if (fieldName === field) {
+        sum += value;
+      } else {
+        sum += this.getTaxValue(field);
+      }
+    });
+
+    const limitPercent = getConfigValue("config.income.expense.limit.percent", taxConfig);
+    const limitAmount = getConfigValue("config.income.expense.limit.amt", taxConfig);
+    if (!limitPercent) {
+      return 0;
+    }
+    return Math.min(limitAmount, sum * limitPercent);
+  };
+
+  isDisable = () => {
+    return (
+      !this.state.valid ||
+      this.getTaxValue("salaryAmt") +
+        this.getTaxValue("bonusAmt") +
+        this.getTaxValue("freelanceAmt") +
+        this.getTaxValue("otherAmt") <=
+        0
+    );
+  };
+
+  handleClickLink = () => {
+    const href = "https://www.innovestx.co.th/privacy-notice";
+    Linking.canOpenURL(href).then(valid => {
+      if (valid) {
+        Linking.openURL(href);
+      }
+    });
+  };
+
+  handleIncomeTipPress = () => {
+    trackEvent(TAX_MANAGEMENT_TAX_INCOME_TIPS);
+    const incomeTip = getTipData(
+      this.props.taxConfig.globalConfig,
+      "config.tooltip.income.header",
+      "config.tooltip.income.detail"
+    );
+    navigateToTipScreen(this.props.navigator, incomeTip.header, incomeTip.detail);
+  };
+
+  handleDeductTipPress = () => {
+    trackEvent(TAX_MANAGEMENT_TAX_INCOME_TIPS_EXPENSE);
+    const deductTip = getTipData(
+      this.props.taxConfig.globalConfig,
+      "config.tooltip.income.deduct.header",
+      "config.tooltip.income.deduct.detail"
+    );
+    navigateToTipScreen(this.props.navigator, deductTip.header, deductTip.detail);
+  };
+
+  renderDialogError = () => {
+    const { resetErrorResponse, errorResponse, navigator } = this.props;
+
+    return (
+      <GeneralError
+        isVisible={!!errorResponse}
+        onPress={() => {
+          resetErrorResponse();
+          navigator.pop();
+        }}
+      />
+    );
+  };
+
+  renderDialogBackButton = () => {
+    const { navigator } = this.props;
+    return (
+      <BackButtonAlert
+        isVisible={this.state.isBackButton}
+        onPressLeft={() => {
+          this.setState({ isEditData: false, isBackButton: false });
+          navigator.pop();
+        }}
+        onPressRight={() => {
+          this.saveIncome();
+        }}
+      />
+    );
+  };
+
+  render() {
+    const { loading } = this.props;
+    const { taxData, errors } = this.state;
+
+    if (loading || !taxData.income) {
+      return <LoadingScreen />;
+    }
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        <SafeAreaView style={{ flex: 1 }}>
+          <KeyboardAwareScrollView>
+            <ScrollViewContainer>
+              <InputContainer>
+                <Header1>
+                  {I18n.t("TaxManagement.PageIncome.InformationStepFrist.DefaultIncome")}
+                </Header1>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.IncomPerYear")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("salaryAmt")}
+                    onValueChange={value => this.setTaxValue(value, "salaryAmt")}
+                  />
+                </TextInputContainer>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.BonusPerYear")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("bonusAmt")}
+                    onValueChange={value => this.setTaxValue(value, "bonusAmt")}
+                  />
+                </TextInputContainer>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.Tax")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("salaryWHT")}
+                    variant={errors.salaryWHT != null ? "error" : ""}
+                    helperText={errors.salaryWHT}
+                    onValueChange={value => {
+                      this.setTaxValue(value, "salaryWHT");
+                    }}
+                  />
+                </TextInputContainer>
+              </InputContainer>
+              <TaxSeparator variant="full" />
+
+              <InputContainer>
+                <Header1>
+                  {I18n.t("TaxManagement.PageIncome.InformationStepFrist.Freelance")}
+                </Header1>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.IncomPerYear")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("freelanceAmt")}
+                    onValueChange={value => this.setTaxValue(value, "freelanceAmt")}
+                  />
+                </TextInputContainer>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.Tax")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("freelanceWHT")}
+                    variant={errors.freelanceWHT != null ? "error" : ""}
+                    helperText={errors.freelanceWHT}
+                    onValueChange={value => this.setTaxValue(value, "freelanceWHT")}
+                  />
+                </TextInputContainer>
+              </InputContainer>
+              <TaxSeparator variant="full" />
+
+              <InputContainer>
+                <TotalContainer>
+                  <TextInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.TotalExpenses")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    suffixPlaceholder={I18n.t("TaxManagement.Currency.THB")}
+                    value={inputToNumberDisplay(this.state.taxDeduct)}
+                    disabled
+                  />
+                </TotalContainer>
+              </InputContainer>
+              <TaxSeparator variant="full" />
+
+              <InputContainer>
+                <Header1>
+                  {I18n.t("TaxManagement.PageIncome.InformationStepFrist.IncomeAnother")}
+                </Header1>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.DiscriptionIncomeOfAnother"
+                    )}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("otherAmt")}
+                    onValueChange={value => this.setTaxValue(value, "otherAmt")}
+                  />
+                </TextInputContainer>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.ExpensesPerYear")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("otherTaxDeduction")}
+                    onValueChange={value => this.setTaxValue(value, "otherTaxDeduction")}
+                  />
+                </TextInputContainer>
+                <ButtonLeft>
+                  <TipButton onPress={this.handleDeductTipPress}>
+                    <TipButtonText>
+                      {I18n.t("TaxManagement.PageIncome.InformationStepFrist.Button")}
+                    </TipButtonText>
+                    <TipButtonIcon />
+                  </TipButton>
+                </ButtonLeft>
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageIncome.InformationStepFrist.Tax")}
+                    placeholder={I18n.t(
+                      "TaxManagement.PageIncome.InformationStepFrist.PlaceHolder"
+                    )}
+                    inlineLabel={I18n.t("TaxManagement.Currency.THB")}
+                    format="money"
+                    initialValue={this.getTaxValue("otherWHT")}
+                    variant={errors.otherWHT != null ? "error" : ""}
+                    helperText={errors.otherWHT}
+                    onValueChange={value => this.setTaxValue(value, "otherWHT")}
+                  />
+                </TextInputContainer>
+              </InputContainer>
+              <PrivacyContainer>
+                <PrivacyRow>
+                  <PrivacyLabel>
+                    {I18n.t("TaxManagement.PageIncome.Privacy.LabelFirst")}
+                  </PrivacyLabel>
+                  <TouchableOpacity onPress={this.handleClickLink}>
+                    <PrivacyLabel type="link">
+                      {I18n.t("TaxManagement.PageIncome.Privacy.HyperLink")}
+                    </PrivacyLabel>
+                  </TouchableOpacity>
+                </PrivacyRow>
+                <PrivacyLabel>
+                  {I18n.t("TaxManagement.PageIncome.Privacy.LabelSecond")}
+                </PrivacyLabel>
+              </PrivacyContainer>
+            </ScrollViewContainer>
+          </KeyboardAwareScrollView>
+          <FadeBox>
+            <BottomSeparator variant="full" />
+          </FadeBox>
+          <SubmitContainer>
+            <PrimaryButton
+              disable={this.isDisable()}
+              onPress={this.saveIncome}
+              label={I18n.t("TaxManagement.Infomation.Button.Save")}
+            />
+          </SubmitContainer>
+        </SafeAreaView>
+        {this.renderDialogBackButton()}
+        {this.renderDialogError()}
+      </ViewContainer>
+    );
+  }
+}
+
+TaxManagementIncomeScreen.defaultProps = {
+  loading: false,
+  isNewTax: false,
+  popCount: 0
+};
+
+TaxManagementIncomeScreen.propTypes = {
+  saveTaxData: PropTypes.func.isRequired,
+  resetErrorResponse: PropTypes.func.isRequired,
+  taxData: PropTypes.shape().isRequired,
+  taxTemplate: PropTypes.shape().isRequired,
+  taxConfig: PropTypes.shape().isRequired,
+  currentYear: PropTypes.number.isRequired,
+  errorResponse: PropTypes.number.isRequired,
+  popCount: PropTypes.number,
+  loading: PropTypes.bool,
+  isNewTax: PropTypes.bool,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    push: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  user: PropTypes.shape({
+    externalCustomerId: PropTypes.string
+  }).isRequired
+};
+
+export default TaxManagementIncomeScreen;

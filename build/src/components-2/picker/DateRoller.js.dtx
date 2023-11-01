@@ -1,0 +1,125 @@
+// @ts-nocheck
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, StyleSheet, View } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Theme from "../../theme";
+import { Header1 } from "../text/Text";
+import DatePicker from "./DatePicker";
+import NewDatePicker from "./NewDatePickerAndroid";
+
+const PickerHeader = styled.View`
+  border-bottom-width: 1px;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+  border-bottom-color: ${props => props.theme.separatorGrey};
+  flex-direction: row;
+  justify-content: space-between;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  padding-vertical: ${props => props.theme.spacingSmall};
+`;
+
+const HeaderText = styled(Header1)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+class DateRoller extends Component {
+  state = {
+    selectedValue: this.props.initialDate
+  };
+
+  componentWillUnmount() {
+    this.props.onCancel();
+  }
+
+  render() {
+    const {
+      calendarType,
+      confirmText,
+      locale,
+      onConfirm,
+      initialDate,
+      minimumDate,
+      maximumDate,
+      rollerWidth,
+      cancelText,
+      onCancel,
+      isUseNewComponent
+    } = this.props;
+
+    const styles = StyleSheet.create({
+      datePickerContainer: {
+        borderRadius: 3,
+        backgroundColor: Theme.backgroundWhite,
+        height: 243,
+        overflow: "hidden",
+        width: `${rollerWidth}%`
+      }
+    });
+
+    const DatePickerComponent =
+      Platform.OS === "android" && isUseNewComponent ? NewDatePicker : DatePicker;
+
+    return (
+      <View style={[styles.datePickerContainer]}>
+        <PickerHeader>
+          <TouchableOpacity
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            onPress={onCancel}
+          >
+            <HeaderText>{cancelText}</HeaderText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            onPress={() => onConfirm(this.state.selectedValue)}
+          >
+            <HeaderText>{confirmText}</HeaderText>
+          </TouchableOpacity>
+        </PickerHeader>
+        <DatePickerComponent
+          ref={ref => {
+            this.DatePicker = ref;
+          }}
+          calendarType={calendarType}
+          date={this.state.selectedValue || initialDate}
+          locale={locale}
+          minDate={minimumDate}
+          maxDate={maximumDate}
+          onDateChange={value => {
+            this.setState({ selectedValue: value });
+          }}
+        />
+      </View>
+    );
+  }
+}
+
+DateRoller.defaultProps = {
+  cancelText: "Cancel",
+  confirmText: "Confirm",
+  calendarType: "buddhist",
+  locale: "th",
+  maximumDate: new Date(2099, 11, 31),
+  minimumDate: new Date(1800, 1, 1),
+  rollerWidth: 100,
+  onCancel: () => {
+  },
+  isUseNewComponent: false
+};
+
+DateRoller.propTypes = {
+  cancelText: PropTypes.string,
+  calendarType: PropTypes.oneOf(["buddhist", "gregorian"]),
+  confirmText: PropTypes.string,
+  locale: PropTypes.oneOf(["th", "en"]),
+  initialDate: PropTypes.instanceOf(Date).isRequired,
+  maximumDate: PropTypes.instanceOf(Date),
+  minimumDate: PropTypes.instanceOf(Date),
+  rollerWidth: PropTypes.number,
+  onCancel: PropTypes.func,
+  onConfirm: PropTypes.func.isRequired,
+  isUseNewComponent: PropTypes.bool
+};
+
+export default DateRoller;

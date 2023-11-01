@@ -1,0 +1,523 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Dimensions, Platform } from "react-native";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import {
+  Icon,
+  Header3,
+  Body3,
+  Separator,
+  TextOverlineR,
+  // TextButtonM,
+  TextInput,
+  BottomModal,
+  Display3,
+  PrimaryButton,
+  SecondaryButton,
+  ErrorSevereBanner
+} from "../../../../../components-2";
+import { showBottomMessageBox } from "../../../../../modules/navigation";
+import Toggle from "../../../../../components-2/toggle/Toggle";
+// import ReferralCodeIcon
+// from "../../../../../components/icon/digital-assets-icon/trade/ReferralCodeIcon";
+import CashbackIcon from "../../../../../components/icon/digital-assets-icon/trade/CashbackIcon";
+import { TradeAction } from "../../../../../modules/apex/subscription/L2Subscription";
+import { coinWithCommas } from "../../../../../modules/coin-format";
+import TCPointWebviewModal from "../Modal/TCPointWebviewModal";
+
+const windowHeight = Dimensions.get("window").height;
+
+// const ItemContainer = styled.View`
+//   align-items: center;
+//   padding: 12px;
+// `;
+
+const ItemPointContainer = styled.View`
+  align-items: center;
+  padding-top: 8px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-bottom: 12px;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RowCashBack = styled.View`
+  flex-direction: row;
+  align-items: center;
+  background-color: #f6f6f6;
+  padding: 0px 8px;
+  border-radius: 10px;
+  margin-left: 18px;
+`;
+
+const RowRetry = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+  position: absolute;
+  bottom: 15px;
+  right: 0px;
+`;
+
+const RowFlex = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RowFlexRight = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+// const RightIcon = styled(Icon).attrs(props => ({
+//   name: "chevron-right-2",
+//   size: "icon16",
+//   color: props.theme.contentColorCTAPurple
+// }))``;
+
+const TextLabel = styled(Header3)`
+  margin-left: 4px;
+  margin-right: 4px;
+`;
+
+const TextLabelDown = styled(Header3)`
+  margin-left: 4px;
+  margin-right: 4px;
+  color: #000000;
+  opacity: 0.3;
+`;
+
+const IconWrapper = styled.View`
+  opacity: ${props => (props.isMaxOpacity ? "1" : "0.3")};
+`;
+
+const TextPoint = styled(Body3)`
+  margin-left: 4px;
+  margin-right: 6px;
+`;
+
+const TextRetry = styled(Body3)`
+  color: #4b2885;
+  margin-left: 4px;
+  margin-right: 6px;
+`;
+
+const TextTermDown = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorHigh};
+  font-weight: 500;
+  margin-left: 20px;
+  margin-right: 2px;
+`;
+
+// const TextRefCode = styled(TextButtonM)`
+//   color: ${props => props.theme.contentColorCTAPurple};
+//   margin-left: 4px;
+// `;
+
+// const TextRefCodeFinal = styled(TextButtonM)`
+//   margin-left: 4px;
+//   margin-right: 4px;
+// `;
+
+const RefCodeModalHeight = windowHeight / 2;
+const RefCodeView = styled.View`
+  height: ${props =>
+    props.isKeyBoardFocus && Platform.OS === "ios" ? `${RefCodeModalHeight}px` : "auto"};
+`;
+
+const ItemRefCodeContainer = styled.View`
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const Title = styled(Display3)(props => ({
+  fontWeight: props.theme.display3.fontWeight,
+  marginBottom: props.hasBody ? props.theme.spacingMedium : 0,
+  color: props.theme.contentColorVeryHigh
+}));
+
+const ButtonGroup = styled.View(props => ({
+  marginTop: props.theme.spacingSmall,
+  flexDirection: props.buttonAlignment
+}));
+
+// const PolicyButtonBox = styled.View(props => ({
+//   marginTop: props.theme.spacingSmall
+// }));
+
+const DOCKED_BUTTON_HEIGHT = "44px";
+
+const DockedPrimaryButton = styled(PrimaryButton)(props => ({
+  height: DOCKED_BUTTON_HEIGHT,
+  flex: 1,
+  marginRight: props.gap ? "8px" : 0
+}));
+
+const DockedSecondaryButton = styled(SecondaryButton)(props => ({
+  height: DOCKED_BUTTON_HEIGHT,
+  flex: 1,
+  marginRight: props.gap ? "8px" : 0
+}));
+
+// const VerifyIcon = styled(Icon).attrs({
+//   name: "check-circle-reversed",
+//   size: 12,
+//   color: "#4EBE6E"
+// })``;
+
+// const RemoveIcon = styled(Icon).attrs({
+//   name: "close-2",
+//   size: "icon16",
+//   color: "#7E7E7E"
+// })``;
+
+const RefreshIcon = styled(Icon).attrs({
+  name: "update",
+  size: "icon16",
+  color: "#4B2885"
+})``;
+
+const InfoIcon = styled(Icon).attrs({
+  name: "info-2",
+  size: "icon16",
+  color: "#855AFF"
+})``;
+
+const TradeOption = ({
+  navigator,
+  validateDaRefCode,
+  refCode,
+  setRefCode,
+  isEstimateDown,
+  isUsePoint,
+  setIsUsePoint,
+  pointEstimateBurnAllow,
+  pointEstimateBurn,
+  pointEstimateBurnAmount,
+  pointEstimateBurnCurrency,
+  side
+}) => {
+  const [refCodeVisible, setRefCodeVisible] = useState(false);
+  const [isKeyBoardFocus, setIsKeyBoardFocus] = useState(false);
+
+  const [refCodeStatus, setRefCodeStatus] = useState("none");
+  const [refCodeHelperText, setRefCodeHelperText] = useState("");
+
+  const [isValidateDown, setsValidateDown] = useState(false);
+  const [retryValidateCounter, setRetryValidateCounter] = useState(0);
+
+  const [isVisiblePointPrivacy, setIsVisiblePointPrivacy] = useState(false);
+
+  // const showReferralCodeModal = () => {
+  //   setRefCodeVisible(true);
+  // };
+
+  const removeRefCode = () => {
+    setRefCode("");
+    setRefCodeStatus("none");
+    setRefCodeHelperText("");
+  };
+
+  const confirmReferralCodeModal = () => {
+    setRefCodeVisible(false);
+  };
+
+  const closeReferralCodeModal = () => {
+    setIsKeyBoardFocus(false);
+    setRefCodeVisible(false);
+    removeRefCode();
+  };
+
+  const onSwitch = () => {
+    setIsUsePoint(!isUsePoint);
+  };
+
+  const showPointInfo = () => {
+    setIsVisiblePointPrivacy(true);
+  };
+
+  const onValidateRefCodeDown = () => {
+    const options = {
+      title: I18n.t("DigitalAssets.ReferralCode.errorValidateDown.title"),
+      description: I18n.t("DigitalAssets.ReferralCode.errorValidateDown.description"),
+      rightButton: {
+        text: I18n.t("DigitalAssets.ReferralCode.errorValidateDown.buttonRight"),
+        onPress: () => {
+          setsValidateDown(false);
+          closeReferralCodeModal();
+          navigator.dismissModal({ animationType: "none" });
+        }
+      },
+      variant: "headerBold",
+      // eslint-disable-next-line react/display-name
+      svgComponent: () => <ErrorSevereBanner size="illus78" />
+    };
+    showBottomMessageBox(options);
+  };
+
+  // const onPressRemoveRefCode = () => {
+  //   const options = {
+  //     title: I18n.t("DigitalAssets.ReferralCode.tradeOption.removeModalTitle"),
+  //     leftButton: {
+  //       text: I18n.t("DigitalAssets.ReferralCode.tradeOption.removeModalLeftBtn"),
+  //       onPress: () => {
+  //         removeRefCode();
+  //         navigator.dismissModal({ animationType: "none" });
+  //       }
+  //     },
+  //     rightButton: {
+  //       text: I18n.t("DigitalAssets.ReferralCode.tradeOption.removeModalRightBtn"),
+  //       onPress: () => {
+  //         navigator.dismissModal({ animationType: "none" });
+  //       }
+  //     },
+  //     variant: "headerBold",
+  //     // eslint-disable-next-line react/display-name
+  //     svgComponent: () => <ReferralCodeIcon width="80" height="80" />
+  //   };
+  //   showBottomMessageBox(options);
+  // };
+
+  const validateInputRefCode = () => {
+    const request = { referralCode: refCode };
+
+    // eslint-disable-next-line no-unused-vars
+    const onSuccess = data => {
+      setsValidateDown(false);
+      if (data.valid) {
+        setRefCodeStatus("success");
+        setRefCodeHelperText(I18n.t("DigitalAssets.ReferralCode.tradeOption.validateSuccess"));
+      } else {
+        setRefCodeStatus("error");
+        setRefCodeHelperText(I18n.t("DigitalAssets.ReferralCode.tradeOption.validateError"));
+      }
+    };
+    // eslint-disable-next-line no-console
+    const onError = () => {
+      if (retryValidateCounter >= 2) {
+        setsValidateDown(false);
+        removeRefCode();
+        setRetryValidateCounter(0);
+        onValidateRefCodeDown();
+      }
+      setsValidateDown(true);
+      setRefCodeStatus("error");
+      setRefCodeHelperText(I18n.t("DigitalAssets.ReferralCode.tradeOption.validateDown"));
+    };
+    validateDaRefCode(request, onSuccess, onError);
+  };
+
+  const onRetryValidateRefCode = () => {
+    setsValidateDown(false);
+    setRetryValidateCounter(retryValidateCounter + 1);
+    validateInputRefCode();
+  };
+
+  useEffect(() => {
+    if (refCode.length === 8) {
+      validateInputRefCode();
+    } else {
+      setRefCodeStatus("none");
+      setRefCodeHelperText("");
+      setsValidateDown(false);
+    }
+  }, [refCode]);
+
+  return (
+    <>
+      {/* {side === TradeAction.BUY && (
+        <>
+          <Separator variant="full" style={{ height: 4 }} />
+          <ItemContainer>
+            <Row>
+              <ReferralCodeIcon />
+              <RowFlex>
+                <TextLabel>
+                  {I18n.t("DigitalAssets.ReferralCode.tradeOption.referralCodeTh")}
+                </TextLabel>
+              </RowFlex>
+
+              {refCodeStatus !== "success" && (
+                <TouchableOpacity activeOpacity={0.7} onPress={showReferralCodeModal}>
+                  <RowFlexRight>
+                    <TextRefCode>
+                      {I18n.t("DigitalAssets.ReferralCode.tradeOption.referralCodeInput")}
+                    </TextRefCode>
+                    <RightIcon />
+                  </RowFlexRight>
+                </TouchableOpacity>
+              )}
+              {refCodeStatus === "success" && (
+                <RowFlexRight>
+                  <VerifyIcon />
+                  <TextRefCodeFinal>{refCode}</TextRefCodeFinal>
+                  <TouchableOpacity activeOpacity={0.7} onPress={onPressRemoveRefCode}>
+                    <RemoveIcon />
+                  </TouchableOpacity>
+                </RowFlexRight>
+              )}
+            </Row>
+          </ItemContainer>
+        </>
+      )} */}
+
+      {side === TradeAction.BUY && (
+        <>
+          <Separator variant="full" />
+          <ItemPointContainer>
+            <Row>
+              <IconWrapper isMaxOpacity={pointEstimateBurnAllow}>
+                <CashbackIcon />
+              </IconWrapper>
+              {!isEstimateDown && pointEstimateBurnAllow && (
+                <>
+                  <TextLabel>{I18n.t("DigitalAssets.Point.tradeOption.pointUsed")}</TextLabel>
+                  <TouchableOpacity activeOpacity={0.7} onPress={showPointInfo}>
+                    <InfoIcon />
+                  </TouchableOpacity>
+                </>
+              )}
+              {(isEstimateDown || !pointEstimateBurnAllow) && (
+                <TextLabelDown>{I18n.t("DigitalAssets.Point.tradeOption.pointUsed")}</TextLabelDown>
+              )}
+              <RowFlexRight>
+                <Toggle
+                  disabled={isEstimateDown || !pointEstimateBurnAllow || pointEstimateBurn == null}
+                  onPress={onSwitch}
+                  value={isUsePoint}
+                />
+              </RowFlexRight>
+            </Row>
+            <Row style={{ marginTop: -6 }}>
+              {!isEstimateDown && pointEstimateBurnAllow && (
+                <RowFlex>
+                  {!isEstimateDown && pointEstimateBurnAllow && (
+                    <RowCashBack>
+                      {pointEstimateBurn != null && (
+                        <TextPoint>
+                          {coinWithCommas(pointEstimateBurn || 0)}{" "}
+                          {I18n.t("DigitalAssets.Point.tradeOption.point")} {"= "}
+                          {coinWithCommas(pointEstimateBurnAmount || 0)} {pointEstimateBurnCurrency}
+                        </TextPoint>
+                      )}
+                    </RowCashBack>
+                  )}
+                </RowFlex>
+              )}
+              {isEstimateDown && (
+                <RowFlex>
+                  <TextTermDown>
+                    {I18n.t("DigitalAssets.Point.tradeOption.cashBackDown")}
+                  </TextTermDown>
+                  <TouchableOpacity activeOpacity={0.7} onPress={showPointInfo}>
+                    <InfoIcon />
+                  </TouchableOpacity>
+                </RowFlex>
+              )}
+              {!isEstimateDown && !pointEstimateBurnAllow && (
+                <RowFlex>
+                  <TextTermDown>
+                    {I18n.t("DigitalAssets.Point.tradeOption.notEnoughPoints")}
+                  </TextTermDown>
+                  <TouchableOpacity activeOpacity={0.7} onPress={showPointInfo}>
+                    <InfoIcon />
+                  </TouchableOpacity>
+                </RowFlex>
+              )}
+            </Row>
+          </ItemPointContainer>
+        </>
+      )}
+
+      <BottomModal
+        isVisible={refCodeVisible}
+        onModalClose={closeReferralCodeModal}
+        buttons={[{ variant: "primary", label: "ตกลง", onPress: closeReferralCodeModal }]}
+        buttonAlignment="row"
+      >
+        <RefCodeView isKeyBoardFocus={isKeyBoardFocus}>
+          <KeyboardAwareScrollView>
+            <Title>{I18n.t("DigitalAssets.ReferralCode.tradeOption.referralCodeInputText")}</Title>
+            <ItemRefCodeContainer>
+              <TextInput
+                label={I18n.t("DigitalAssets.ReferralCode.tradeOption.referralCode")}
+                value={refCode}
+                helperText={refCodeHelperText}
+                variant={refCodeStatus}
+                numberOfLines={1}
+                maxLength={8}
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                onFocus={() => setIsKeyBoardFocus(true)}
+                onBlur={() => setIsKeyBoardFocus(false)}
+                onChangeText={v => setRefCode(v?.toUpperCase())}
+                placeholder={I18n.t("DigitalAssets.ReferralCode.tradeOption.placeholder")}
+              />
+              {isValidateDown && (
+                <RowRetry
+                  onPress={() => {
+                    onRetryValidateRefCode();
+                  }}
+                >
+                  <RefreshIcon />
+                  <TextRetry>
+                    {I18n.t("DigitalAssets.ReferralCode.tradeOption.validateRetry")}
+                  </TextRetry>
+                </RowRetry>
+              )}
+            </ItemRefCodeContainer>
+            <ButtonGroup buttonAlignment="row">
+              <DockedSecondaryButton
+                label={I18n.t("DigitalAssets.ReferralCode.tradeOption.buttonCancel")}
+                gap="1"
+                onPress={closeReferralCodeModal}
+              />
+              <DockedPrimaryButton
+                label={I18n.t("DigitalAssets.ReferralCode.tradeOption.buttonSubmit")}
+                disable={refCodeStatus !== "success"}
+                onPress={confirmReferralCodeModal}
+              />
+            </ButtonGroup>
+          </KeyboardAwareScrollView>
+        </RefCodeView>
+      </BottomModal>
+
+      <TCPointWebviewModal
+        isVisible={isVisiblePointPrivacy}
+        windowHeight={windowHeight}
+        onModalClose={() => setIsVisiblePointPrivacy(false)}
+        onPress={() => setIsVisiblePointPrivacy(false)}
+      />
+    </>
+  );
+};
+
+export default TradeOption;
+TradeOption.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    push: PropTypes.func,
+    dismissModal: PropTypes.func
+  }).isRequired,
+  validateDaRefCode: PropTypes.func.isRequired,
+  refCode: PropTypes.string.isRequired,
+  setRefCode: PropTypes.func.isRequired,
+  isEstimateDown: PropTypes.bool.isRequired,
+  isUsePoint: PropTypes.bool.isRequired,
+  setIsUsePoint: PropTypes.func.isRequired,
+  pointEstimateBurnAllow: PropTypes.bool.isRequired,
+  pointEstimateBurn: PropTypes.number.isRequired,
+  pointEstimateBurnAmount: PropTypes.number.isRequired,
+  pointEstimateBurnCurrency: PropTypes.string.isRequired,
+  side: PropTypes.string.isRequired
+};

@@ -1,0 +1,227 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import { ScrollView, KeyboardAvoidingView } from "react-native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import { Text } from "../../../components/text/Text";
+import { SVGIcon, NumberInput, PrimaryButton, Body3, ViewContainer } from "../../../components-2";
+import { invxCoinValueDisplay } from "../../../modules/i18n/value-display";
+import withInvxCoinWrapper from "../../../features/invx-coin/hocs/withInvxCoinWrapper";
+import {
+  POINT_EXCHANGE_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+import { pointToInvestNavigatorStyle } from "../../../modules/navigation/defaultStyle";
+
+const Column = styled.View`
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 0px 16px 0px 16px;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RowBetween = styled.View`
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-top: 4px;
+`;
+
+const CardContainer = styled.View`
+  border-radius: 8px;
+  align-self: stretch;
+  width: 100%;
+  padding: 8px 16px 8px 16px;
+  margin-bottom: 16px;
+  background: #ffffff;
+  box-shadow: 0px 2px 4px rgba(223, 219, 236, 0.5);
+`;
+
+const InputContainer = styled.View`
+  margin-top: 8px;
+`;
+
+const BottomContainer = styled.View`
+  justify-content: flex-end;
+  margin-left: 16px;
+  margin-right: 16px;
+`;
+
+const LabelText = styled(Text)`
+  padding-left: 4px;
+  font-family: Graphik TH;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 17px;
+`;
+
+const HeaderText = styled(Text)`
+  padding-left: 4px;
+  font-family: Graphik TH;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+`;
+
+const BodyText = styled(Body3)`
+  font-family: Graphik TH;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const LinkText = styled(Text)`
+  padding-left: 4px;
+  font-family: Graphik TH;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  color: ${props => props.theme.scbSecondaryBlue};
+`;
+
+const DigitalAssetCoinUsage = ({
+  navigator,
+  userId,
+  invxCoin,
+  onConfirm,
+  userAvalCoin,
+  userPoint,
+  effectiveMinimumCoin,
+  effectiveMaximumCoin,
+  fetchWalletProfile,
+  fetchInitialPoint
+}) => {
+  const [amount, setAmount] = useState(invxCoin);
+  const [refreshPointAndCoin, setRefreshPointAndCoin] = useState(false);
+  const onChangeAmount = value => {
+    setAmount(value.numericValue);
+  };
+
+  const onSubmit = () => {
+    onConfirm(amount);
+    navigator.pop();
+  };
+
+  const navigateToExchangePoint = () => {
+    navigator.push({
+      title: I18n.t("Profile.PointToInvest.Exchange.TitleScreen"),
+      screen: POINT_EXCHANGE_SCREEN_ID,
+      backButtonTitle: "",
+      navigatorStyle: pointToInvestNavigatorStyle,
+      passProps: {
+        refreshPointAndCoin: () => setRefreshPointAndCoin(true),
+        fromScreen: DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID
+      },
+      tabBarHidden: true
+    });
+  };
+
+  const getErrorMessage = () => {
+    let errorMessage = "";
+    if (amount < effectiveMinimumCoin) {
+      errorMessage = I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.ErrorMessage.MinCoin", {
+        minCoin: invxCoinValueDisplay(effectiveMinimumCoin)
+      });
+    } else if (amount > effectiveMaximumCoin) {
+      errorMessage = I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.ErrorMessage.MaxCoin", {
+        maxCoin: invxCoinValueDisplay(effectiveMaximumCoin)
+      });
+    } else if (amount > userAvalCoin) {
+      errorMessage = I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.ErrorMessage.NotEnough");
+    } else if (amount === 0 || amount === "") {
+      errorMessage = I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.ErrorMessage.NotZero");
+    }
+
+    return errorMessage;
+  };
+
+  const isError = getErrorMessage() !== "";
+
+  useEffect(() => {
+    fetchInitialPoint();
+  }, []);
+
+  useEffect(() => {
+    if (refreshPointAndCoin) {
+      // fix update coin only not entire wallet
+      fetchWalletProfile(userId);
+      fetchInitialPoint();
+      setRefreshPointAndCoin(false);
+    }
+  }, [refreshPointAndCoin]);
+
+  return (
+    <ViewContainer variant="light" isFullScreen>
+      <ScrollView contentContainerStyle={{ flex: 1, paddingBottom: 10 }}>
+        <KeyboardAvoidingView>
+          <Column>
+            <CardContainer>
+              <Row>
+                <SVGIcon name="TradeCoin" size={16} />
+                <HeaderText>{I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.Coin")}</HeaderText>
+                <HeaderText style={{ fontSize: 16 }}>
+                  {invxCoinValueDisplay(userAvalCoin)}
+                </HeaderText>
+              </Row>
+              <RowBetween>
+                <Row style={{ paddingLeft: 2 }}>
+                  <SVGIcon name="TradePoint" size={12} />
+                  <BodyText style={{ paddingLeft: 4 }}>
+                    {I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.Point")}
+                  </BodyText>
+                  <BodyText>{invxCoinValueDisplay(userPoint)}</BodyText>
+                </Row>
+                <TouchableOpacity onPress={navigateToExchangePoint}>
+                  <LinkText>
+                    {I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.ToPoint")}
+                  </LinkText>
+                </TouchableOpacity>
+              </RowBetween>
+            </CardContainer>
+            <LabelText>{I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.BurnCoin")}</LabelText>
+            <InputContainer>
+              <NumberInput
+                placeholder="0.00"
+                inlineLabel={I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.Unit")}
+                format="money"
+                variant={isError ? "error" : null}
+                initialValue={invxCoinValueDisplay(amount)}
+                onValueChange={onChangeAmount}
+                helperText={isError ? getErrorMessage() : ""}
+              />
+            </InputContainer>
+          </Column>
+        </KeyboardAvoidingView>
+      </ScrollView>
+      <BottomContainer>
+        <PrimaryButton
+          label={I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.Confirm")}
+          size="large"
+          onPress={onSubmit}
+          disable={isError}
+        />
+      </BottomContainer>
+    </ViewContainer>
+  );
+};
+
+DigitalAssetCoinUsage.propTypes = {
+  navigator: PropTypes.func.isRequired,
+  userId: PropTypes.string.isRequired,
+  invxCoin: PropTypes.number.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  userAvalCoin: PropTypes.number.isRequired,
+  userPoint: PropTypes.number.isRequired,
+  effectiveMinimumCoin: PropTypes.number.isRequired,
+  effectiveMaximumCoin: PropTypes.number.isRequired,
+  fetchWalletProfile: PropTypes.func.isRequired,
+  fetchInitialPoint: PropTypes.func.isRequired
+};
+
+export default withInvxCoinWrapper(DigitalAssetCoinUsage);

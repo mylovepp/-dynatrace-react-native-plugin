@@ -1,0 +1,215 @@
+import React, { useMemo } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import _ from "lodash";
+import { View } from "react-native";
+import CoinPriceCard from "./components/CoinPriceCard";
+import { Header1, TextButtonM, ErrorEmptyState } from "../../../../components-2";
+import { DIGITAL_ASSET_MARKET_SCREEN_ID } from "../../../../redux/navigation/navigation-constants";
+import { FILTER_TAB } from "../../digital-assets-market/CoinPriceChart/CoinPriceChart";
+import useMainWatchlist from "../../hooks/useMainWatchlist";
+import { hasProcessFailure } from "../../../../redux/favorite-watchlist/favorite-watchlist-selectors";
+import LoadingScreen from "../../../../components-2/loadingIndicator/LoadingScreen/LoadingScreen";
+
+const Wrapper = styled.View`
+  flex: 1;
+`;
+
+const RowTitle = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin: ${props => props.theme.spacingMedium};
+`;
+
+const Container = styled.View`
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+`;
+const WrapperContainer = styled.ScrollView`
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+  margin-bottom: ${props => (props.isFreemium ? props.theme.spacingLargeValue : 0)}px;
+`;
+
+const CardContainer = styled.View``;
+
+const CollectionContainer = styled.View`
+  flex-wrap: wrap;
+  flex-direction: row;
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+`;
+const ColumnContainer = styled.View`
+  display: flex;
+  flex-direction: row;
+`;
+
+const ButtonM = styled(TextButtonM)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+
+const WatchlistContainer = styled(View)(props => ({
+  minHeight: props.isHide ? 0 : 230
+}));
+
+const Popular = ({
+  watchlistSummaryResponse,
+  navigator,
+  patientlyNavigate,
+  instrumentDAList,
+  instrumentL1Data,
+  tradingSignListing,
+  onViewProductInformation,
+  isWatchlistLoading,
+  fetchWatchlistItems
+}) => {
+  const { getDAMainWatchlist } = useMainWatchlist({
+    watchlist: watchlistSummaryResponse,
+    instrumentDAList,
+    instrumentL1Data,
+    tradingSignList: tradingSignListing
+  });
+
+  const daMainWatchList = useMemo(() => {
+    return getDAMainWatchlist();
+  }, [watchlistSummaryResponse]);
+
+  const collection = useMemo(() => {
+    if (!_.isEmpty(daMainWatchList.daWatchList)) {
+      return daMainWatchList.daWatchList.slice(0, 6);
+    }
+    return [];
+  }, [daMainWatchList]);
+
+  const hasGetWatchlistInquiryFailure = hasProcessFailure({ state: watchlistSummaryResponse });
+
+  const handleOnPress = () => {
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: DIGITAL_ASSET_MARKET_SCREEN_ID,
+        navigatorStyle: {
+          navBarHidden: false,
+          tabBarHidden: true
+        },
+        backButtonHidden: false,
+        passProps: {
+          initialTab: FILTER_TAB.FAV
+        }
+      });
+    });
+  };
+
+  const renderAccordion = () => {
+    return (
+      <ColumnContainer>
+        <CollectionContainer>
+          {collection.length > 0 &&
+            collection.map(each => (
+              <CardContainer key={each.instrumentId}>
+                <CoinPriceCard
+                  data={each}
+                  navigator={navigator}
+                  onViewProductInformation={onViewProductInformation}
+                />
+              </CardContainer>
+            ))}
+        </CollectionContainer>
+      </ColumnContainer>
+    );
+  };
+
+  const renderWatchlist = () => {
+    if (isWatchlistLoading) {
+      return <LoadingScreen />;
+    }
+
+    if (hasGetWatchlistInquiryFailure) {
+      return (
+        <ErrorEmptyState
+          onButtonPress={() => {
+            fetchWatchlistItems();
+          }}
+        />
+      );
+    }
+
+    return (
+      <>
+        {!_.isEmpty(collection) && (
+          <RowTitle>
+            <Header1 numberOfLines={1}>
+              {I18n.t("DigitalAssets.Home.HighVolChange.Favorite")}
+            </Header1>
+
+            <TouchableOpacity onPress={handleOnPress}>
+              <ButtonM>{I18n.t("DigitalAssets.Home.HighVolChange.SeeAll")}</ButtonM>
+            </TouchableOpacity>
+          </RowTitle>
+        )}
+
+        <Wrapper>
+          <Container>
+            <WrapperContainer
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingLeft: 16,
+                paddingRight: 16
+              }}
+            >
+              {renderAccordion()}
+            </WrapperContainer>
+          </Container>
+        </Wrapper>
+      </>
+    );
+  };
+
+  return (
+    <WatchlistContainer isHide={_.isEmpty(collection) && !isWatchlistLoading}>
+      {renderWatchlist()}
+    </WatchlistContainer>
+  );
+};
+
+Popular.defaultProps = {
+  tradingSignListing: []
+};
+
+Popular.propTypes = {
+  watchlistSummaryResponse: PropTypes.shape({
+    processStatus: PropTypes.string,
+    processType: PropTypes.string,
+    statusCode: PropTypes.string,
+    result: PropTypes.shape({
+      isUserHasWatchlist: PropTypes.bool,
+      watchlists: PropTypes.arrayOf(
+        PropTypes.shape({
+          isMainWatchlist: PropTypes.bool,
+          name: PropTypes.string,
+          details: PropTypes.arrayOf(
+            PropTypes.shape({
+              symbol: PropTypes.string,
+              assetType: PropTypes.string,
+              reference: PropTypes.shape({
+                instrumentId: PropTypes.string
+              })
+            })
+          )
+        })
+      )
+    })
+  }).isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func,
+    pop: PropTypes.func
+  }).isRequired,
+  patientlyNavigate: PropTypes.func.isRequired,
+  onViewProductInformation: PropTypes.func.isRequired,
+  tradingSignListing: PropTypes.arrayOf(PropTypes.shape({})),
+  instrumentDAList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  instrumentL1Data: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  isWatchlistLoading: PropTypes.bool.isRequired,
+  fetchWatchlistItems: PropTypes.func.isRequired
+};
+
+export default Popular;

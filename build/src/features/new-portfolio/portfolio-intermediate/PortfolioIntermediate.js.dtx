@@ -1,0 +1,364 @@
+import React, { Component } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import _isequal from "lodash/isEqual";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import PortfolioSummary from "../portfolio-summary";
+import NewPortfolioStarterCard from "../portfolio-start-investments/NewPortfolioStarterCard";
+import PortfolioCarousel from "../portfolio-carousel";
+import { CASH_TYPE, STOCK_TYPE, FUND_TYPE } from "../portfolio-constants";
+import PortfolioCashWidget from "../portfolio-cash-widget";
+import Theme from "../../../theme";
+import WarningStyle1 from "../../../components/warning/WarningStyle1";
+import WarningBox from "./WarningBox";
+
+import {
+  PORTFOLIO_DETAIL_LIST_SCREEN_ID,
+  STOCK_GTN_SCREEN_ID
+} from "../../../redux/navigation/navigation-constants";
+
+const FlexedView = styled.ScrollView`
+  flex: 1;
+  background-color: ${props => props.theme.backgroundScreenColor};
+`;
+
+const CashView = styled.View`
+  border-radius: 0;
+  overflow: hidden;
+  margin-top: -8;
+  margin-bottom: -8;
+`;
+
+const Container = styled.View``;
+
+const CashBackground = styled.View`
+  background-color: ${props => props.theme.lightWarningOrange};
+  padding-top: 8px;
+  padding-bottom: 8px;
+  margin-top: -15;
+  margin-bottom: ${props => props.theme.spacingXSmallValue};
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  shadow-radius: 1;
+  shadow-offset: 0px 2px;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.15;
+`;
+
+const getColorIndex = list => {
+  const colorIndex = {};
+  list.forEach((el, idx) => {
+    colorIndex[el.assetClass] = idx;
+  });
+  return colorIndex;
+};
+
+const sortAssets = assetList => {
+  assetList.sort((a, b) => b.percentage.value - a.percentage.value);
+};
+
+class PortfolioIntermediate extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      cashRefreshing: false
+    };
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    if (this.props.previousTabIndex !== nextProps.previousTabIndex &&
+        nextProps.currentTabIndex === 1) {
+        this.refreshPortfolio(nextProps);
+    } else if (this.props.navigation?.previousScreenId !==
+        nextProps.navigation?.previousScreenId &&
+        nextProps.navigation?.previousScreenId === PORTFOLIO_DETAIL_LIST_SCREEN_ID) {
+        this.refreshPortfolio(nextProps);
+    } else if (this.props.navigation?.previousScreenId !==
+        nextProps.navigation?.previousScreenId &&
+        nextProps.navigation?.previousScreenId === STOCK_GTN_SCREEN_ID) {
+        this.refreshPortfolio(nextProps);
+    }
+    return !_isequal(this.props, nextProps) || !_isequal(this.state, nextState);
+  }
+
+  refreshPortfolio(nextProps) {
+    setTimeout(async () => {
+      if (nextProps.user?.userId) {
+        await nextProps.onFetchPortfolioWalletInfo(nextProps.user.userId);
+        await nextProps.onFetchPortfolioOffshoreWalletInfo(nextProps.user.userId);
+        nextProps.refreshStockPortfolio();
+        nextProps.refreshOffshoreFundPortfolio();
+        nextProps.getGTNPortfolio();
+      }
+    }, 500);
+  }
+
+  /* eslint-disable no-param-reassign */
+  getErrorIndex(el) {
+    const { isFundsServiceUnavailable, isStocksServiceUnavailable } = this.props;
+    if (el.assetClass === STOCK_TYPE && isStocksServiceUnavailable) {
+      return 200;
+    } else if (el.assetClass === FUND_TYPE && isFundsServiceUnavailable) {
+      return 201;
+    }
+    return 0;
+  }
+
+  sortServiceUnavaliableFirst(data) {
+    return data.sort((a, b) => {
+      return this.getErrorIndex(b) - this.getErrorIndex(a);
+    });
+  }
+
+  async refreshCash() {
+    const {
+      onFetchPortfolioWalletInfo,
+      onFetchPortfolioOffshoreWalletInfo,
+      user
+    } = this.props;
+    await onFetchPortfolioWalletInfo(user.userId);
+    await onFetchPortfolioOffshoreWalletInfo(user.userId);
+  }
+
+  renderPortfolioSummary() {
+    const {
+      i18n,
+      summaryData,
+      onPressWarningSign,
+      isFundsServiceUnavailable,
+      latestUpdatedDate,
+      onPressNoInvestments
+    } = this.props;
+
+    if (summaryData.assetClassSummaries && summaryData.assetClassSummaries.length > 0) {
+      return (
+        <PortfolioSummary
+          portfolio={summaryData}
+          i18n={i18n}
+          onPressWarningSign={onPressWarningSign}
+          incompleteData={!summaryData.complete || isFundsServiceUnavailable}
+          showChangeGraphButton
+          latestUpdatedDate={latestUpdatedDate}
+        />
+      );
+    }
+
+    return (
+      <NewPortfolioStarterCard
+        i18n={i18n}
+        buttonText={i18n.translations["Portfolio.StarterCard.ButtonText"]}
+        onButtonPress={onPressNoInvestments}
+        instructions={i18n.translations["Portfolio.StarterCard.Instructions"]}
+      />
+    );
+  }
+  renderWarning = () => {
+    const { i18n } = this.props;
+
+    return (
+      <Container>
+        <CashBackground variant="portfolio">
+          <WarningStyle1
+            title={i18n.translations["Portfolio.MissingDataModal.Title"]}
+            message={i18n.translations["Portfolio.MissingDataModal.Body"]}
+            size="small"
+          />
+        </CashBackground>
+      </Container>
+    );
+  };
+
+  render() {
+    const {
+      i18n,
+      summaryData,
+      portfolio,
+      onPress,
+      onPressWarningSign,
+      onPressRiskInfo,
+      onNavigateCash,
+      isFundsServiceUnavailable,
+      isThaiStocksServiceUnavailable,
+      isStocksServiceUnavailable,
+      numberOfStockAccounts,
+      numberOfThaiStockAccounts,
+      isIntelligentPortUnavailable,
+      isDigitalAssetsServiceUnavailable,
+      isDigitalAssetsFundServiceUnavailable,
+      isBondsServiceUnavailable,
+      isWalletUnavailable,
+      isOffshoreFundsServiceUnavailable,
+      isOffshoreWalletUnavailable,
+      refreshStockPortfolio,
+      getGTNPortfolio,
+      refreshOffshoreFundPortfolio
+    } = this.props;
+
+    const assetClassSummaries =
+      summaryData && summaryData.assetClassSummaries ? summaryData.assetClassSummaries : [];
+    sortAssets(assetClassSummaries);
+    const colorIndex = getColorIndex(assetClassSummaries);
+    this.sortServiceUnavaliableFirst(assetClassSummaries);
+    const assetSummariesNoCashType = assetClassSummaries.filter(el => {
+      return el.assetClass !== CASH_TYPE;
+    });
+
+    const isWarning =
+      isFundsServiceUnavailable ||
+      isDigitalAssetsServiceUnavailable ||
+      isWalletUnavailable ||
+      isIntelligentPortUnavailable ||
+      isBondsServiceUnavailable ||
+      isOffshoreFundsServiceUnavailable ||
+      isStocksServiceUnavailable ||
+      isThaiStocksServiceUnavailable ||
+      isDigitalAssetsFundServiceUnavailable;
+
+    const isCashIncomplete =
+      isWalletUnavailable ||
+      isDigitalAssetsServiceUnavailable ||
+      isOffshoreWalletUnavailable ||
+      isDigitalAssetsFundServiceUnavailable;
+
+    return (
+      <FlexedView
+        refreshControl={
+          <RefreshControl
+            refreshing={this.state.cashRefreshing}
+            tintColor={Theme.dotNormal}
+            colors={[Theme.dotActive]}
+            onRefresh={() => {
+              this.setState({ cashRefreshing: true });
+              this.refreshCash();
+              getGTNPortfolio();
+              refreshStockPortfolio();
+              refreshOffshoreFundPortfolio();
+              setTimeout(() => {
+                this.setState({ cashRefreshing: false });
+              }, 3000);
+            }}
+          />
+        }
+      >
+        {this.renderPortfolioSummary()}
+        <WarningBox i18n={i18n} isWarning={isWarning} />
+        <CashView>
+          <PortfolioCashWidget
+            onNavigateCash={onNavigateCash}
+            colorIndex={colorIndex}
+            isCashIncomplete={isCashIncomplete}
+          />
+        </CashView>
+        <PortfolioCarousel
+          data={assetSummariesNoCashType}
+          i18n={i18n}
+          portfolio={portfolio}
+          onPress={onPress}
+          onPressWarningSign={onPressWarningSign}
+          onPressRiskInfo={onPressRiskInfo}
+          isThaiStocksServiceUnavailable={isThaiStocksServiceUnavailable}
+          isStocksServiceUnavailable={isStocksServiceUnavailable}
+          isFundsServiceUnavailable={isFundsServiceUnavailable}
+          isIntelligentPortUnavailable={isIntelligentPortUnavailable}
+          isBondsServiceUnavailable={isBondsServiceUnavailable}
+          isDigitalAssetsServiceUnavailable={isDigitalAssetsServiceUnavailable}
+          isDigitalAssetsFundServiceUnavailable={isDigitalAssetsFundServiceUnavailable}
+          isOffshoreFundsServiceUnavailable={isOffshoreFundsServiceUnavailable}
+          numberOfStockAccounts={numberOfStockAccounts}
+          numberOfThaiStockAccounts={numberOfThaiStockAccounts}
+          colorIndex={colorIndex}
+          summaryData={summaryData}
+        />
+      </FlexedView>
+    );
+  }
+}
+
+PortfolioIntermediate.defaultProps = {
+  user: {},
+  summaryData: [],
+  portfolio: [],
+  numberOfStockAccounts: undefined,
+  numberOfThaiStockAccounts: undefined,
+  latestUpdatedDate: undefined,
+  refreshStockPortfolio: undefined,
+  previousTabIndex: undefined,
+  currentTabIndex: undefined,
+  refreshOffshoreFundPortfolio: () => {},
+  onNavigateCash: () => {},
+  onPress: () => {},
+  onPressRiskInfo: () => {},
+  onPressWarningSign: () => {},
+  onFetchPortfolioWalletInfo: () => {},
+  onFetchPortfolioOffshoreWalletInfo: () => {},
+  onPressNoInvestments: () => {}
+};
+
+const valuesShape = PropTypes.shape({
+  value: PropTypes.number,
+  complete: PropTypes.bool
+});
+
+const assetClassSummariesShape = PropTypes.shape({
+  assetClass: PropTypes.string,
+  averageRisk: valuesShape,
+  noOfInvestments: PropTypes.number,
+  percentage: valuesShape,
+  topInvestments: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      percentage: valuesShape
+    })
+  ),
+  unrealizedPL: valuesShape,
+  unrealizedPLPercentage: valuesShape,
+  value: valuesShape
+});
+
+export const summaryDataShape = PropTypes.shape({
+  assetClassSummaries: PropTypes.arrayOf(assetClassSummariesShape),
+  averageRisk: valuesShape,
+  noOfInvestments: PropTypes.number,
+  portfolioValue: valuesShape,
+  unrealizedPL: valuesShape,
+  unrealizedPLPercentage: valuesShape,
+  portfolioRoundedValue: valuesShape
+});
+
+PortfolioIntermediate.propTypes = {
+  // eslint-disable-next-line react/forbid-prop-types
+  user: PropTypes.object,
+  i18n: I18nPropTypes.isRequired,
+  onPress: PropTypes.func,
+  onPressWarningSign: PropTypes.func,
+  onPressRiskInfo: PropTypes.func,
+  onNavigateCash: PropTypes.func,
+  onFetchPortfolioWalletInfo: PropTypes.func,
+  onFetchPortfolioOffshoreWalletInfo: PropTypes.func,
+  onPressNoInvestments: PropTypes.func,
+  isFundsServiceUnavailable: PropTypes.bool.isRequired,
+  isIntelligentPortUnavailable: PropTypes.bool.isRequired,
+  isDigitalAssetsServiceUnavailable: PropTypes.bool.isRequired,
+  isDigitalAssetsFundServiceUnavailable: PropTypes.bool.isRequired,
+  isBondsServiceUnavailable: PropTypes.bool.isRequired,
+  portfolio: PropTypes.arrayOf(PropTypes.any),
+  navigation: PropTypes.objectOf(PropTypes.any).isRequired,
+  getGTNPortfolio: PropTypes.func.isRequired,
+  isThaiStocksServiceUnavailable: PropTypes.bool.isRequired,
+  isStocksServiceUnavailable: PropTypes.bool.isRequired,
+  numberOfStockAccounts: PropTypes.number,
+  numberOfThaiStockAccounts: PropTypes.number,
+  latestUpdatedDate: PropTypes.string,
+  refreshOffshoreFundPortfolio: PropTypes.func,
+  summaryData: PropTypes.oneOfType([PropTypes.arrayOf(summaryDataShape), summaryDataShape]),
+  isWalletUnavailable: PropTypes.bool.isRequired,
+  isOffshoreFundsServiceUnavailable: PropTypes.bool.isRequired,
+  previousTabIndex: PropTypes.number,
+  currentTabIndex: PropTypes.number,
+  isOffshoreWalletUnavailable: PropTypes.bool.isRequired,
+  refreshStockPortfolio: PropTypes.func
+};
+
+export default PortfolioIntermediate;

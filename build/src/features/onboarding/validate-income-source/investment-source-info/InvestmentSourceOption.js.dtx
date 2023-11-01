@@ -1,0 +1,71 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { FlatList } from "react-native";
+import styled from "styled-components/native";
+import { Separator } from "../../../../components-2";
+
+const CustomSeparator = styled(Separator)`
+  height: 1;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const InvestmentSourceOption = props => {
+  const { keyExtractor, options, scrollEnabled, selectedOptions, renderRow, onSelect } = props;
+
+  const renderOption = option => {
+    const { item, index } = option;
+    const itemKey = keyExtractor(item);
+    const isSelected =
+      selectedOptions &&
+      selectedOptions.find(selectedOption => itemKey === keyExtractor(selectedOption));
+    const handleSelect = () => {
+      onSelect(item);
+    };
+    return (
+      <TouchableOpacity
+        activeOpacity={0.6}
+        key={itemKey}
+        onPress={handleSelect}
+        accessible={false}
+        disabled={item.disabled}
+      >
+        {renderRow({ ...item, variant: "OPTION", index, isSelected })}
+        <CustomSeparator />
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <FlatList
+      data={options}
+      keyExtractor={keyExtractor}
+      renderItem={renderOption}
+      scrollEnabled={scrollEnabled}
+    />
+  );
+};
+
+InvestmentSourceOption.defaultProps = {
+  keyExtractor: item => item.key,
+  renderRow: null,
+  selectedOptions: null,
+  optionsHeight: null,
+  scrollEnabled: true
+};
+
+InvestmentSourceOption.propTypes = {
+  option: PropTypes.shape({
+    item: PropTypes.object.isRequired,
+    index: PropTypes.number.isRequired
+  }).isRequired,
+  keyExtractor: PropTypes.func,
+  options: PropTypes.array.isRequired, // eslint-disable-line react/forbid-prop-types
+  onSelect: PropTypes.func.isRequired,
+  renderRow: PropTypes.func,
+  selectedOptions: PropTypes.arrayOf(PropTypes.object),
+  optionsHeight: PropTypes.number, // eslint-disable-line react/no-unused-prop-types
+  scrollEnabled: PropTypes.bool
+};
+
+export default InvestmentSourceOption;

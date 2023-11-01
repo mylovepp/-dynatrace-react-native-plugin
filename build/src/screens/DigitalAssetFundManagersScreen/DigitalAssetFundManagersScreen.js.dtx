@@ -1,0 +1,95 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { NavigationBar, ViewContainer, Icon } from "../../components-2";
+import {
+  DIGITAL_ASSET_FUND_PRODUCT_SCREEN_ID,
+  DIGITAL_ASSET_FUND_ACTIVITY_SCREEN_ID
+} from "../../redux/navigation/navigation-constants";
+import DigitalAssetFundManagers from "../../features/digital-assets/digital-asset-funds/digital-asset-fund-managers";
+import { popupLoginScreen } from "../../modules/navigation";
+
+const DigitalAssetFundManagersScreen = props => {
+  const { navigator, patientlyNavigate, isFreemiumMode } = props;
+  const popScreen = () => {
+    navigator.pop();
+  };
+
+  const goToFundProductScreen = (
+    fundCompanyName,
+    fundCompanyId,
+    fundCompanyFullName,
+    fundCompanyIcon
+  ) => {
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: DIGITAL_ASSET_FUND_PRODUCT_SCREEN_ID,
+        animationType: "slide-horizontal",
+        navigatorStyle: {
+          tabBarHidden: true,
+          navBarHidden: true
+        },
+        passProps: {
+          fundCompanyName,
+          fundCompanyId,
+          fundCompanyFullName,
+          fundCompanyIcon
+        }
+      });
+    });
+  };
+
+  const goToActivityScreen = () => {
+    patientlyNavigate(() => {
+      navigator.push({
+        screen: DIGITAL_ASSET_FUND_ACTIVITY_SCREEN_ID,
+        animationType: "slide-horizontal",
+        backButtonTitle: ""
+      });
+    });
+  };
+
+  const handlePressHistoryButton = () => {
+    if (isFreemiumMode) {
+      popupLoginScreen();
+    } else {
+      goToActivityScreen();
+    }
+  };
+
+  const historyIcon = (
+    <TouchableOpacity onPress={handlePressHistoryButton}>
+      <HistoryIcon />
+    </TouchableOpacity>
+  );
+
+  return (
+    <ViewContainer variant="light">
+      <NavigationBar
+        title={I18n.t("DigitalAssetsFunds.Fund.FundManager")}
+        onPressBackButton={popScreen}
+        rightComponent={historyIcon}
+      />
+      <DigitalAssetFundManagers goToFundProductScreen={goToFundProductScreen} {...props} />
+    </ViewContainer>
+  );
+};
+
+export default DigitalAssetFundManagersScreen;
+
+DigitalAssetFundManagersScreen.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func.isRequired,
+    push: PropTypes.func.isRequired
+  }).isRequired,
+  patientlyNavigate: PropTypes.func.isRequired,
+  isFreemiumMode: PropTypes.bool.isRequired
+};
+
+const HistoryIcon = styled(Icon).attrs(props => ({
+  name: "history",
+  size: "icon24",
+  color: props.theme.contentColorCTAPurple
+}))``;

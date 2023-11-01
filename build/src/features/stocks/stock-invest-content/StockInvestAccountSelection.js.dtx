@@ -1,0 +1,157 @@
+import React, { PureComponent } from "react";
+
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled, { css } from "styled-components/native";
+import { map } from "lodash";
+
+import { BottomModal, Caption1, Divider, LargeCaption, Row } from "../../../components";
+import { ThaiStockAccountsPropTypes } from "../stocks-util";
+import ActionRow from "../../../components/row/ActionRow";
+import ThaiStockInvestAccount from "./ThaiStockInvestAccount";
+
+const Account = styled.View(
+  ({ theme, isSelected }) => css`
+    background-color: ${isSelected ? theme.selectedOptionBackgroundColor : "transparent"};
+  `
+);
+
+const AccountRowTop = styled.View(
+  ({ theme }) => css`
+    padding-vertical: ${theme.spacingSmall};
+  `
+);
+
+const AccountRow = styled.View(
+  ({ theme }) => css`
+    padding-vertical: ${theme.spacingXSmall};
+  `
+);
+
+class StockInvestAccountSelection extends PureComponent {
+  onSelect = accountId => {
+    this.props.onSelectAccount(accountId);
+    this.props.hideModal();
+  };
+
+  getLastRowHeadingAndValue = (accountType, cashBalance, excessEquity) => {
+    if (accountType === "Credit") {
+      return { lastRowHeading: "ExcessEquity", lastRowValue: excessEquity };
+    }
+
+    return { lastRowHeading: "CashBalance", lastRowValue: cashBalance };
+  };
+
+  renderHeader = hideModal => (
+    <ActionRow
+      action={hideModal}
+      label={I18n.t("ThaiStocks.AccountSelectionModalHeader")}
+      icon="close"
+    />
+  );
+
+  renderAccountRow = (label, value) => {
+    return (
+      <AccountRow>
+        <Row
+          noPaddingVertical
+          left={<Caption1 variant="subdued">{label}</Caption1>}
+          right={<LargeCaption>{value}</LargeCaption>}
+        />
+      </AccountRow>
+    );
+  };
+
+  renderAccountBuy = ({
+    accountId,
+    accountType,
+    creditLimit,
+    lineAvailable,
+    cashBalance,
+    excessEquity
+  }) => {
+    const { lastRowHeading, lastRowValue } = this.getLastRowHeadingAndValue(
+      accountType,
+      cashBalance,
+      excessEquity
+    );
+    return (
+      <>
+        <TouchableOpacity onPress={() => this.onSelect(accountId)}>
+          <Account isSelected={accountId === this.props.selectedAccountId}>
+            <AccountRowTop>
+              <Row
+                noPaddingVertical
+                left={
+                  <LargeCaption>
+                    {accountType ? I18n.t(`ThaiStocks.AccountTypes.${accountType}`) : "-"}
+                  </LargeCaption>
+                }
+                right={<LargeCaption variant="subdued">{accountId}</LargeCaption>}
+              />
+            </AccountRowTop>
+            {this.renderAccountRow(I18n.t("ThaiStocks.AccountHeadings.CreditLimit"), creditLimit)}
+            {this.renderAccountRow(
+              I18n.t("ThaiStocks.AccountHeadings.LineAvailable"),
+              lineAvailable
+            )}
+            {this.renderAccountRow(
+              I18n.t(`ThaiStocks.AccountHeadings.${lastRowHeading}`),
+              lastRowValue
+            )}
+          </Account>
+        </TouchableOpacity>
+        <Divider />
+      </>
+    );
+  };
+
+  renderAccountSell = ({ accountId }) => {
+    return (
+      <>
+        <ThaiStockInvestAccount
+          sell={this.props.sell}
+          marketCurrency={this.props.marketCurrency}
+          sharesAvailable={this.props.sharesAvailable}
+          isSelected={accountId === this.props.selectedAccountId}
+          account={this.props.accounts[accountId]}
+          onPress={() => this.onSelect(accountId)}
+          lastPrice={this.props.lastPrice}
+        />
+        <Divider />
+      </>
+    );
+  };
+
+  render() {
+    return (
+      <BottomModal
+        isVisible={this.props.isVisible}
+        hideModal={this.props.hideModal}
+        headerComponent={this.renderHeader}
+      >
+        {map(this.props.accounts, this.props.sell ? this.renderAccountSell : this.renderAccountBuy)}
+      </BottomModal>
+    );
+  }
+}
+
+StockInvestAccountSelection.defaultProps = {
+  selectedAccountId: "",
+  lastPrice: null
+};
+
+StockInvestAccountSelection.propTypes = {
+  sharesAvailable: PropTypes.string.isRequired,
+  marketCurrency: PropTypes.string.isRequired,
+  isVisible: PropTypes.bool.isRequired,
+  hideModal: PropTypes.func.isRequired,
+  selectedAccountId: PropTypes.string,
+  accounts: ThaiStockAccountsPropTypes.isRequired,
+  onSelectAccount: PropTypes.func.isRequired,
+  sell: PropTypes.bool.isRequired,
+  lastPrice: PropTypes.string
+};
+
+export default StockInvestAccountSelection;

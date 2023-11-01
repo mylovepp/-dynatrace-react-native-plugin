@@ -1,0 +1,249 @@
+import React, { useState, useEffect } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, ScrollView, Platform } from "react-native";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { trackLoginEvent, TRACK_TYPE } from "@invx/redux/login/utils";
+import { PIN_LOGIN_ENTER_DOB_DOPA_NEXT } from "@invx/modules/analytics/analytics-constants";
+import {
+  Display1,
+  Body3,
+  TextInput,
+  ViewContainer,
+  PrimaryButton,
+  Separator,
+  NavigationBar
+} from "@invx/components-2";
+import OnboardDatePicker from "../../../features/onboarding/onboard-date-picker/OnboardDatePicker";
+import {
+  formatThaiIDCard,
+  formatThaiLaserCode,
+  validateFormatThaiLaserCode,
+  cleanHyphens,
+  formatDate,
+  SERVER_DATE_FORMAT
+} from "../../../modules/format";
+
+const HeaderContainer = styled.View`
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-top: ${props => props.theme.spacingLarge};
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+const InputContainer = styled.View`
+  padding-vertical: ${props => props.theme.spacingXSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+const TextInputMargin = styled.View`
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+const LaserCodeContainer = styled.View`
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+const LaserCodeErrorText = styled(Body3)`
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+const SubmitButton = styled(PrimaryButton)`
+  margin: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingXLarge};
+`;
+const Divider = styled(Separator)`
+  margin-top: ${props => props.theme.spacingLarge};
+  margin-bottom: ${props => props.theme.spacingSmall};
+`;
+
+const KeyboardAvoidingViewCustom = styled(KeyboardAwareScrollView).attrs(() => ({
+  enableAutomaticScroll: Platform.OS === "ios",
+  enableOnAndroid: true,
+  extraHeight: 180,
+  keyboardShouldPersistTaps: "handled",
+  contentContainerStyle: { flex: 1 }
+}))``;
+
+const getMaxDOBDate = () => {
+  const currentDate = new Date();
+  return new Date(currentDate.getFullYear() - 20, 11, 31);
+};
+
+const ValidateIDCard = ({
+  citizenId,
+  verifyDOPA,
+  isShowBottomRadius,
+  navigator,
+  isLoading,
+  userNationality
+}) => {
+  const [dobDate, setDobDate] = useState(null);
+  const [dobLessThan20YearsOld, setDobLessThan20YearsOld] = useState(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [laserCode, setLaserCode] = useState("");
+  const [laserCodeValid, setLaserCodeValid] = useState(true);
+  const [hasValidateLaserCode, setValidateLaserCode] = useState(false);
+  const [isEnabled, setEnabled] = useState(false);
+
+  const selectDOBDate = date => {
+    const minimumDOB = new Date();
+    minimumDOB.setFullYear(minimumDOB.getFullYear() - 20);
+    minimumDOB.setDate(minimumDOB.getDate());
+    minimumDOB.setHours(0, 0, 0, 0);
+    const selectedDate = date || getMaxDOBDate();
+    if (minimumDOB >= new Date(selectedDate)) {
+      setDobLessThan20YearsOld(false);
+    } else {
+      setDobLessThan20YearsOld(true);
+    }
+    setDobDate(selectedDate);
+  };
+
+  const checkFormatLaserCode = () => {
+    const isValid = validateFormatThaiLaserCode(laserCode);
+    setLaserCodeValid(isValid);
+    setValidateLaserCode(isValid);
+  };
+
+  useEffect(() => {
+    setEnabled(
+      !!laserCode &&
+        laserCodeValid &&
+        hasValidateLaserCode &&
+        !!firstName &&
+        !!lastName &&
+        dobDate &&
+        !dobLessThan20YearsOld &&
+        citizenId
+    );
+  }, [
+    laserCode,
+    laserCodeValid,
+    hasValidateLaserCode,
+    firstName,
+    lastName,
+    dobDate,
+    dobLessThan20YearsOld,
+    citizenId
+  ]);
+
+  const submit = async () => {
+    trackLoginEvent(TRACK_TYPE.EVENT, {
+      name: PIN_LOGIN_ENTER_DOB_DOPA_NEXT,
+      params: {
+        user_nationality: userNationality
+      }
+    });
+    await verifyDOPA({
+      firstName,
+      lastName,
+      birthDate: formatDate(dobDate, SERVER_DATE_FORMAT),
+      laser: cleanHyphens(laserCode)
+    });
+  };
+
+  return (
+    (<TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <ViewContainer variant="light">
+        <NavigationBar
+          title={I18n.t("Login.FirstTimeLogin.VerifyIDCard.NavbarTitle")}
+          isShowBottomRadius={isShowBottomRadius}
+          onPressBackButton={() => navigator.pop()}
+        />
+        <KeyboardAvoidingViewCustom>
+          <HeaderContainer>
+            <Display1>{I18n.t("Login.FirstTimeLogin.VerifyIDCard.Header")}</Display1>
+          </HeaderContainer>
+          <ScrollView>
+            <InputContainer>
+              <TextInputMargin>
+                <TextInput
+                  placeholder={I18n.t("Login.FirstTimeLogin.VerifyIDCard.CitizenID.Placeholder")}
+                  variant="valid"
+                  value={formatThaiIDCard(citizenId)}
+                  label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.CitizenID.Label")}
+                  disabled
+                />
+              </TextInputMargin>
+              <Divider />
+              <TextInputMargin>
+                <TextInput
+                  required
+                  placeholder={I18n.t("Login.FirstTimeLogin.VerifyIDCard.FirstName.Placeholder")}
+                  variant="valid"
+                  value={firstName}
+                  label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.FirstName.Label")}
+                  onChangeText={value => setFirstName(value.replace(/[^\u0E00-\u0E7F\s]/g, ""))}
+                />
+              </TextInputMargin>
+              <TextInputMargin>
+                <TextInput
+                  required
+                  placeholder={I18n.t("Login.FirstTimeLogin.VerifyIDCard.LastName.Placeholder")}
+                  variant="valid"
+                  value={lastName}
+                  label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.LastName.Label")}
+                  onChangeText={value => setLastName(value.replace(/[^\u0E00-\u0E7F\s]/g, ""))}
+                />
+              </TextInputMargin>
+              <OnboardDatePicker
+                required
+                placeholder={I18n.t("Login.FirstTimeLogin.VerifyIDCard.DobDate.Placeholder")}
+                label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.DobDate.Label")}
+                selectedDate={selectDOBDate}
+                isError={dobLessThan20YearsOld}
+                errorText={I18n.t("Login.FirstTimeLogin.VerifyIDCard.DobDate.Error")}
+                value={dobDate}
+                maximumDate={getMaxDOBDate()}
+                minimumDate={new Date(new Date().getFullYear() - 100, 1, 1)}
+              />
+              <LaserCodeContainer>
+                <TextInput
+                  required
+                  autoCapitalize="characters"
+                  maxLength={14}
+                  placeholder={I18n.t("Login.FirstTimeLogin.VerifyIDCard.LaserCode.Placeholder")}
+                  label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.LaserCode.Label")}
+                  value={laserCode}
+                  onChangeText={value => {
+                    setLaserCode(formatThaiLaserCode(value));
+                    setValidateLaserCode(false);
+                  }}
+                  variant={laserCodeValid ? "valid" : "error"}
+                  onEndEditing={checkFormatLaserCode}
+                />
+                <LaserCodeErrorText variant="error">
+                  {laserCodeValid
+                    ? ""
+                    : I18n.t("Login.FirstTimeLogin.VerifyIDCard.LaserCode.InvalidFormat")}
+                </LaserCodeErrorText>
+              </LaserCodeContainer>
+            </InputContainer>
+          </ScrollView>
+          <SubmitButton
+            label={I18n.t("Login.FirstTimeLogin.VerifyIDCard.NextButton")}
+            onPress={submit}
+            size="large"
+            disable={!isEnabled || isLoading}
+          />
+        </KeyboardAvoidingViewCustom>
+      </ViewContainer>
+    </TouchableWithoutFeedback>)
+  );
+};
+
+ValidateIDCard.defaultProps = {
+  isShowBottomRadius: true,
+  isLoading: false
+};
+
+ValidateIDCard.propTypes = {
+  citizenId: PropTypes.string.isRequired,
+  userNationality: PropTypes.string.isRequired,
+  verifyDOPA: PropTypes.func.isRequired,
+  isShowBottomRadius: PropTypes.bool,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  isLoading: PropTypes.bool
+};
+
+export default ValidateIDCard;

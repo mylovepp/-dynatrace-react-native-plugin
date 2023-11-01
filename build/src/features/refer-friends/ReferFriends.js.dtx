@@ -1,0 +1,158 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { View } from "react-native";
+import Clipboard from "@react-native-community/clipboard";
+import styled from "styled-components/native";
+
+import {
+  ViewContainer,
+  ScrollViewContainer,
+  Body2,
+  Body3,
+  Display2,
+  Header1,
+  Header3,
+  Icon,
+  TextOverlineR,
+  SectionBackground
+} from "../../components-2";
+import I18nPropTypes from "../../components/i18n/I18nPropTypes";
+import ReferFriendBanner from "../../components-2/illustration/ReferFriendBanner";
+
+
+const Container = styled.View`
+  padding: ${props => props.theme.spacingLarge};
+`;
+
+const SubTitle = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const RecommendName = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const DisplayEasyCode = styled(Display2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const Body = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const Condition = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+  text-align: center;
+  margin-top: ${props => props.theme.spacingLarge};
+`;
+
+const EasyCodeHeader = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const RecommendTitle = styled(Body3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const RowView = styled(View)`
+  flex-direction: row;
+  margin-bottom: 17px;
+`;
+
+const ViewEasyCode = styled(View)`
+  padding-horizontal: 16px;
+  padding-vertical: 14px;
+  border-radius: 8px;
+  border-color: ${props => props.theme.contentColorCTAPurple};
+  background-color: ${props => `${props.theme.backgroundSecondaryPurple}50`};
+  border-width: 1px;
+  flex-direction: row;
+`;
+
+const EasyCodeLeft = styled(View)`
+  width: 50%;
+`;
+
+const EasyCodeRight = styled(View)`
+  width: 50%;
+  align-self: center;
+  justify-content: flex-end;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const CopyText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+const CopyIcon = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorCTAPurple,
+  marginLeft: props.theme.spacingXSmall
+}))``;
+
+const BannerContainer = styled(View)`
+  margin-vertical: ${props => props.theme.spacingXXLargeValue}
+  align-self: center;
+`;
+
+const ExtendedTop = styled(SectionBackground)`
+  flex-direction: row;
+  padding: ${props => props.theme.spacingXSmall};
+  width: 100%;
+`;
+
+const ReferFriends = props => {
+  const { user, i18n } = props;
+
+  const touchOnCopy = () => {
+    Clipboard.setString(user.referralCode);
+  };
+
+  return (
+    <ViewContainer variant="light" isFullScreen>
+      <ExtendedTop variant="secondary" />
+      <ScrollViewContainer>
+        <Container>
+          <SubTitle>{i18n.translations["ReferFriends.Title"]}</SubTitle>
+          <Body>{i18n.translations["ReferFriends.Description"]}</Body>
+          <BannerContainer>
+            <ReferFriendBanner size="illus200" />
+          </BannerContainer>
+          <RowView>
+            <RecommendTitle>{i18n.translations["ReferFriends.UserField"]} </RecommendTitle>
+            <RecommendName>
+              {props.user.firstName}{" "}
+              {props.user.lastName}
+            </RecommendName>
+          </RowView>
+          <TouchableOpacity onPress={touchOnCopy}>
+            <ViewEasyCode>
+              <EasyCodeLeft>
+                <EasyCodeHeader>{i18n.translations["ReferFriends.CodeField"]}</EasyCodeHeader>
+                <DisplayEasyCode>{user.referralCode}</DisplayEasyCode>
+              </EasyCodeLeft>
+              <EasyCodeRight>
+                <CopyText>{i18n.translations["ReferFriends.CopyText"]}</CopyText>
+                <CopyIcon name="copy" size="icon24" />
+              </EasyCodeRight>
+            </ViewEasyCode>
+          </TouchableOpacity>
+          <Condition>{i18n.translations["ReferFriends.Condition"]}</Condition>
+        </Container>
+      </ScrollViewContainer>
+    </ViewContainer>
+  );
+};
+
+ReferFriends.defaultProps = {
+  user: {}
+};
+
+ReferFriends.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  // eslint-disable-next-line react/forbid-prop-types
+  user: PropTypes.object
+};
+
+export default ReferFriends;

@@ -1,0 +1,171 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { PureComponent } from "react";
+import { Platform, ImageBackground } from "react-native";
+import styled from "styled-components/native";
+import theme from "../../theme";
+import { Icon } from "..";
+
+const STATUS_BAR_HEIGHT = 160;
+
+const VARIANTS_BGC = {
+  primary: "backgroundWhite",
+  secondary: "backgroundSecondaryPurple",
+  tertiary: "backgroundTertiaryGrey",
+  highlight: "backgroundTertiaryBlue"
+};
+
+const OverflowContainer = styled.View(({ color }) => {
+  const backgroundColor = theme[VARIANTS_BGC[color]];
+  return {
+    backgroundColor,
+  };
+});
+
+const NavBarContainer = styled.View(props => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  height: STATUS_BAR_HEIGHT,
+  backgroundColor: props.theme.backgroundTertiaryGrey,
+  borderBottomLeftRadius: props.isShowBottomRadius && props.theme.spacingMediumLargeValue,
+  borderBottomRightRadius: props.isShowBottomRadius && props.theme.spacingMediumLargeValue,
+}));
+
+const IconButton = styled(TouchableOpacity)`
+  padding: ${props => props.theme.spacingXXSmall};
+  background-color: ${props => props.outline ? "rgba(255, 255, 255, 0.5)" : "transparent"};
+  borderRadius: 32px;
+`;
+
+const LeftContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "flex-start",
+}));
+
+const RightContainer = styled.View(() => ({
+  flexDirection: "row",
+  justifyContent: "flex-end"
+}));
+
+const BackgroundImage = styled(ImageBackground).attrs()``;
+
+const ContentContainer = styled.View`
+  flexDirection: row;
+  justifyContent: space-between;
+  paddingTop: ${props => Platform.OS === "ios"
+     ? `${props.theme.spacingXXLargeValue + 14}px`
+     : props.theme.spacingMedium};
+  paddingBottom: ${props => props.theme.spacingMedium};
+  paddingHorizontal: ${props => props.theme.spacingMedium};
+`;
+
+const BackIcon = styled(Icon).attrs(props => {
+  return ({
+    name: "chevron-left-2",
+    size: "icon24",
+    color: props.color
+  });
+})`
+`;
+
+// >> INSTRUCTION <<
+// 1. HideNavBar
+//   navigatorStyle: {
+//     tabBarHidden: true,
+//     navBarHidden: true
+//   }
+// 2. Place ImageCover Inside render()
+//   <ViewContainer variant="light">
+//     <ImageCoverNavBar
+//       title={I18n.t("GuruPlan.PlanTitle")}
+//       onPressBackButton={goBack}
+//       source={`${TAX_GURU_IMAGE_URL}/${details.guruProfileImgUri}`}
+//       rightComponent={(
+//         <TaxCartButton
+//           onPress={goToCart}
+//           color={theme.contentColorWhite}
+//         />
+//       )}
+//     />
+//   </ViewContainer>
+
+class ImageCoverNavBar extends PureComponent {
+  onPressBack = () => {
+    const { onPressBackButton, navigator } = this.props;
+    if (onPressBackButton) {
+      onPressBackButton();
+    } else {
+      navigator.pop();
+    }
+  }
+
+  render() {
+    const {
+      isShowBottomRadius,
+      rightComponent,
+      backButtonColor,
+      overflowBGColor,
+      buttonOutline,
+      source
+    } = this.props;
+    return (
+      <OverflowContainer color={overflowBGColor}>
+        <NavBarContainer
+          isShowBottomRadius={isShowBottomRadius}
+        >
+          <BackgroundImage
+            source={{ uri: source, cache: "reload" }}
+            style={{
+              minHeight: STATUS_BAR_HEIGHT,
+              width: "100%",
+              resizeMode: "cover"
+            }}
+            imageStyle={{
+              borderBottomLeftRadius: 8,
+              borderBottomRightRadius: 8
+            }}
+          >
+            <ContentContainer>
+              <LeftContainer>
+                <IconButton outline={buttonOutline} onPress={this.onPressBack}>
+                  <BackIcon color={backButtonColor} />
+                </IconButton>
+              </LeftContainer>
+              {rightComponent &&
+                <IconButton outline={buttonOutline} >
+                  <RightContainer>{rightComponent}</RightContainer>
+                </IconButton>
+              }
+            </ContentContainer>
+          </BackgroundImage>
+        </NavBarContainer>
+      </OverflowContainer>
+    );
+  }
+}
+
+ImageCoverNavBar.defaultProps = {
+  isShowBottomRadius: true,
+  onPressBackButton: null,
+  rightComponent: null,
+  backButtonColor: theme.contentColorWhite,
+  overflowBGColor: "primary",
+  source: undefined,
+  buttonOutline: true
+};
+
+ImageCoverNavBar.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+  }).isRequired,
+  isShowBottomRadius: PropTypes.bool,
+  onPressBackButton: PropTypes.func,
+  rightComponent: PropTypes.node,
+  backButtonColor: PropTypes.string,
+  overflowBGColor: PropTypes.oneOf(["primary", "secondary", "tertiary", "highlight"]),
+  source: PropTypes.string,
+  buttonOutline: PropTypes.bool,
+};
+
+export default ImageCoverNavBar;

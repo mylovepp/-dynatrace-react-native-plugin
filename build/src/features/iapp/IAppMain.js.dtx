@@ -1,0 +1,150 @@
+import { ScrollView, Linking, Platform } from "react-native";
+import { Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useState } from "react";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import {
+  ViewContainer,
+  Button,
+  Header1,
+  Header3,
+  Body3,
+  MessageBottomModal
+} from "../../components-2";
+import i18n from "../../modules/i18n";
+import { TOP_NAVBAR_HEIGHT } from "../../modules/navigation/defaultStyle";
+
+const paddingTop = Platform.OS === "ios" ? "0px" : `${TOP_NAVBAR_HEIGHT}px`;
+
+const Container = styled(ViewContainer)`
+  flex: 1;
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  padding-top: ${paddingTop};
+  background-color: #fff;
+`;
+
+const AgreementContainer = styled(ScrollView).attrs({
+  contentContainerStyle: {
+    paddingBottom: 116
+  }
+})``;
+
+const AcceptContainer = styled.View`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  box-shadow: 0px -2px 7px rgba(223, 219, 236, 0.4);
+`;
+
+const AcceptButtonContainer = styled.View`
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  padding-vertical: ${props => props.theme.spacingLarge};
+`;
+
+const BodyText = styled(Body3)`
+  color: #7e7e7e;
+`;
+
+const BodyTextLink = styled(Body3)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const BoldBodyText = styled(Header3)`
+  color: #7e7e7e;
+`;
+
+const HeaderTextContainer = styled.View`
+  margin-top: 16;
+  margin-bottom: 16;
+`;
+
+const IAppMain = props => {
+  const { navigator, updateIApp, submitPdpa, iAppVersions } = props;
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+
+  const showError = () => {
+    setIsErrorModalOpen(true);
+  };
+
+  const onSubmit = () => {
+    const request = {
+      flag: "Y",
+      version: iAppVersions
+    };
+    const onSuccess = () => {
+      submitPdpa();
+    };
+    const onError = () => showError();
+    updateIApp(request, onSuccess, onError);
+  };
+
+  const onModalErrorClose = () => {
+    navigator.pop();
+    setIsErrorModalOpen(false);
+    submitPdpa();
+  };
+
+  const openLink = () => {
+    Linking.openURL("http://www.scbs.com/medias/landing-page/scbs_agreement.pdf");
+  };
+
+  const openLinkInnovestx = () => {
+    Linking.openURL("https://www.innovestx.co.th");
+  };
+
+
+  return (
+    <Container>
+      <AgreementContainer showsVerticalScrollIndicator={false}>
+        <HeaderTextContainer>
+          <Header1>{i18n.t("IApp.HeaderText")}</Header1>
+        </HeaderTextContainer>
+        <Text>
+          <BodyText>{i18n.t("IApp.BodyText")}</BodyText>
+          <BoldBodyText>{i18n.t("IApp.BodyTextBold")}</BoldBodyText>
+          <BodyText>{i18n.t("IApp.BodyTextNext")}</BodyText>
+          <BodyTextLink onPress={openLink}>{i18n.t("IApp.BodyTextNextLink")}</BodyTextLink>
+          <BodyText>{i18n.t("IApp.BodyTextNextTo")}</BodyText>
+        </Text>
+        <BodyText>{i18n.t("IApp.BodyTextXFooter")}</BodyText>
+        <BodyTextLink onPress={openLinkInnovestx}>{i18n.t("IApp.BodyTextZLink")}</BodyTextLink>
+      </AgreementContainer>
+      <AcceptContainer>
+        <AcceptButtonContainer>
+          <Button label={i18n.t("IApp.ButtonSubmit")} size="large" onPress={onSubmit} />
+        </AcceptButtonContainer>
+      </AcceptContainer>
+      <MessageBottomModal
+        isVisible={isErrorModalOpen}
+        title={i18n.t("IApp.Popup.Header")}
+        body={i18n.t("IApp.Popup.Body")}
+        buttons={[
+          {
+            variant: "primary",
+            label: i18n.t("IApp.Popup.Button"),
+            onPress: onModalErrorClose
+          }
+        ]}
+        onModalClose={onModalErrorClose}
+      />
+    </Container>
+  );
+};
+
+IAppMain.defaultProps = {
+  iAppVersions: ""
+};
+
+IAppMain.propTypes = {
+  navigator: PropTypes.shape({
+    dismissAllModals: PropTypes.func,
+    pop: PropTypes.func
+  }).isRequired,
+  updateIApp: PropTypes.func.isRequired,
+  iAppVersions: PropTypes.string,
+  submitPdpa: PropTypes.func.isRequired
+};
+
+export default IAppMain;

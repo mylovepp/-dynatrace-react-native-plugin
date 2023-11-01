@@ -1,0 +1,246 @@
+import React, { Fragment, Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform } from "react-native";
+import RNDateTimePicker from "@react-native-community/datetimepicker";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+
+import BottomModal from "../modal/BottomModal";
+import TextInput from "../input/TextInput";
+import { Headline1 } from "../text/Text";
+import { formatDate, DISPLAY_DATE_FORMAT } from "../../modules/format";
+import Icon from "../icon/Icon";
+import { getConfig } from "../../Config";
+
+const HeaderRowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  height: 50;
+`;
+const ButtonTouchableOpacity = styled(TouchableOpacity)`
+  justify-content: center;
+  padding-horizontal: 20;
+`;
+const CalendarIcon = styled(Icon).attrs(props => ({
+  name: "calendar",
+  color: props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.buttonStrongColor
+}))``;
+
+const ChevronIcon = styled(Icon).attrs(props => ({
+  name: "chevron-down",
+  customSize: 10,
+  color: props.disabled ? props.theme.buttonDefaultDisabledColor : props.theme.buttonStrongColor
+}))``;
+
+const RowView = styled.View`
+  flex-direction: row;
+  align-items: flex-end;
+  padding-vertical: 16;
+`;
+
+const ChevronRowView = styled.View`
+  flex-direction: row;
+  align-items: flex-end;
+  padding-vertical: 4;
+  padding-horizontal: 16;
+  border-width: 1;
+  border-radius: 4;
+  border-color: ${props => props.theme.dividerColor};
+`;
+
+const IconContainer = styled.View`
+  padding-bottom: 8;
+`;
+
+const ChevronIconContainer = styled.View`
+  padding-bottom: 16;
+`;
+
+const DatePickerContainer = styled.View`
+  flex: 1;
+  align-items: center;
+`;
+let currentSelectedDate = null;
+class DatePicker extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isVisible: false,
+      selectedDate: props.initialDateValue,
+      displayText: props.resetDateValue?.displayText || ""
+    };
+  }
+  componentWillReceiveProps(nextProps) {
+    if (nextProps.resetDateValue) {
+      this.setState({
+        displayText: nextProps.resetDateValue?.displayText || ""
+      });
+    }
+  }
+  onDateChange = (event, date) => {
+    currentSelectedDate = date;
+  };
+  onChange = (event, date) => {
+    this.setState(state => {
+      return {
+        isVisible: false,
+        selectedDate: date || state.selectedDate
+      };
+    });
+    this.props.onClose(this.state.selectedDate);
+  };
+  onCancelDialog = () => {
+    this.setState({ isVisible: false });
+    this.props.onClose(this.state.selectedDate);
+  };
+  onSubmitDate = () => {
+    currentSelectedDate = currentSelectedDate || new Date();
+    this.setState({
+      isVisible: false,
+      displayText: "",
+      selectedDate: currentSelectedDate
+    });
+    this.props.onClose(currentSelectedDate);
+  };
+  getSelectedDateToString = () => {
+    return formatDate(this.state.selectedDate, DISPLAY_DATE_FORMAT);
+  };
+  getCurrentLocal = () => {
+    if (getConfig().EN_OVERRIDES_ENABLED === "true") {
+      return "th";
+    }
+    return i18n.locale;
+  };
+  headerRow = (
+    <HeaderRowContainer>
+      <ButtonTouchableOpacity onPress={this.onCancelDialog}>
+        <Headline1>{this.props.cancelText}</Headline1>
+      </ButtonTouchableOpacity>
+      <ButtonTouchableOpacity onPress={this.onSubmitDate}>
+        <Headline1>{this.props.selectText}</Headline1>
+      </ButtonTouchableOpacity>
+    </HeaderRowContainer>
+  );
+
+  render() {
+    const {
+      placeholder,
+      label,
+      inputStyle,
+      isRequire,
+      disabled,
+      minimumDate,
+      maximumDate,
+      calendarStyle
+    } = this.props;
+    const { displayText, isVisible, selectedDate } = this.state;
+    const displayDateString = !displayText ? this.getSelectedDateToString() : displayText;
+    return (
+      <Fragment>
+        <TouchableOpacity disabled={disabled} onPress={() => this.setState({ isVisible: true })}>
+          { calendarStyle === "chevron"
+            ? (
+              <ChevronRowView>
+                <TextInput
+                  containerStyle={{ paddingBottom: 0, paddingTop: 0, paddingRight: 8, flex: 1 }}
+                  placeholder={placeholder}
+                  label={isRequire ? "" : label}
+                  inputStyle={inputStyle}
+                  editable={false}
+                  pointerEvents="none"
+                  value={displayDateString}
+                  noBorder
+                />
+                <ChevronIconContainer>
+                  <ChevronIcon disabled={disabled} />
+                </ChevronIconContainer>
+              </ChevronRowView>
+            ) : (
+              <RowView>
+                <TextInput
+                  containerStyle={{ paddingBottom: 0, paddingTop: 0, paddingRight: 8, flex: 1 }}
+                  placeholder={placeholder}
+                  label={isRequire ? "" : label}
+                  inputStyle={inputStyle}
+                  editable={false}
+                  pointerEvents="none"
+                  value={displayDateString}
+                />
+                <IconContainer>
+                  <CalendarIcon disabled={disabled} />
+                </IconContainer>
+              </RowView>
+            )
+          }
+        </TouchableOpacity>
+        {Platform.OS === "ios" ? (
+          <BottomModal
+            isVisible={isVisible}
+            headerComponent={() => this.headerRow}
+            hideModal={this.onCancelDialog}
+          >
+            <DatePickerContainer>
+              <RNDateTimePicker
+                locale={this.getCurrentLocal()}
+                style={{ width: "100%" }}
+                value={selectedDate || new Date()}
+                mode="date"
+                display="spinner"
+                onChange={this.onDateChange}
+                minimumDate={minimumDate}
+                maximumDate={maximumDate}
+              />
+            </DatePickerContainer>
+          </BottomModal>
+        ) : (
+          isVisible && (
+            <RNDateTimePicker
+              locale={this.getCurrentLocal()}
+              mode="date"
+              display="spinner"
+              value={selectedDate || new Date()}
+              onChange={this.onChange}
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+            />
+          )
+        )}
+      </Fragment>
+    );
+  }
+}
+
+DatePicker.defaultProps = {
+  placeholder: "",
+  label: "",
+  disabled: false,
+  isRequire: false,
+  inputStyle: {},
+  initialDateValue: null,
+  resetDateValue: null,
+  selectText: "Select",
+  cancelText: "Cancel",
+  calendarStyle: "",
+  minimumDate: null,
+  maximumDate: null
+};
+
+DatePicker.propTypes = {
+  placeholder: PropTypes.string,
+  label: PropTypes.string,
+  calendarStyle: PropTypes.string,
+  disabled: PropTypes.bool,
+  isRequire: PropTypes.bool,
+  inputStyle: PropTypes.objectOf(PropTypes.any),
+  onClose: PropTypes.func.isRequired,
+  initialDateValue: PropTypes.instanceOf(Date),
+  resetDateValue: PropTypes.shape({
+    displayText: PropTypes.string
+  }),
+  selectText: PropTypes.string,
+  cancelText: PropTypes.string,
+  minimumDate: PropTypes.instanceOf(Date),
+  maximumDate: PropTypes.instanceOf(Date)
+};
+export default DatePicker;

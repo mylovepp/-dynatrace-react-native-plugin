@@ -1,0 +1,188 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import Picker from "react-native-wheel-pick/src/picker";
+import moment from "moment";
+import TouchableOpacityDebounced from "../button/TouchableOpacityDebounced";
+import { FONT_FAMILY } from "../../theme/fonts";
+import { Header1 } from "../../components-2";
+
+const TouchableOverlay = styled(TouchableOpacity).attrs({
+  activeOpacity: 1
+})`
+  flex: 1;
+`;
+
+const Container = styled(View)`
+  flex: 1;
+  justify-content: flex-end;
+  margin: 0;
+`;
+
+const Content = styled(View)`
+  padding-bottom: ${props => (props.isIphoneX ? "40px" : "0px")};
+`;
+
+const ConTest = styled(View)`
+  flex-direction: row;
+`;
+
+const Header = styled(View)`
+  height: 50px;
+  flex-direction: row;
+  background-color: ${props => props.theme.sectionBackgroundColor};
+  border-bottom-width: 1px;
+  border-bottom-color: ${props => props.theme.sectionBorderColor};
+  align-items: center;
+  justify-content: space-between;
+  border-top-left-radius: ${props => props.theme.bottomModalBorderRadius};
+  border-top-right-radius: ${props => props.theme.bottomModalBorderRadius};
+`;
+
+const TextContainer = styled(TouchableOpacityDebounced)`
+  height: 50px;
+  flex-direction: row;
+  margin-horizontal: 10;
+  flex: 1;
+  align-items: center;
+  justify-content: ${props => (props.isLeft ? "flex-start" : "flex-end")};
+`;
+
+const CustomText = styled(Header1)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const LAST_MONTH_NUMBER = 11;
+const FIRST_MONTH_NUMBER = 0;
+
+class MonthYearModal extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      currentMonth: this.props.value.getMonth(),
+      currentYear: this.props.value.getFullYear()
+    };
+  }
+
+  onSubmitted = () => {
+    const { onValueChange, minimumDate, maximumDate } = this.props;
+    const { currentYear, currentMonth } = this.state;
+
+    if (currentYear === minimumDate.getFullYear() && currentMonth < minimumDate.getMonth()) {
+      onValueChange(new Date(currentYear, minimumDate.getMonth()));
+      return;
+    }
+    if (currentYear === maximumDate.getFullYear() && currentMonth > maximumDate.getMonth()) {
+      onValueChange(new Date(currentYear, FIRST_MONTH_NUMBER));
+      return;
+    }
+
+    onValueChange(new Date(currentYear, currentMonth));
+  };
+
+  getMonthList = () => {
+    const { minimumDate, maximumDate } = this.props;
+
+    const { currentYear } = this.state;
+
+    const months = moment.monthsShort().map((month, index) => {
+      return {
+        value: index,
+        label: month
+      };
+    });
+
+    if (currentYear === minimumDate.getFullYear() && currentYear === maximumDate.getFullYear()) {
+      return months.slice(minimumDate.getMonth(), maximumDate.getMonth() + 1);
+    }
+    if (currentYear === minimumDate.getFullYear()) {
+      return months.slice(minimumDate.getMonth(), LAST_MONTH_NUMBER + 1);
+    }
+    if (currentYear === maximumDate.getFullYear()) {
+      return months.slice(FIRST_MONTH_NUMBER, maximumDate.getMonth() + 1);
+    }
+    return months;
+  };
+
+  getYearList = () => {
+    const { minimumDate, maximumDate } = this.props;
+    const list = [];
+
+    for (let i = minimumDate.getFullYear(); i <= maximumDate.getFullYear(); i++) {
+      list.push(i);
+    }
+    return list;
+  };
+
+  render() {
+    const { hideModal, cancelText, confirmText, itemFontSize } = this.props;
+
+    const { currentMonth, currentYear } = this.state;
+
+    return (
+      <Container>
+        <TouchableOverlay onPress={hideModal} />
+        <Content>
+          <Header>
+            <TextContainer isLeft onPress={hideModal}>
+              <CustomText>{cancelText}</CustomText>
+            </TextContainer>
+            <TextContainer onPress={() => this.onSubmitted()}>
+              <CustomText>{confirmText}</CustomText>
+            </TextContainer>
+          </Header>
+          <ConTest>
+            <Picker
+              style={{ backgroundColor: "white", flex: 0.5, height: 220 }}
+              selectedValue={currentMonth}
+              pickerData={this.getMonthList()}
+              itemStyle={{
+                fontFamily: FONT_FAMILY,
+                fontSize: itemFontSize
+              }}
+              onValueChange={result => {
+                this.setState({ currentMonth: result });
+              }}
+            />
+            <Picker
+              style={{ backgroundColor: "white", flex: 0.5, height: 220 }}
+              selectedValue={currentYear}
+              pickerData={this.getYearList()}
+              itemStyle={{
+                fontFamily: FONT_FAMILY,
+                fontSize: itemFontSize
+              }}
+              onValueChange={result => {
+                this.setState({ currentYear: result });
+              }}
+            />
+          </ConTest>
+        </Content>
+      </Container>
+    );
+  }
+}
+
+MonthYearModal.defaultProps = {
+  value: new Date(),
+  onValueChange: () => {},
+  hideModal: () => {},
+  cancelText: "",
+  confirmText: "",
+  itemFontSize: 28,
+};
+
+MonthYearModal.propTypes = {
+  value: PropTypes.instanceOf(Date),
+  minimumDate: PropTypes.instanceOf(Date).isRequired,
+  maximumDate: PropTypes.instanceOf(Date).isRequired,
+  onValueChange: PropTypes.func,
+  hideModal: PropTypes.func,
+  cancelText: PropTypes.func,
+  confirmText: PropTypes.func,
+  itemFontSize: PropTypes.number,
+};
+
+export default MonthYearModal;

@@ -1,0 +1,151 @@
+// @ts-nocheck
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import Modal from "react-native-modal";
+import styled from "styled-components/native";
+import withInactiveRestore from "./withInactiveRestore";
+import Icon from "../../components-2/icon/Icon";
+import { Display3 } from "../text/Text";
+
+const DEFAULT_BACKDROP = 0.2;
+const DEFAULT_BORDER_RADIUS = "16px";
+const DEFAULT_SHADOW = {
+  shadowOffset: "0 -6px",
+  shadowOpacity: 0.12,
+  shadowRadius: 16,
+  shadowColor: "#000"
+};
+
+const BottomModalStyled = styled(Modal).attrs((props) => {
+  let opacity = DEFAULT_BACKDROP;
+  if (props.noBackdrop) {
+    opacity = 0;
+  } else if (props.backdropOpacity) {
+    opacity = props.backdropOpacity;
+  }
+  return {
+    backdropOpacity: opacity
+  };
+})({
+  justifyContent: "flex-end",
+  margin: 0,
+  ...DEFAULT_SHADOW
+});
+
+const SafeAreaView = styled.SafeAreaView((props) => ({
+  backgroundColor: props.theme.backgroundWhite,
+  borderTopLeftRadius: DEFAULT_BORDER_RADIUS,
+  borderTopRightRadius: DEFAULT_BORDER_RADIUS,
+  overflow: "hidden"
+}));
+
+const Content = styled.ScrollView((props) => ({
+  padding: props.theme.spacingMedium,
+  paddingTop: (props.noContentMarginTop ? 0 : props.theme.spacingLarge)
+}));
+
+const PullIndicator = styled.View.attrs(props => ({
+  width: 55,
+  height: 6,
+  top: 8,
+  color: props.theme.contentColorVeryHigh,
+  borderRadius: 4,
+  customSize: 10,
+  backgroundColor: props.theme.contentColorDisabled,
+  alignSelf: "center"
+}))``;
+
+const ContainerHeader = styled(View)`
+  justify-content: ${props => (props.noSpaceBetween ? "flex-start" : "space-between")};
+  width: 100%;
+  flex-direction: row;
+  margin-top: ${props => (props.noMarginTop ? 0 : "30px")};
+  padding-horizontal: 30px;
+  height: 26px
+`;
+
+const EmptyChild = styled(View)``;
+
+const TitleContainer = styled(View)`
+  align-items: center;
+`;
+
+const IconContainer = styled(TouchableOpacity)`
+  align-items: flex-end;
+`;
+
+class BottomSheet extends Component {
+  render() {
+    const {
+      isVisible = true,
+      isDisableCloseButton,
+      onModalClose,
+      children,
+      title,
+      noSpaceBetween,
+      noMarginTop,
+      noContentMarginTop,
+      ...rest
+    } = this.props;
+    return (
+      <BottomModalStyled
+        swipeDirection="down"
+        animationOutTiming={600}
+        isVisible={isVisible}
+        onSwipe={onModalClose}
+        onBackdropPress={onModalClose}
+        {...rest}
+      >
+        <SafeAreaView>
+          {isDisableCloseButton && <PullIndicator />}
+          {!isDisableCloseButton
+            ? <ContainerHeader>
+              <EmptyChild />
+              <TitleContainer>
+                <Display3>{title}</Display3>
+              </TitleContainer>
+              <IconContainer onPress={onModalClose} style={{ alignItems: "flex-end" }}>
+                <Icon name="close-2" size="icon24" />
+              </IconContainer>
+              </ContainerHeader>
+            : <ContainerHeader noSpaceBetween={noSpaceBetween} noMarginTop={noMarginTop} >
+              <EmptyChild />
+              <TitleContainer>
+                <Display3>{title}</Display3>
+              </TitleContainer>
+              <EmptyChild />
+              </ContainerHeader>
+          }
+          <Content noContentMarginTop={noContentMarginTop} >{children}</Content>
+        </SafeAreaView>
+      </BottomModalStyled>
+    );
+  }
+}
+
+BottomSheet.defaultProps = {
+  children: undefined,
+  isDisableCloseButton: false,
+  isVisible: false,
+  onModalClose: () => {
+  },
+  title: "",
+  noSpaceBetween: false,
+  noMarginTop: false,
+  noContentMarginTop: false
+};
+
+BottomSheet.propTypes = {
+  children: PropTypes.node,
+  isDisableCloseButton: PropTypes.bool,
+  isVisible: PropTypes.bool,
+  onModalClose: PropTypes.func,
+  title: PropTypes.string,
+  noSpaceBetween: PropTypes.bool,
+  noMarginTop: PropTypes.bool,
+  noContentMarginTop: PropTypes.bool
+};
+
+export default withInactiveRestore(BottomSheet);

@@ -1,0 +1,219 @@
+import React, { useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import HTML from "react-native-render-html";
+import { Platform, BackHandler, Linking, Image } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import {
+  SectionBackground,
+  Icon,
+  ViewContainer,
+  ApplicationBanner,
+  PrimaryButton,
+  SecondaryButton,
+  Header1,
+  ScrollViewContainer,
+  MessageBottomModal
+} from "@invx/components-2";
+import { convertToHtml } from "@invx/modules/format";
+import { getExtendTopNavBarHeight } from "@invx/modules/navigation/defaultStyle";
+import theme from "@invx/theme";
+import fwdIcon from "../../../../assets/images/partner/fwd.png";
+
+const HeaderContainer = styled(SectionBackground).attrs({
+  variant: "secondary",
+  borderRadius: "big"
+})`
+  padding-top: ${getExtendTopNavBarHeight()};
+  padding-bottom: ${props => props.theme.spacingXXXSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+const Header1Container = styled(Header1)`
+  padding-bottom: ${props => props.theme.spacingMedium};
+`;
+const BodyContainer = styled(SectionBackground).attrs({})`
+  padding-top: ${props => props.theme.spacingMedium};
+  padding-bottom: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  flex: 1;
+`;
+const HeaderInnerContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-vertical: ${props => props.theme.spacingXSmall};
+`;
+const ButtonContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+`;
+const TitleContainer = styled.View`
+  padding-bottom: ${props => props.theme.spacingMedium};
+`;
+const ButtonInnerContainer = styled.View`
+  align-items: center;
+  width: 48%;
+`;
+const BackIcon = styled(Icon).attrs(props => ({
+  name: "chevron-left-2",
+  size: "icon24",
+  color: props.theme.navBarButtonColor
+}))``;
+const ContentWrapper = styled.View`
+  display: flex;
+  flex: 1;
+`;
+const ContentContainer = styled.View`
+  flex: 1;
+`;
+const IconContainer = styled.View`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-vertical: ${props => props.theme.spacingXLarge};
+`;
+
+const tagsStyles = () => {
+  return {
+    body: { ...theme.body3, color: theme.contentColorHigh },
+    a: { ...theme.body3, color: theme.ctaPurple },
+    b: {
+      ...theme.getFontBoldGraphik()
+    }
+  };
+};
+
+const handleOnBackPress = (navigator, onPress) => {
+  if (onPress) {
+    return onPress();
+  }
+  return navigator.pop();
+};
+
+const onLinkPressed = (event, href) => {
+  Linking.canOpenURL(href).then(valid => {
+    if (valid) {
+      Linking.openURL(href);
+    }
+  });
+};
+const InsurancePrefillConsent = ({
+  navigator,
+  onBackPress,
+  consentInquiry,
+  consent,
+  consentAccept,
+  isProcessing,
+  error,
+  clearError
+}) => {
+  const submit = async isAccepted => {
+    await consentAccept({ consentId: consent.consentId, isAccepted });
+  };
+  const onBack = () => {
+    handleOnBackPress(navigator, onBackPress);
+  };
+  const onClearError = () => {
+    clearError();
+    onBack();
+  };
+  useEffect(() => {
+    consentInquiry();
+    if (Platform.OS === "android") {
+      BackHandler.addEventListener("hardwareBackPress", onBack);
+    }
+    return () => {
+      if (Platform.OS === "android") {
+        BackHandler.removeEventListener("hardwareBackPress", onBack);
+      }
+    };
+  }, []);
+
+  return (
+    <ViewContainer variant="light">
+      <HeaderContainer>
+        <HeaderInnerContainer>
+          <TouchableOpacity onPress={() => handleOnBackPress(navigator, onBackPress)}>
+            <BackIcon />
+          </TouchableOpacity>
+          <ApplicationBanner height={37} />
+        </HeaderInnerContainer>
+      </HeaderContainer>
+      <ScrollViewContainer contentContainerStyle={{ flexGrow: 1 }}>
+        <BodyContainer>
+          {consent?.consentContent && (
+            <ContentWrapper>
+              <ContentContainer>
+                <IconContainer>
+                  <Image source={fwdIcon} resizeMode="cover" style={{ width: 116, height: 40 }} />
+                </IconContainer>
+                <TitleContainer>
+                  <Header1Container>{consent.consentTitle}</Header1Container>
+                  <HTML
+                    html={`<body>${convertToHtml(consent.consentContent)}</body>`}
+                    onLinkPress={onLinkPressed}
+                    tagsStyles={tagsStyles()}
+                  />
+                </TitleContainer>
+              </ContentContainer>
+              <ButtonContainer>
+                <ButtonInnerContainer>
+                  <SecondaryButton
+                    label={I18n.t("Insurance.Consent.Reject")}
+                    size="large"
+                    onPress={() => submit(false)}
+                    fullWidth
+                    disable={isProcessing}
+                  />
+                </ButtonInnerContainer>
+                <ButtonInnerContainer>
+                  <PrimaryButton
+                    label={I18n.t("Insurance.Consent.Accept")}
+                    size="large"
+                    onPress={() => submit(true)}
+                    fullWidth
+                    disable={isProcessing}
+                  />
+                </ButtonInnerContainer>
+              </ButtonContainer>
+            </ContentWrapper>
+          )}
+        </BodyContainer>
+      </ScrollViewContainer>
+      <MessageBottomModal
+        isVisible={error}
+        title={I18n.t("Insurance.Error.Title")}
+        body={I18n.t("Insurance.Error.Description")}
+        buttons={[
+          {
+            variant: "primary",
+            label: I18n.t("General.Close"),
+            onPress: onClearError
+          }
+        ]}
+        onModalClose={onClearError}
+      />
+    </ViewContainer>
+  );
+};
+
+InsurancePrefillConsent.defaultProps = {
+  onBackPress: null,
+  navigator: {},
+  isProcessing: false,
+  error: null
+};
+InsurancePrefillConsent.propTypes = {
+  onBackPress: PropTypes.func,
+  navigator: PropTypes.shape(),
+  consentInquiry: PropTypes.func.isRequired,
+  consentAccept: PropTypes.func.isRequired,
+  consent: PropTypes.shape().isRequired,
+  isProcessing: PropTypes.bool,
+  error: PropTypes.shape(),
+  clearError: PropTypes.func.isRequired
+};
+
+export default InsurancePrefillConsent;

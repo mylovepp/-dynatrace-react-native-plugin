@@ -1,0 +1,43 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React from "react";
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { Icon, TextButtonL } from "../../../../components-2";
+
+const Container = styled(TouchableOpacity)`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`;
+const Text = styled(TextButtonL)`
+  color: ${props => props.theme.contentColorCTAPurple};
+  margin-right: ${props => props.theme.spacingXXSmall};
+`;
+const RightIcon = styled(props => (
+  <View style={{ transform: [{ rotateY: "180deg" }] }}>
+    <Icon {...props} />
+  </View>
+)).attrs(props => ({
+  name: "arrow-left",
+  color: props.theme.contentColorCTAPurple,
+  size: "icon8"
+}))``;
+
+const ChangeAccountButton = props => {
+  const { children, ...otherProps } = props;
+  return (
+    <Container {...otherProps}>
+      <Text>{children}</Text>
+      <RightIcon />
+    </Container>
+  );
+};
+
+ChangeAccountButton.defaultProps = {};
+
+ChangeAccountButton.propTypes = {
+  children: PropTypes.string.isRequired
+};
+
+export default ChangeAccountButton;

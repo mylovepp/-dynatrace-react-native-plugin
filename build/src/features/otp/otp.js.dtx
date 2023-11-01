@@ -1,0 +1,261 @@
+/* eslint-disable no-use-before-define */
+import React, { useState, useEffect, Fragment, useCallback } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+import { debounce } from "lodash";
+import { Navigation } from "react-native-navigation";
+import {
+  Header1,
+  Header3,
+  Body2,
+  Body3,
+  TextOverlineR,
+  PrimaryButton,
+  PinNumberInput,
+  ViewContainer,
+  TextOverlineM,
+  SectionBackground
+} from "@invx/components-2";
+import { showBottomMessageBox } from "@invx/modules/navigation";
+
+const Container = styled(ViewContainer).attrs({
+  isFullScreen: true,
+  variant: "light"
+})`
+  flex: 1;
+  padding: ${props => props.theme.spacingMedium};
+`;
+const TitleLabel = styled(Header1)`
+  text-align: center;
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+const DescriptionLabel = styled(Body2)`
+  text-align: center;
+  color: ${props => props.theme.contentColorHigh};
+  margin-vertical: ${props => props.theme.spacingXSmallValue};
+`;
+const ResendWarning = styled(Body3)`
+  text-align: center;
+  color: ${props => props.theme.contentColorHigh};
+`;
+const ResendLabel = styled(Body3)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorHigh : props.theme.contentColorCTAPurple};
+  margin-left: 2px;
+`;
+const PinContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmall};
+  height: 90px;
+`;
+const ErrorLabel = styled(Header3).attrs({
+  variant: "error"
+})`
+  ${props => (props.alignLeft ? "left" : "center")}
+`;
+const InvalidCode = styled(TextOverlineM).attrs({
+  variant: "error"
+})`
+  text-align: center;
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+const ReferenceLabel = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+  text-align: center;
+`;
+
+const HeaderContainer = styled.View`
+  flex: 1;
+  justify-content: flex-start;
+`;
+const ResentContainer = styled.View`
+  margin-top: 0;
+  flex-direction: row;
+  justify-content: center;
+`;
+const FooterContainer = styled.View`
+  justify-content: flex-end;
+`;
+const ContinueButton = styled(PrimaryButton).attrs({
+  size: "large"
+})``;
+
+const OTP = props => {
+  const [otp, setOtp] = useState("");
+  const [otpInputVariant, setOtpInputVariant] = useState("default");
+  const [invalidOtp, setInvalidOtp] = useState(false);
+  const [serverError, setServerError] = useState(false);
+  const [disableResend, setDisableResend] = useState(false);
+  const [disableNextButton, setDisableNextButton] = useState(false);
+  const [hasDisplayNoMobile, setHasDisplayNoMobile] = useState(false);
+  const [remainingLabel, setRemainingLabel] = useState("");
+  let resentTimerInterval = null;
+
+  useEffect(() => {
+    let countDown = props.remainingTime;
+    resentTimerInterval = setInterval(() => {
+      --countDown;
+      if (countDown > 0) {
+        setDisableResend(true);
+        setRemainingLabel(
+          `${i18n.t("OTP.Mobile.Resend.Link")}${i18n.t("OTP.Mobile.Resend.Timer", {
+            timeLeft: countDown
+          })}`
+        );
+      } else {
+        setRemainingLabel("");
+        setDisableResend(false);
+        clearInterval(resentTimerInterval);
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(resentTimerInterval);
+    };
+  }, [props.remainingTime]);
+
+  useEffect(() => {
+    setInvalidOtp(false);
+    setServerError(false);
+    setDisableNextButton(otp.length < 6);
+  }, [otp]);
+
+  useEffect(() => {
+    if (props.validOtp !== null) {
+      setInvalidOtp(!props.validOtp);
+    }
+  }, [props.validOtp, props.isProcessing]);
+
+  useEffect(() => {
+    if (!props.mobile && !hasDisplayNoMobile) {
+      setHasDisplayNoMobile(true);
+      const options = {
+        title: i18n.translate("OTP.NoMobile.Title"),
+        description: i18n.translate("OTP.NoMobile.Description"),
+        variant: "headerBold",
+        rightButton: {
+          text: i18n.translate("General.Accept"),
+          onPress: () => {
+            Navigation.dismissAllModals({ animationType: "none" });
+          }
+        }
+      };
+      showBottomMessageBox(options);
+    }
+  }, [props.mobile]);
+
+  const displayError = () => {
+    return (serverError || invalidOtp) && !props.isProcessing && otp?.length === 6;
+  };
+
+  const resendOtp = () => {
+    debounce(() => {
+      setOtp("");
+      props.resendOtp();
+    }, 1000).apply(this);
+  };
+
+  const verifyOtp = () => {
+    setDisableNextButton(true);
+    debounce(() => {
+      props.verifyOtp(otp);
+    }, 1000).apply(this);
+  };
+
+  const onChangeCode = code => {
+    setOtp(code);
+    setOtpInputVariant(code === "" ? "default" : "typing");
+  };
+
+  const getDisplayRemainingLabel = useCallback(() => {
+    if (remainingLabel) {
+      return <ResendLabel disabled>{remainingLabel}</ResendLabel>;
+    }
+    return null;
+  }, [remainingLabel]);
+
+  return (
+    <>
+      <SectionBackground variant="secondary" borderRadius="big" style={{ minHeight: props.showNavbarBottom ? 16 : 0 }} />
+      <Container>
+        <HeaderContainer>
+          <TitleLabel>{i18n.translate("OTP.Mobile.Header")}</TitleLabel>
+          {props.mobile && (
+            <Fragment>
+              <DescriptionLabel>
+                {i18n.translate("OTP.Mobile.Title", { mobileNumber: props.mobile })}
+              </DescriptionLabel>
+              <ViewContainer>
+                <PinContainer>
+                  <PinNumberInput
+                    code={otp || ""}
+                    codeLength={6}
+                    onChangeCode={value => {
+                      onChangeCode(value);
+                    }}
+                    variant={displayError() ? "error" : otpInputVariant}
+                  />
+                </PinContainer>
+
+                {displayError() && (
+                  <InvalidCode>
+                    <ErrorLabel>
+                      {props.isError
+                        ? i18n.translate("OTP.GeneralError")
+                        : i18n.translate("OTP.Mobile.Reference.Invalid")}
+                    </ErrorLabel>
+                  </InvalidCode>
+                )}
+                <ResentContainer>
+                  <ResendWarning>{i18n.translate("OTP.Mobile.Resend.Description")}</ResendWarning>
+                  {getDisplayRemainingLabel() || (
+                    <TouchableOpacity disabled={disableResend} onPress={resendOtp}>
+                      <ResendLabel disabled={disableResend}>
+                        {i18n.translate("OTP.Mobile.Resend.Link")}
+                      </ResendLabel>
+                    </TouchableOpacity>
+                  )}
+                </ResentContainer>
+                <ReferenceLabel>
+                  {i18n.translate("OTP.Mobile.Reference.Label", {
+                    otpReference: props.otpReference
+                  })}
+                </ReferenceLabel>
+              </ViewContainer>
+            </Fragment>
+          )}
+        </HeaderContainer>
+
+        <FooterContainer>
+          <ContinueButton
+            label={i18n.translate("OTP.Mobile.NextButton")}
+            disable={disableNextButton}
+            onPress={verifyOtp}
+          />
+        </FooterContainer>
+      </Container>
+    </>
+  );
+};
+
+OTP.defaultProps = {
+  validOtp: true,
+  remainingTime: 0,
+  showNavbarBottom: true
+};
+
+OTP.propTypes = {
+  isProcessing: PropTypes.bool.isRequired,
+  isError: PropTypes.bool.isRequired,
+  verifyOtp: PropTypes.func.isRequired,
+  resendOtp: PropTypes.func.isRequired,
+  mobile: PropTypes.string.isRequired,
+  otpReference: PropTypes.string.isRequired,
+  validOtp: PropTypes.bool,
+  remainingTime: PropTypes.number,
+  showNavbarBottom: PropTypes.bool
+
+};
+
+export default OTP;

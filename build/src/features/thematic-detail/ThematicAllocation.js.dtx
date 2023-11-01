@@ -1,0 +1,291 @@
+import React, { Component, Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { StyleSheet, ScrollView } from "react-native";
+import I18n from "react-native-i18n";
+
+import { ifProp } from "styled-tools";
+import styled, { css } from "styled-components/native";
+
+import { stringToNumberFormat } from "../../modules/format";
+import { Header1, Header2, Body2, Body3, Icon } from "../../components-2";
+
+const HeaderText = styled(Header1)`
+ color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const SubTitleText = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  ${ifProp(
+    "shrink",
+    css`
+      flex-shrink: 1;
+    `,
+  )};
+  ${ifProp(
+    "padding",
+    css`
+      padding-left: 16px;
+    `
+  )};
+`;
+
+const CaptionText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const Section = styled.View`
+  padding: 16px;
+`;
+
+const SectionTitleContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const SectionTitle = styled(Body3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-bottom: 8px;
+`;
+
+const Card = styled.View`
+  background: #ffffff;
+  padding: ${props => (props.noPadding ? 0 : 16)}px;
+  border-radius: ${props => (props.borderRadius ? props.borderRadius : 16)}px;
+  box-shadow: 0px 2px 2px rgba(223, 219, 236, 0.3);
+  margin-bottom: ${props => (props.noBottomPadding ? 0 : 16)}px;
+`;
+
+const CardSubTitle = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-top: ${props => (props.noMarginTop ? 0 : 16)}px;
+`;
+
+const CardText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const PlanDetailContainer = styled.View``;
+
+const FundContainer = styled.View`
+  marginBottom: 16px;
+  backgroundColor: ${(props) => props.theme.backgroundLightColor};
+  borderRadius: 8px;
+  shadowColor: #DFDBEC;
+`;
+
+const FundHeaderContainer = styled.View`
+  flexDirection: row;
+  justifyContent: space-between;
+  alignItems: flex-start;
+  marginBottom: 4px;
+  padding: 16px;
+  paddingLeft: 8px;
+  borderBottomColor: #EAEAEA;
+  borderBottomWidth: ${(props) => props.isOpen ? 1 : 0};
+`;
+
+const FundVerticalHeader = styled.View`
+  height: 27px;
+  width: 5px;
+  borderRadius: 6px;
+  marginRight: 8px;
+  backgroundColor: ${(props) => props.color ? props.color : "#000"};
+`;
+
+const FundItemContainer = styled.View`
+  flexDirection: column;
+  justifyContent: space-between;
+  marginBottom: 4px;
+  marginHorizontal: 16px;
+  paddingTop: 4px;
+  paddingBottom: 8px;
+  borderBottomColor: #EAEAEA;
+  borderBottomWidth: ${(props) => props.border ? 0 : 1};
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  ${ifProp(
+    "shrink",
+    css`
+      flex-shrink: 1;
+    `,
+  )};
+`;
+
+const RowSpaceBetweenContainer = styled.View`
+  flex-direction: row;
+  alignItems: center;
+  justifyContent: space-between;
+`;
+
+const IconContainer = styled.View`
+  flex-direction: row;
+  alignItems: center;
+  marginLeft: 12px;
+`;
+
+const styles = StyleSheet.create({
+  fundContainerShadow: {
+    elevation: 2,
+    shadowRadius: 2,
+    shadowOpacity: 0.3,
+    shadowOffset: {
+      width: 0,
+      height: 2
+    }
+  }
+});
+
+class ThematicAllocation extends Component {
+  state = {
+    fundsAllocation: [],
+    investmentConcept: []
+  };
+
+  static getDerivedStateFromProps(props, state) {
+    const { funds, conceptPorts } = props;
+    const fundDataList = (funds || []).map(fund => {
+      const existingCondition = item => item.title === fund.label_thai;
+      const existingState = state.fundsAllocation.find(existingCondition);
+      const data = (fund.fundList || []).map(item => {
+        return {
+          fund: item.label_thai,
+          percent: item.percent,
+          ticker: item.ticker,
+        };
+      });
+      return {
+        title: fund.label_thai,
+        value: fund.percent,
+        color: fund.color,
+        isOpen: existingState ? existingState.isOpen : false,
+        data
+      };
+    });
+    const investmentConcept = conceptPorts
+      // .filter(concept => concept.detail_thai)
+      .map(concept => ({
+        header: concept.parent_label_thai,
+        detail: concept.detail_thai
+      }));
+    return { fundsAllocation: fundDataList, investmentConcept };
+  }
+
+  onToggleExpandItem = index => {
+    const toggleFundDataList = [...this.state.fundsAllocation];
+    toggleFundDataList[index].isOpen = !toggleFundDataList[index].isOpen;
+    this.setState({ fundsAllocation: toggleFundDataList });
+  };
+
+  formatDecimalPercent = (value, precision = 2) => {
+    let precisionValue = precision;
+    const decimalValue = Number(String(value).replace("%", ""));
+    if (Number.isInteger(decimalValue)) {
+      precisionValue = 0;
+    }
+    const numberFormat = stringToNumberFormat(decimalValue, precisionValue);
+    if (numberFormat % 1 === 0) {
+      precisionValue = 0;
+    }
+    return `${stringToNumberFormat(numberFormat, precisionValue)}%`;
+  };
+
+  render() {
+    const { fundsAllocation, investmentConcept, isShowConcept } = this.state;
+    return (
+      <>
+        <ScrollView>
+          {(investmentConcept.length > 0 && isShowConcept) && (
+            <Section>
+              <SectionTitleContainer>
+                <SectionTitle>{I18n.t("Thematic.Summary.ConceptPortTitle")}</SectionTitle>
+              </SectionTitleContainer>
+              <Card noBottomPadding>
+                {investmentConcept.map((concept, index) => {
+                  return (
+                    <>
+                      <CardSubTitle noMarginTop={!index}>{concept.header}</CardSubTitle>
+                      <CardText>{concept.detail}</CardText>
+                    </>
+                  );
+                })}
+              </Card>
+            </Section>
+          )}
+          <Section>
+            <SectionTitleContainer>
+              <SectionTitle>{I18n.t("Thematic.Summary.AllocationText")}</SectionTitle>
+              <SectionTitle>{I18n.t("Thematic.Summary.AllocationPercent")}</SectionTitle>
+            </SectionTitleContainer>
+            <PlanDetailContainer>
+              {fundsAllocation.map((fund, index) => {
+                const headerColor = fund.color ? fund.color : "#7E7E7E";
+                return (
+                  <FundContainer
+                    style={
+                      [
+                        styles.fundContainerShadow,
+                        index >= fundsAllocation.length - 1 && { borderBottomColor: "transparent" }
+                      ]
+                    }
+                    key={fund.title}
+                  >
+                    <TouchableOpacity onPress={() => this.onToggleExpandItem(index)}>
+                      <FundHeaderContainer
+                        isOpen={fund.isOpen}
+                      >
+                        <RowContainer shrink>
+                          <FundVerticalHeader color={headerColor} />
+                          <HeaderText>{fund.title}</HeaderText>
+                        </RowContainer>
+                        <RowContainer>
+                          <HeaderText>{this.formatDecimalPercent(fund.value)}</HeaderText>
+                          <IconContainer>
+                            <Icon name={fund.isOpen ? "chevron-up" : "chevron-down"} size="icon8" color="#7E7E7E" />
+                          </IconContainer>
+                        </RowContainer>
+                      </FundHeaderContainer>
+                    </TouchableOpacity>
+                    {fund.isOpen &&
+                      fund.data.map((item, itemIndex) => {
+                        return (
+                          <Fragment key={item.fund}>
+                            <FundItemContainer
+                              border={itemIndex >= fund.data.length - 1}
+                            >
+                              <RowSpaceBetweenContainer>
+                                <SubTitleText shrink>{item.fund}</SubTitleText>
+                                <SubTitleText padding>
+                                  {this.formatDecimalPercent(item.percent)}
+                                </SubTitleText>
+                              </RowSpaceBetweenContainer>
+                              <CaptionText>{item.ticker}</CaptionText>
+                            </FundItemContainer>
+                          </Fragment>
+                        );
+                      })}
+                  </FundContainer>
+                );
+              })}
+            </PlanDetailContainer>
+          </Section>
+        </ScrollView>
+      </>
+    );
+  }
+}
+
+ThematicAllocation.defaultProps = {
+  funds: [],
+  conceptPorts: [],
+};
+
+// ThematicAllocation.propTypes = {
+//   funds: PropTypes.array,
+//   conceptPorts: PropTypes.array,
+//   locale: PropTypes.string.isRequired,
+// };
+
+export default ThematicAllocation;

@@ -1,0 +1,49 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+
+import { IconButton, NavigationBar, TextButtonS } from "../../../components-2";
+
+const HelpButtonContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: flex-end;
+`;
+const HelpRightButton = styled(TextButtonS)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const LoginNavigationBar = props => {
+  const { backButtonPress, closeButtonPress, helpButtonPress } = props;
+  const closeButton = closeButtonPress && <IconButton icon="close-2" onPress={closeButtonPress} />;
+  const helpButton = helpButtonPress && (
+    <HelpButtonContainer>
+      <TouchableOpacity onPress={helpButtonPress}>
+        <HelpRightButton>{i18n.t("Onboarding.HelpContact.NavButton")}</HelpRightButton>
+      </TouchableOpacity>
+    </HelpButtonContainer>
+  );
+
+  return (
+    <NavigationBar
+      isNoBackgroundColor
+      isShowBottomRadius={false}
+      onPressBackButton={backButtonPress}
+      rightComponent={helpButton || closeButton}
+    />
+  );
+};
+
+LoginNavigationBar.defaultProps = {
+  backButtonPress: null,
+  closeButtonPress: null,
+  helpButtonPress: null
+};
+LoginNavigationBar.propTypes = {
+  backButtonPress: PropTypes.func,
+  closeButtonPress: PropTypes.func,
+  helpButtonPress: PropTypes.func
+};
+export default LoginNavigationBar;

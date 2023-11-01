@@ -1,0 +1,44 @@
+/* eslint-disable no-unused-expressions */
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { memo, useContext } from "react";
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { AccordionItemContext } from "./Context";
+
+const Container = styled(View)`
+  padding: 12px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 10px;
+`;
+
+const AccordionSummary = props => {
+  const { children } = props;
+  const { isOpen, onOpen, onClose } = useContext(AccordionItemContext);
+
+  const pressHandler = () => {
+    isOpen ? onClose && onClose() : onOpen && onOpen();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.4}
+      onPress={pressHandler}
+      accessible
+      accessibilityRole="checkbox"
+    >
+      <Container>{children}</Container>
+    </TouchableOpacity>
+  );
+};
+
+AccordionSummary.defaultProps = {};
+
+AccordionSummary.propTypes = {
+  children: PropTypes.element.isRequired
+};
+
+export default memo(AccordionSummary);

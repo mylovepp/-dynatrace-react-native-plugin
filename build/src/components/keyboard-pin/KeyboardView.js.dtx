@@ -1,0 +1,144 @@
+import React, { Fragment, PureComponent } from "react";
+import { TouchableHighlight } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Dimensions, PixelRatio, Platform } from "react-native";
+import styled, { css } from "styled-components/native";
+import PropTypes from "prop-types";
+import _shuffle from "lodash/shuffle";
+
+import { Headline1 } from "../../components";
+import Icon from "../../components/icon/Icon";
+
+// Extending the touchablehighlight to fix the background color delay
+class TouchableButton extends TouchableHighlight {
+  // eslint-disable-next-line
+  touchableGetHighlightDelayMS() {
+    return 0;
+  }
+}
+
+const { height } = Dimensions.get("window"); // need this to make keyboard buttons equal amongst all devices
+
+const StyledButton = styled(TouchableButton).attrs(props => ({
+  underlayColor: props.theme.activeKeyBackground
+}))`
+  align-items: center;
+  justify-content: center;
+  margin-horizontal: ${props => props.theme.spacingMedium};
+  margin-vertical: ${props => props.theme.spacingXSmall}; /* Space keyboard takes vertically */
+  flex: 1;
+  ${Platform.select({
+    ios: css`
+      height: ${height / 15}px;
+    `,
+    android: css`
+      height: ${height / 18}px;
+    `
+  })};
+`;
+
+const StyledFlatList = styled.FlatList`
+  border-top-width: ${3 / PixelRatio.get()}px;
+  border-top-color: #eee;
+  padding-vertical: ${props => props.theme.spacingMedium};
+  flex-grow: 0;
+`;
+
+class KeyboardView extends PureComponent {
+  generateKeyboardData = () => {
+    const { backspaceComponent, hideComponent, shuffleKeyBoard } = this.props;
+    let array = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+    if (shuffleKeyBoard) {
+      array = _shuffle(array);
+    }
+
+    array.splice(-1, 0, hideComponent); // LeftBottom
+    array.push(backspaceComponent); // RightBottom
+    return array;
+  };
+
+  renderBackspaceKey = () => {
+    const { backspaceOnPress, backspaceComponent, disableBackspace } = this.props;
+    return disableBackspace ? (
+      this.renderEmptyComponent()
+    ) : (
+      <StyledButton onPress={backspaceOnPress}>{backspaceComponent}</StyledButton>
+    );
+  };
+
+  renderEmptyComponent = () => (
+    <StyledButton>
+      <Fragment />
+    </StyledButton>
+  );
+
+  renderHideKey = () => {
+    const { hideOnPress, hideComponent, disableHide } = this.props;
+    return disableHide ? (
+      this.renderEmptyComponent()
+    ) : (
+      <StyledButton onPress={hideOnPress}>{hideComponent}</StyledButton>
+    );
+  };
+
+  renderNormalKey = item => {
+    const { keyboardOnPress } = this.props;
+    return (
+      <StyledButton onPress={() => keyboardOnPress(item)} accessibilityLabel={`Key ${item}`}>
+        <Headline1 variant="primary">{item}</Headline1>
+      </StyledButton>
+    );
+  };
+
+  renderItem = ({ item }) => {
+    const { backspaceComponent, hideComponent } = this.props;
+    switch (item) {
+      case backspaceComponent:
+        return this.renderBackspaceKey();
+      case hideComponent:
+        return this.renderHideKey();
+      default:
+        return this.renderNormalKey(item);
+    }
+  };
+
+  render() {
+    return (
+      <StyledFlatList
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flex: 0, justifyContent: "flex-end" }}
+        scrollEnabled={false}
+        horizontal={false}
+        vertical
+        numColumns={3}
+        renderItem={this.renderItem}
+        data={this.generateKeyboardData()}
+        keyExtractor={val => `keyboardItem-${val}`}
+      />
+    );
+  }
+}
+
+KeyboardView.defaultProps = {
+  backspaceComponent: <Icon name="chevron-left" size="small" />,
+  backspaceOnPress: () => {},
+  disableBackspace: false,
+  disableHide: false,
+  hideComponent: <Icon name="hide-keyboard" size="small" />,
+  hideOnPress: () => {},
+  keyboardOnPress: () => {},
+  shuffleKeyBoard: false
+};
+
+KeyboardView.propTypes = {
+  backspaceComponent: PropTypes.element,
+  backspaceOnPress: PropTypes.func,
+  disableBackspace: PropTypes.bool,
+  disableHide: PropTypes.bool,
+  hideComponent: PropTypes.element,
+  hideOnPress: PropTypes.func,
+  keyboardOnPress: PropTypes.func,
+  shuffleKeyBoard: PropTypes.bool
+};
+
+export default KeyboardView;

@@ -1,0 +1,284 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Image } from "react-native";
+import I18n from "react-native-i18n";
+import styled, { css } from "styled-components/native";
+import PropTypes from "prop-types";
+import Row from "../../../components-2/row/Row";
+import { Button, Body2, Body3, Header2, Header3 } from "../../../components-2";
+import StockAccountSelect from "./StockAccountSelect";
+import { localiseCurrency } from "../../../modules/i18n";
+import { unitValueDisplay } from "../../../modules/i18n/value-display";
+import { nationFlag } from "../../fxconversion/fxconversion-constants";
+
+import { CURRENCY_VARIANTS, getCurrencyDisplay } from "../stocks-util";
+
+const CurrencyLabelContainer = styled.View``;
+
+const StockCurrencyLabelContainer = styled.View`
+  flex-direction: row;
+`;
+
+const BuyTitleContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const AccountBackground = styled.View`
+  background-color: ${props => props.theme.backgroundTertiaryGrey};
+  padding: 8px 10px;
+  border-radius: 8px;
+`;
+
+const InvestPadding = styled.View`
+  padding-vertical: ${props => props.theme.spacingMediumValue};
+  padding-horizontal: ${props => props.theme.spacingMediumValue};
+  padding-bottom: 24px;
+`;
+
+const ButtonContainer = styled.View(
+  props => css`
+    padding-vertical: ${props.theme.spacingXXSmall};
+    padding-horizontal: ${props.theme.spacingXSmall};
+    padding-bottom: 15px;
+  `
+);
+
+const BodyLight = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const LabelText = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+  font-size: 12px;
+`;
+
+const LabelHeader = styled(Header3)`
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+  font-size: 12px;
+`;
+
+const RightContainer = styled.View`
+  flex-direction: row;
+`;
+
+export const RightContainerSpaced = styled.View`
+  flex-direction: row;
+  justify-content: flex-end;
+`;
+
+export const AccountRow = styled(Row).attrs({
+  leftStyle: { flex: 5, paddingRight: 5 },
+  rightStyle: { flex: 9, paddingLeft: 0 },
+  containerStyle: {
+    borderRadius: 8,
+    borderColor: "#CECECE",
+    borderWidth: 1,
+    height: 64
+  }
+})``;
+
+const Body2ColorVeryHigh = styled(Body2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const Header2ColorVeryHigh = styled(Header2)`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+const SelectedContainer = styled.View`
+  margin: 16px;
+  overflow: hidden;
+`;
+
+const StockInvestAccount = ({
+  sell,
+  marketCurrency,
+  walletCurrency,
+  accountValue,
+  selectedSellAccount,
+  onSelectSellAccount,
+  portfolioData,
+  onPress,
+  isOffshoreFund,
+  displayExchangeRateButton,
+  onNavigateExchangeCurrency,
+  unitsPrecision,
+  hideWalletCurrency
+}) => {
+  if (sell && !isOffshoreFund) {
+    return (
+      <SelectedContainer>
+        <StockAccountSelect
+          marketCurrency={marketCurrency}
+          selectedSellAccount={selectedSellAccount}
+          netPositionId={portfolioData.netPositionId}
+          onSelect={onSelectSellAccount}
+        />
+      </SelectedContainer>
+    );
+  }
+  if (!sell && !isOffshoreFund) {
+    const stockRightSection = (
+      <RightContainer>
+        <Header2ColorVeryHigh>
+          {`${localiseCurrency({
+            value: accountValue && accountValue !== "-" ? accountValue : 0,
+            hideCurrency: true
+          })} ${walletCurrency}`}
+        </Header2ColorVeryHigh>
+      </RightContainer>
+    );
+    const stockLeftSection = (
+      <StockCurrencyLabelContainer>
+        { walletCurrency
+          ? <Image source={nationFlag[walletCurrency]} style={{ marginRight: 8, marginTop: 1 }} />
+          : <></>
+        }
+        <Header2ColorVeryHigh>{`${walletCurrency}` || "-"}</Header2ColorVeryHigh>
+      </StockCurrencyLabelContainer>
+    );
+
+    return (
+      <InvestPadding>
+        <BuyTitleContainer>
+          <LabelText>{I18n.t("FundInvest.AccountSection.Crash")}</LabelText>
+          <TouchableOpacity onPress={onNavigateExchangeCurrency}>
+            <Header3 variant="ctaPurple">+ เติมเงิน</Header3>
+          </TouchableOpacity>
+        </BuyTitleContainer>
+        <TouchableOpacity onPress={onPress}>
+          <AccountBackground>
+            <AccountRow
+              left={stockLeftSection}
+              right={stockRightSection}
+              noPaddingVertical
+              noPaddingHorizontal={!isOffshoreFund}
+              paddingBottom
+              noBorder={!isOffshoreFund}
+            />
+          </AccountBackground>
+          {displayExchangeRateButton && (
+            <ButtonContainer>
+              <Button buttonSM onPress={onNavigateExchangeCurrency}>
+                {I18n.t("FXConversion.Exchange")}
+              </Button>
+            </ButtonContainer>
+          )}
+        </TouchableOpacity>
+      </InvestPadding>
+    );
+  }
+
+  const availableShares = unitValueDisplay(
+    portfolioData.availableShares,
+    true,
+    true,
+    unitsPrecision
+  );
+  const availableMarketValue = portfolioData.availableMarketValue
+    ? localiseCurrency({
+        value: portfolioData.availableMarketValue,
+        hideCurrency: true
+      })
+    : "-";
+  const rightSection =
+    isOffshoreFund && sell ? (
+      <>
+        <RightContainerSpaced>
+          <Body2ColorVeryHigh>{`${availableShares} Units`}</Body2ColorVeryHigh>
+        </RightContainerSpaced>
+        <RightContainerSpaced>
+          <BodyLight>{`${availableMarketValue} `}</BodyLight>
+          <BodyLight>
+            {getCurrencyDisplay(marketCurrency, CURRENCY_VARIANTS.PENCE) || "-"}
+          </BodyLight>
+        </RightContainerSpaced>
+      </>
+    ) : (
+      <RightContainer>
+        <Header2ColorVeryHigh>
+          {`${localiseCurrency({
+            value: accountValue && accountValue !== "-" ? accountValue : 0,
+            hideCurrency: true
+          })} `}
+        </Header2ColorVeryHigh>
+        {!hideWalletCurrency && (
+          <Header2ColorVeryHigh>{walletCurrency || "-"}</Header2ColorVeryHigh>
+        )}
+      </RightContainer>
+    );
+  const leftSection = (
+    <CurrencyLabelContainer>
+      {isOffshoreFund ? (
+        <Body2ColorVeryHigh>{walletCurrency || "-"}</Body2ColorVeryHigh>
+      ) : (
+        <Header2ColorVeryHigh>{walletCurrency || "-"}</Header2ColorVeryHigh>
+      )}
+    </CurrencyLabelContainer>
+  );
+
+  return (
+    <InvestPadding>
+      {isOffshoreFund ? (
+        <LabelHeader>
+          {sell
+            ? I18n.t("FundInvest.AccountSection.Unit")
+            : I18n.t("Stocks.ProductInfo.Section.SecondaryTitle")}
+        </LabelHeader>
+      ) : (
+        <BuyTitleContainer>
+          <LabelText>{I18n.t("FundInvest.AccountSection.Crash")}</LabelText>
+          <Header2>+ เติมเงิน</Header2>
+        </BuyTitleContainer>
+      )}
+      <TouchableOpacity onPress={onPress}>
+        <AccountRow
+          left={leftSection}
+          right={rightSection}
+          noPaddingVertical
+          noPaddingHorizontal={!isOffshoreFund}
+          paddingBottom
+          noBorder={!isOffshoreFund}
+        />
+        {displayExchangeRateButton && (
+          <ButtonContainer>
+            <Button buttonSM onPress={onNavigateExchangeCurrency}>
+              {I18n.t("FXConversion.Exchange")}
+            </Button>
+          </ButtonContainer>
+        )}
+      </TouchableOpacity>
+    </InvestPadding>
+  );
+};
+
+StockInvestAccount.defaultProps = {
+  onPress: null,
+  onSelectSellAccount: () => {},
+  portfolioData: {},
+  selectedSellAccount: {},
+  onNavigateExchangeCurrency: () => {},
+  displayExchangeRateButton: false,
+  unitsPrecision: undefined,
+  hideWalletCurrency: false
+};
+
+StockInvestAccount.propTypes = {
+  sell: PropTypes.bool.isRequired,
+  marketCurrency: PropTypes.string.isRequired,
+  accountValue: PropTypes.string.isRequired,
+  walletCurrency: PropTypes.string.isRequired,
+  onPress: PropTypes.bool,
+  onSelectSellAccount: PropTypes.func,
+  portfolioData: PropTypes.objectOf(PropTypes.any),
+  selectedSellAccount: PropTypes.objectOf(PropTypes.any),
+  isOffshoreFund: PropTypes.bool.isRequired,
+  onNavigateExchangeCurrency: PropTypes.func,
+  displayExchangeRateButton: PropTypes.bool,
+  unitsPrecision: PropTypes.number,
+  hideWalletCurrency: PropTypes.bool
+};
+
+export default StockInvestAccount;

@@ -1,0 +1,505 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
+import {
+  formatNumber,
+  stringToNumberFormat,
+  stripNonNumericChars
+} from "../../modules/format";
+
+import {
+  PrimaryButton,
+  Toggle,
+  Separator,
+  Header1,
+  MessageBottomModal,
+  TextInput,
+  ViewContainer,
+  LoadingScreen
+} from "../../components-2";
+import PickerRollerModal from "../digital-advisor/components/picker-roller-modal";
+import RefreshIcon from "./icon/RefreshIcon";
+
+const SectionNoseContainer = styled.View`
+  height: 16px;
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+`;
+
+const KeyBoardAware = styled(KeyboardAwareScrollView)`
+  flex: 1;
+`;
+
+// const ScrollView = styled.ScrollView`
+//   flex: 1;
+// `;
+
+const ButtonContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const Form = styled.View`
+  flex: 1;
+  padding-left: ${props => props.theme.spacingMedium};
+  padding-right: ${props => props.theme.spacingMedium};
+`;
+
+const FormInput = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const SwitchContainer = styled.View`
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const ToggleContainer = styled.View`
+  transform: scale(0.8, 0.8);
+`;
+
+const Title = styled(Header1)`
+  flex: 1;
+  color: ${props => props.theme.contentColorVeryHigh};
+  padding-left: ${props => props.theme.spacingXSmall};
+`;
+
+const SeparatorContainer = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const DCAIcon = styled(RefreshIcon).attrs(props => ({
+  color: props.theme.contentColorVeryHigh,
+}))``;
+
+const defaultErrors = {
+  planName: false,
+  firstInvestment: false,
+  dayOfMonth: false,
+  monthlyInvestment: false,
+};
+
+const WAIT_INTERVAL = 400;
+
+class ThematicPortfolioSetUpForm extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      planName: "",
+      firstInvestment: "",
+      dayOfMonth: "",
+      monthlyInvestment: "",
+      openDCA: false,
+      agreeDCA: false,
+      dayItems: [],
+      isButtonEnabled: false,
+      openPickerRollerModal: false,
+      touched: {
+        planName: false,
+        firstInvestment: false,
+        dayOfMonth: false,
+        monthlyInvestment: false,
+      },
+      errors: {
+        planName: false,
+        firstInvestment: false,
+        dayOfMonth: false,
+        monthlyInvestment: false,
+      },
+    };
+  }
+
+  componentDidMount() {
+    this.createDays();
+    this.timer = null;
+  }
+
+  onPlanNameInput = () => {
+    this.updateTouched("planName");
+    this.validateInput();
+  };
+
+  onFirstInvestmentInput = value => {
+    this.updateTouched("firstInvestment");
+    if (value !== null && value !== undefined) {
+      const number = this.stringToNumber(value);
+      const total = this.displayNumber(number);
+      this.setState({ firstInvestment: total }, () => this.validateInput());
+    }
+  };
+
+  onMonthlyInvestmentInput = value => {
+    this.updateTouched("monthlyInvestment");
+    if (value !== null && value !== undefined) {
+      const number = this.stringToNumber(value);
+      const total = this.displayNumber(number);
+      this.setState({ monthlyInvestment: total }, () => this.validateInput());
+    }
+  };
+
+  onCheckPortfolioName = async () => {
+    const { portfolio } = this.props;
+    const { planName: name } = this.state;
+    if (portfolio && name) {
+      this.props.checkPortfolioName({
+        account_id: portfolio.id,
+        account_name: name,
+      });
+    }
+  }
+
+  onNameChange = (name) => {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(this.onCheckPortfolioName, WAIT_INTERVAL);
+    this.setState({ planName: name });
+  }
+
+  onSwitchValueChange = value => {
+    if (!this.state.agreeDCA) {
+      this.setState(
+        (old) => ({ ...old, openDCA: value, agreeDCA: value }),
+        () => this.validateInput()
+      );
+    } else {
+      this.setState(
+        (old) => ({ ...old, agreeDCA: value }),
+        () => this.validateInput()
+      );
+    }
+  };
+
+  onDisagreeDCA = () => {
+    this.setState({ openDCA: false, agreeDCA: false });
+  }
+
+  onAgreeDCA = () => {
+    this.setState({ openDCA: false, agreeDCA: true });
+  }
+
+  onModalClose = () => {
+    this.validateInput();
+  }
+
+  onDayOfMonthConfirm = (value) => {
+    this.updateTouched("dayOfMonth");
+    const dayOfMonth = value === "" ? "1" : value;
+    this.setState({ dayOfMonth, openPickerRollerModal: false }, () => this.validateInput());
+  }
+
+  getVariantType = input => {
+    const { openPickerRollerModal, errors } = this.state;
+    if (openPickerRollerModal) {
+      return "focus";
+    }
+    if (input === "dayOfMonth" && errors.dayOfMonth) {
+      return "error";
+    }
+    return "";
+  }
+
+  getErrorPlanNameInput = () => {
+    const { isPortfolioNameExists } = this.props;
+    const { errors, planName } = this.state;
+    if (errors.planName && planName !== "" && isPortfolioNameExists) {
+      return I18n.t("Thematic.PlanNameAlreadyBeenUsedHelperText");
+    }
+    if (errors.planName && planName === "") {
+      return I18n.t("Thematic.PlanNameLabel");
+    }
+    return null;
+  }
+
+  stringToNumber = value => {
+    const regex = /,/g;
+    const number = value && value.toString().replace(regex, "");
+    return Number(number) || 0;
+  }
+
+  validateInput = () => {
+    const { selectedThematicModel, isPortfolioNameExists } = this.props;
+    const {
+      planName,
+      firstInvestment,
+      dayOfMonth,
+      monthlyInvestment,
+      agreeDCA,
+      touched
+    } = this.state;
+    const errors = { ...defaultErrors };
+    let valid = true;
+
+    let minimumInvestment = 0;
+    let minimumMonthlyInvestment = 0;
+    if (selectedThematicModel?.theme !== null && selectedThematicModel?.theme !== undefined) {
+      minimumInvestment = selectedThematicModel.theme.minimum_initial_investment_amount || 0;
+      minimumMonthlyInvestment = selectedThematicModel.theme.subsequent_investment_amount || 0;
+    }
+    if (planName === undefined || planName.length === 0 || isPortfolioNameExists) {
+      valid = false;
+      if (touched.planName) {
+        errors.planName = true;
+      }
+    }
+    if (this.stringToNumber(firstInvestment) < this.stringToNumber(minimumInvestment)) {
+      valid = false;
+      if (touched.firstInvestment) {
+        errors.firstInvestment = true;
+      }
+    }
+    if (agreeDCA) {
+      if (dayOfMonth === undefined || dayOfMonth.length === 0) {
+        valid = false;
+        if (touched.dayOfMonth) {
+          errors.dayOfMonth = true;
+        }
+      }
+      if (this.stringToNumber(monthlyInvestment) < this.stringToNumber(minimumMonthlyInvestment)) {
+        valid = false;
+        if (touched.monthlyInvestment) {
+          errors.monthlyInvestment = true;
+        }
+      }
+    }
+    this.setState({ isButtonEnabled: valid, errors });
+  };
+
+  updateTouched = (type) => {
+    this.setState(old => ({ ...old, touched: { ...old.touched, [type]: true } }));
+  }
+
+  displayNumber = value => {
+    const options = {
+      thousandSeparated: true,
+      mantissa: 2
+    };
+    return formatNumber(value, options);
+  }
+
+  createDays = () => {
+    const days = [];
+    for (let i = 1; i <= 31; i++) {
+      days.push(i.toString());
+    }
+    this.setState({ dayItems: days });
+  };
+
+  goToNextPage = () => {
+    const { selectedThematicModel } = this.props;
+    const {
+      firstInvestment,
+      planName,
+      agreeDCA,
+      dayOfMonth,
+      monthlyInvestment
+    } = this.state;
+    const params = {
+      portfolio_name: planName,
+      first_investment: stripNonNumericChars(firstInvestment),
+      isDCAEnable: agreeDCA,
+      objective: selectedThematicModel.theme.objective_code,
+      theme: selectedThematicModel.theme.theme_code,
+      risk_level: selectedThematicModel.theme.risk_level,
+      total_forecast_value: 0,
+      no_year: 5,
+      model_id: selectedThematicModel.theme.model_id,
+    };
+
+    if (agreeDCA) {
+      params.start_date_monthly_contribution = Number(dayOfMonth);
+      params.monthly_investment = stripNonNumericChars(monthlyInvestment);
+    }
+
+    this.props.savePortfolioData(params);
+    this.props.navigateToThematicSummaryAllocation();
+  }
+
+  render() {
+    const { selectedThematicModel, isPortfolioNameExists, isLoading } = this.props;
+    const {
+      planName,
+      firstInvestment,
+      dayOfMonth,
+      monthlyInvestment,
+      errors,
+      openDCA,
+      agreeDCA,
+      openPickerRollerModal,
+    } = this.state;
+    let minimumInvestment = 0;
+    let minimumMonthlyInvestment = 0;
+    if (selectedThematicModel?.theme !== null && selectedThematicModel?.theme !== undefined) {
+      minimumInvestment = stringToNumberFormat(
+        selectedThematicModel.theme.minimum_initial_investment_amount || 0
+      );
+      minimumMonthlyInvestment = stringToNumberFormat(
+        selectedThematicModel.theme.subsequent_investment_amount || 0
+      );
+    }
+
+    if (isLoading) {
+      return (
+        <ViewContainer variant="light" isFullScreen>
+          <LoadingScreen caption={I18n.t("General.Loading")} />
+        </ViewContainer>
+      );
+    }
+
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        <SectionNoseContainer />
+        <KeyBoardAware>
+          <Form>
+            <FormInput>
+              <TextInput
+                id="textInput1"
+                label={I18n.t("Thematic.PlanNameLabel")}
+                placeholder={I18n.t("Thematic.PlanNamePlaceholder")}
+                maxLength={50}
+                variant={errors.planName ? "error" : null}
+                value={planName}
+                onChangeText={this.onNameChange}
+                onSubmitEditing={() => this.onPlanNameInput()}
+                onBlur={() => this.onPlanNameInput()}
+                helperText={this.getErrorPlanNameInput()}
+              />
+            </FormInput>
+            <FormInput>
+              <TextInput
+                id="textInput2"
+                label={I18n.t("Thematic.FirstInvestLabel")}
+                placeholder={I18n.t("Thematic.FirstInvestPlaceholder")}
+                suffixPlaceholder={I18n.t("Thematic.Currency.THB")}
+                keyboardType="numeric"
+                variant={errors.firstInvestment ? "error" : null}
+                value={firstInvestment}
+                onChangeText={(value) => this.setState({ firstInvestment: value })}
+                onSubmitEditing={() => this.onFirstInvestmentInput(firstInvestment)}
+                onBlur={() => this.onFirstInvestmentInput(firstInvestment)}
+                helperText={I18n.t(
+                  "Thematic.FirstInvestHelperText",
+                  { minimum: minimumInvestment }
+                )}
+                returnKeyType="done"
+              />
+            </FormInput>
+          </Form>
+          <SeparatorContainer>
+            <Separator variant="full" />
+          </SeparatorContainer>
+          <SwitchContainer>
+            <DCAIcon />
+            <Title>{I18n.t("Thematic.DCALabel")}</Title>
+            <ToggleContainer>
+              <Toggle
+                id="toggle"
+                value={agreeDCA}
+                onPress={(value) => this.onSwitchValueChange(value)}
+              />
+            </ToggleContainer>
+          </SwitchContainer>
+          {
+            agreeDCA &&
+            <Form>
+              <TouchableOpacity
+                id="picker"
+                activeOpacity={1}
+                onPress={() => this.setState({ openPickerRollerModal: true })}
+                pointerEvents="box-only"
+              >
+                <FormInput pointerEvents="none">
+                  <TextInput
+                    id="textInput3"
+                    label={I18n.t("Thematic.DayOfMonthLabel")}
+                    placeholder="1"
+                    suffixPlaceholder={I18n.t("Thematic.DayOfMonthInlineLabel")}
+                    keyboardType="numeric"
+                    variant={this.getVariantType("dayOfMonth")}
+                    value={dayOfMonth}
+                    pointerEvents="none"
+                  />
+                </FormInput>
+              </TouchableOpacity>
+              <FormInput>
+                <TextInput
+                  id="textInput4"
+                  label={I18n.t("Thematic.MonthlyInvestmentLabel")}
+                  placeholder={I18n.t("Thematic.MonthlyInvestmentPlaceholder")}
+                  suffixPlaceholder={I18n.t("Thematic.Currency.THB")}
+                  keyboardType="numeric"
+                  variant={errors.monthlyInvestment ? "error" : null}
+                  value={monthlyInvestment}
+                  onChangeText={(value) => this.setState({ monthlyInvestment: value })}
+                  onSubmitEditing={() => this.onMonthlyInvestmentInput(monthlyInvestment)}
+                  onBlur={() => this.onMonthlyInvestmentInput(monthlyInvestment)}
+                  helperText={`${I18n.t("Thematic.FirstInvestHelperText", { minimum: minimumMonthlyInvestment })}`}
+                  returnKeyType="done"
+                />
+              </FormInput>
+            </Form>
+          }
+        </KeyBoardAware>
+        <ButtonContainer>
+          <PrimaryButton
+            id="navigate"
+            onPress={() => this.goToNextPage()}
+            disable={!this.state.isButtonEnabled || isPortfolioNameExists}
+            label={I18n.t("Thematic.Button.Next")}
+            size="large"
+          />
+        </ButtonContainer>
+        <MessageBottomModal
+          id="messageBottomModal"
+          isVisible={openDCA}
+          title={I18n.t("Thematic.DCADialog.Header")}
+          body={I18n.t("Thematic.DCADialog.Message")}
+          buttonAlignment="row"
+          onModalHide={this.onModalClose}
+          buttons={[
+            {
+              variant: "secondary",
+              label: I18n.t("Thematic.DCADialog.Cancel"),
+              onPress: this.onDisagreeDCA
+            },
+            {
+              variant: "primary",
+              label: I18n.t("Thematic.DCADialog.OK"),
+              onPress: this.onAgreeDCA
+            }
+          ]}
+        />
+        <PickerRollerModal
+          isVisible={openPickerRollerModal}
+          onModalClose={this.onModalClose}
+          pickerProps={{
+            confirmText: "Done",
+            pickerData: this.state.dayItems,
+            selectedValue: this.state.dayOfMonth,
+            onConfirm: this.onDayOfMonthConfirm,
+          }}
+        />
+      </ViewContainer>
+    );
+  }
+}
+
+ThematicPortfolioSetUpForm.defaultProps = {
+  isPortfolioNameExists: true,
+};
+
+ThematicPortfolioSetUpForm.propTypes = {
+  navigateToThematicSummaryAllocation: PropTypes.func.isRequired,
+  isPortfolioNameExists: PropTypes.bool,
+  portfolio: PropTypes.shape().isRequired,
+  selectedThematicModel: PropTypes.shape().isRequired,
+  savePortfolioData: PropTypes.func.isRequired,
+  checkPortfolioName: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired
+};
+
+export default ThematicPortfolioSetUpForm;

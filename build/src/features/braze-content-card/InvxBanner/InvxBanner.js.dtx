@@ -1,0 +1,163 @@
+import { Dimensions } from "react-native";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { useEffect, useState } from "react";
+import Carousel from "react-native-carousel-control";
+
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+
+import { debounce } from "lodash";
+
+const defaultIndex = 0;
+const displayIntervalFactors = 1000;
+const { width: CAROUSEL_FULL_WIDTH } = Dimensions.get("window");
+
+const StyledImage = styled.Image`
+  width: 100%;
+  aspect-ratio: ${340 / 120};
+  background-color: #e1e4e8;
+  border-radius: ${props => props.theme.spacingXSmall};
+`;
+
+const Container = styled.View`
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingMedium};
+`;
+
+const CarouselContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ImageTouchableOpacity = styled(TouchableOpacity)`
+  flex-direction: row;
+`;
+
+const ImageView = styled.View`
+  flex-direction: row;
+`;
+
+const DotsContainer = styled.View`
+  background-color: ${props => props.theme.backgroundBlackLow};
+  flex-direction: row;
+  justify-content: center;
+  position: absolute;
+  bottom: 0;
+  padding: 0px;
+  border-radius: 4px;
+`;
+
+const DotView = styled.View`
+  background-color: ${props => props.theme.backgroundLightColor};
+  width: ${props => props.theme.spacingXXSmall};
+  height: ${props => props.theme.spacingXXSmall};
+  border-radius: ${props => props.theme.borderRadius};
+  margin: ${props => props.theme.spacingXXSmall};
+  opacity: 0.5;
+`;
+
+const ActiveDotView = styled.View`
+  background-color: ${props => props.theme.backgroundLightColor};
+  width: ${props => props.theme.spacingLarge};
+  height: ${props => props.theme.spacingXXSmall};
+  border-radius: ${props => props.theme.borderRadius};
+  margin: ${props => props.theme.spacingXXSmall};
+`;
+
+const InvxBanner = ({ advertisements, handleOnPress }) => {
+  const [selectedIndex, setSelectedIndex] = useState(defaultIndex);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!paused) {
+        setSelectedIndex(prev => (prev < advertisements.length - 1 ? prev + 1 : defaultIndex));
+      }
+    }, displayIntervalFactors);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [paused]);
+
+  const handleSlideWaiting = () => {
+    setPaused(true);
+    setTimeout(() => {
+      setPaused(false);
+    }, 5000);
+  };
+
+  const debounceHandleOnPress = debounce(handleOnPress, 1500, {
+    leading: true,
+    trailing: false
+  });
+
+  const renderItems = () => {
+    return advertisements.map(data => {
+      if (data.url === null) {
+        return (
+          <ImageView key={data}>
+            <StyledImage resizeMode="cover" source={{ uri: data.image, cache: "reload" }} />
+          </ImageView>
+        );
+      }
+      return (
+        <ImageTouchableOpacity
+          activeOpacity={0.7}
+          key={data}
+          onPress={() => {
+            debounceHandleOnPress(data);
+          }}
+        >
+          <StyledImage resizeMode="cover" source={{ uri: data.image, cache: "reload" }} />
+        </ImageTouchableOpacity>
+      );
+    });
+  };
+
+  const renderPagination = () => {
+    if (advertisements.length <= 1) {
+      return null;
+    }
+    const dots = [];
+    for (let i = 0; i < advertisements.length; i++) {
+      dots.push(i === selectedIndex ? <ActiveDotView key={i} /> : <DotView key={i} />);
+    }
+    return <DotsContainer pointerEvents="none">{dots}</DotsContainer>;
+  };
+
+  const onPageChange = selectedThisIndex => {
+    handleSlideWaiting();
+    setSelectedIndex(selectedThisIndex);
+  };
+
+  return (
+    <Container>
+      <CarouselContainer>
+        <Carousel
+          sneak={0}
+          currentPage={selectedIndex}
+          onPageChange={onPageChange}
+          swipeThreshold={0.2}
+          pageWidth={CAROUSEL_FULL_WIDTH}
+          pageStyle={{ paddingHorizontal: 16 }}
+        >
+          {renderItems()}
+        </Carousel>
+        {renderPagination()}
+      </CarouselContainer>
+    </Container>
+  );
+};
+
+InvxBanner.defaultProps = {
+  advertisements: []
+};
+
+InvxBanner.propTypes = {
+  advertisements: PropTypes.arrayOf(PropTypes.any),
+  handleOnPress: PropTypes.func.isRequired
+};
+
+export default InvxBanner;

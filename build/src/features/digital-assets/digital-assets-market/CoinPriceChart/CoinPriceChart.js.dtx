@@ -1,0 +1,514 @@
+import React, { useState, useMemo, useCallback } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Dimensions, Image, FlatList, Platform, View } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import _ from "lodash";
+import CoinInfoItem from "../../digital-assets-coin-info-item/CoinInfoItem";
+import {
+  Display2,
+  Body3,
+  Icon,
+  Header1,
+  SectionBackground,
+  ChipTabs,
+  Separator,
+  LoadingScreen,
+  PrimaryButton
+} from "../../../../components-2";
+import NotFound from "../../../../../assets/images/watchlist-not-found.png";
+import useCoinPriceChart from "./useCoinPriceChart";
+import { TOP_NAVBAR_HEIGHT } from "../../../../modules/navigation/defaultStyle";
+import { trackDAHome, trackDAMarket } from "../../../../modules/analytics/analytics-utils";
+import WatchlistToolbar from "../WatchlistToolbar";
+import {
+  AssetType,
+  ProcessStatus
+} from "../../../../redux/favorite-watchlist/favorite-watchlist-constants";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+
+const ImageBodyContainer = styled.View`
+  align-items: center;
+  justify-content: center;
+`;
+
+const NotFoundImage = styled(Image)`
+  height: ${props => props.theme.spacingXSmallValue * 10}px;
+`;
+
+const NotFoundLabelContainer = styled.View`
+  align-items: center;
+`;
+
+const NotFoundLabel = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-top: ${props => props.theme.spacingMedium};
+  text-align: center;
+`;
+
+const Container = styled.View`
+  flex: 1;
+`;
+
+const ExtendedStyleBackground = styled(SectionBackground)(props => ({
+  padding: `18px ${props.theme.spacingMedium}`,
+  backgroundColor: props.theme.backgroundSecondaryPurple
+}));
+
+const CoinInfoListContainer = styled(View)(() => ({
+  paddingHorizontal: 16
+}));
+
+const IconContainer = styled.View`
+  margin-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const StarIcon = styled(Icon).attrs(props => ({
+  color: props.active ? props.theme.contentColorWhite : props.theme.contentColorHigh,
+  size: "icon16",
+  name: props.active ? "wishlist-solid" : "wishlist"
+}))``;
+
+const ChipTabsContainer = styled.View`
+  flex: 1;
+  margin-top: ${props => props.theme.spacingLarge};
+  margin-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const TextDisplay2 = styled(Display2)(props => ({
+  color: props.theme.contentColorVeryHigh,
+  marginBottom: props.theme.spacingMedium
+}));
+
+const TextDisplay3 = styled(Body3)(props => ({
+  color: props.theme.contentColorHigh
+}));
+
+const DescriptionContainer = styled(View)(props => ({
+  margin: props.theme.spacingMediumValue
+}));
+const AddWatchlitItemButton = styled(PrimaryButton)(props => ({
+  marginTop: props.theme.spacingLargeValue
+}));
+
+const FilterContainer = styled.View`
+  margin-vertical: ${props => props.theme.spacingMedium};
+  padding-left: ${props => props.theme.spacingMedium};
+`;
+
+export const FILTER_TAB = {
+  FAV: "watchlist",
+  POPULAR: "popular",
+  GAINERS: "gainers",
+  LOSERS: "losers",
+  TWENTYFOUR_H_VOL: "24hVol"
+};
+
+const CoinPriceChart = props => {
+  const {
+    display,
+    tag,
+    desc,
+    initialTab,
+    apexAuthenticated,
+    instrumentDAList,
+    instrumentL1Data,
+    tradingSignListing,
+    instrumentsTicker,
+    onViewProductInformation,
+    daWatchlistProcessStatus,
+    filterTabType,
+    groupCoinList,
+    onRefresh,
+    daSelectedWatchlistId,
+    daSelectedWatchlistItems,
+    goToInstrumentList,
+    goToEditWatchlist,
+    setShowDACreateWatchlistModal,
+    isDisplayInvestScreen
+  } = props;
+  const [selectedTab, setSelectedTab] = useState(initialTab || FILTER_TAB.POPULAR);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { coinPriceChartList, getInstrumentFromGroupCoinList } = useCoinPriceChart({
+    l1Data: instrumentL1Data,
+    tradingSignList: tradingSignListing,
+    instrumentsTicker,
+    groupCoinList
+  });
+
+  const selectedWatchlistDetailItems = useMemo(() => {
+    if (daSelectedWatchlistItems !== null) {
+      return (
+        daSelectedWatchlistItems?.details?.filter(i => i.assetType === AssetType.DIGITAL_ASSET) ||
+        []
+      );
+    }
+    return [];
+  }, [daSelectedWatchlistItems]);
+
+  const filterTab = useCallback(
+    (inputList, type) => {
+      let result = inputList;
+      switch (type) {
+        case FILTER_TAB.FAV:
+          result = selectedWatchlistDetailItems
+            .filter(fav =>
+              inputList.map(item => item.InstrumentId).includes(+fav.reference.instrumentId)
+            )
+            .map(fav => {
+              const details = inputList.find(da => da.instrumentId === +fav.reference.instrumentId);
+              return { ...details };
+            });
+          break;
+        case FILTER_TAB.POPULAR:
+          result = _.orderBy(result, ["Rolling24NumTrades", "base"], ["desc", "asc"]);
+          break;
+        case FILTER_TAB.GAINERS:
+          result.sort((a, b) => b.Rolling24HrPxChangePercent - a.Rolling24HrPxChangePercent);
+          break;
+        case FILTER_TAB.LOSERS:
+          result.sort((a, b) => a.Rolling24HrPxChangePercent - b.Rolling24HrPxChangePercent);
+          break;
+        case FILTER_TAB.TWENTYFOUR_H_VOL:
+          result.sort((a, b) => b.Rolling24HrNotional - a.Rolling24HrNotional);
+          break;
+        default:
+          break;
+      }
+      return result;
+    },
+    [selectedWatchlistDetailItems, selectedTab]
+  );
+
+  const dataList = useMemo(() => {
+    const filteredId = instrumentL1Data.map(item => item.InstrumentId);
+
+    const mapped = instrumentDAList
+      .filter(i => filteredId.includes(i.instrumentId))
+      .map(coinPriceChartList);
+
+    if (filterTabType === "market" && !_.isEmpty(groupCoinList)) {
+      return mapped.filter(getInstrumentFromGroupCoinList);
+    }
+
+    const result = filterTab(mapped, selectedTab);
+    if (display > 0) {
+      return result.slice(0, display);
+    }
+    return result;
+  }, [
+    instrumentDAList,
+    selectedTab,
+    instrumentL1Data,
+    daSelectedWatchlistId,
+    selectedWatchlistDetailItems
+  ]);
+
+  const tabs = useMemo(() => {
+    const result = [
+      {
+        id: FILTER_TAB.FAV,
+        icon: (
+          <IconContainer>
+            <StarIcon active={selectedTab === FILTER_TAB.FAV} />
+          </IconContainer>
+        ),
+        alert: false,
+        verticalSize: "2px",
+        show: apexAuthenticated && filterTabType === "market"
+      },
+      {
+        id: FILTER_TAB.POPULAR,
+        text: I18n.t("DigitalAssets.Home.Popular"),
+        alert: false,
+        verticalSize: "2px",
+        show: true
+      },
+      {
+        id: FILTER_TAB.GAINERS,
+        text: I18n.t("DigitalAssets.Home.Gainer"),
+        alert: false,
+        verticalSize: "2px",
+        show: true
+      },
+      {
+        id: FILTER_TAB.LOSERS,
+        text: I18n.t("DigitalAssets.Home.Losers"),
+        alert: false,
+        verticalSize: "2px",
+        show: true
+      },
+      {
+        id: FILTER_TAB.TWENTYFOUR_H_VOL,
+        text: I18n.t("DigitalAssets.Home.Vol24h"),
+        alert: false,
+        verticalSize: "2px",
+        show: true
+      }
+    ];
+
+    return result.filter(i => i.show);
+  }, [apexAuthenticated, filterTabType, selectedTab]);
+
+  const containerMarginTop = useMemo(() => {
+    return Number((SCREEN_HEIGHT * (22 / 100)).toFixed(2));
+  }, []);
+
+  const contentContainerStyle = useMemo(() => {
+    let result = {};
+    if (filterTabType === "market") {
+      result = {
+        marginTop: Platform.OS === "android" && !isDisplayInvestScreen ? TOP_NAVBAR_HEIGHT - 2 : 0,
+        paddingBottom: 110
+      };
+    }
+    return result;
+  }, [filterTabType]);
+
+  const isWatchlistLoading = useMemo(() => {
+    return daWatchlistProcessStatus === ProcessStatus.PROCESSING;
+  }, [daWatchlistProcessStatus]);
+
+  const handleOnPress = type => {
+    setSelectedTab(type);
+    if (filterTabType === "home") {
+      trackDAHome("Click", _.upperFirst(type), "-");
+    } else if (filterTabType === "market") {
+      trackDAMarket("Click", _.upperFirst(type), "-");
+    }
+  };
+
+  const handleOnPressCoinInfo = pair => {
+    if (filterTabType === "home") {
+      trackDAHome("Click", "Asset", pair);
+    } else if (filterTabType === "market") {
+      trackDAMarket("Click", "Asset", pair);
+    }
+  };
+
+  const renderWatchlistToolbar = () => {
+    return (
+      <WatchlistToolbar
+        goToInstrumentList={goToInstrumentList}
+        goToEditWatchlist={goToEditWatchlist}
+        favSize={dataList.length || 0}
+      />
+    );
+  };
+
+  const renderMarketFilterTabs = () => {
+    if (tag) {
+      return (
+        <>
+          {!_.isEmpty(tag) && (
+            <ExtendedStyleBackground variant="primary" borderRadius="big">
+              <TextDisplay2>{tag}</TextDisplay2>
+            </ExtendedStyleBackground>
+          )}
+          {!_.isEmpty(desc) && (
+            <>
+              <DescriptionContainer>
+                <TextDisplay3>{desc}</TextDisplay3>
+              </DescriptionContainer>
+              <Separator variant="padding" />
+            </>
+          )}
+        </>
+      );
+    }
+
+    if (isDisplayInvestScreen) {
+      return (
+        <FilterContainer>
+          <ChipTabs
+            selectedTab={selectedTab}
+            tabs={tabs}
+            onTabPress={handleOnPress}
+            scrollable
+            hideFrontGap
+          />
+          {selectedTab === FILTER_TAB.FAV && renderWatchlistToolbar()}
+        </FilterContainer>
+      );
+    }
+
+    return (
+      <>
+        <ExtendedStyleBackground variant="primary" borderRadius="big">
+          <TextDisplay2>{I18n.t("DigitalAssets.Market.Title")}</TextDisplay2>
+          <ChipTabs
+            selectedTab={selectedTab}
+            tabs={tabs}
+            onTabPress={handleOnPress}
+            scrollable
+            hideFrontGap
+          />
+        </ExtendedStyleBackground>
+        {selectedTab === FILTER_TAB.FAV && renderWatchlistToolbar()}
+      </>
+    );
+  };
+
+  const renderFilterTabs = () => {
+    switch (filterTabType) {
+      case "home":
+        return (
+          <ChipTabsContainer>
+            <ChipTabs
+              selectedTab={selectedTab}
+              tabs={tabs}
+              onTabPress={handleOnPress}
+              scrollable
+              hideFrontGap
+            />
+          </ChipTabsContainer>
+        );
+      case "market":
+        return renderMarketFilterTabs();
+      default:
+        return <></>;
+    }
+  };
+
+  const renderItem = useCallback(
+    ({ item, index }) => {
+      return (
+        <CoinInfoListContainer>
+          <CoinInfoItem
+            key={item.InstrumentId}
+            {...item}
+            lastItem={index === dataList.length - 1}
+            onViewProductInformation={onViewProductInformation}
+            handleOnPress={handleOnPressCoinInfo}
+          />
+        </CoinInfoListContainer>
+      );
+    },
+    [isWatchlistLoading, selectedTab]
+  );
+
+  renderItem.propTypes = {
+    item: PropTypes.shape({
+      InstrumentId: PropTypes.number
+    }).isRequired,
+    index: PropTypes.number.isRequired
+  };
+
+  const handleOnRefresh = async () => {
+    setRefreshing(true);
+    onRefresh();
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
+
+  const handleAddWatchlist = () => {
+    if (daSelectedWatchlistId === null || daSelectedWatchlistId === undefined) {
+      setShowDACreateWatchlistModal(true);
+    } else {
+      goToInstrumentList(daSelectedWatchlistId);
+    }
+  };
+
+  const renderEmpty = () => {
+    if (selectedTab === FILTER_TAB.FAV) {
+      if (isWatchlistLoading) {
+        return (
+          <ImageBodyContainer style={{ marginTop: containerMarginTop }}>
+            <LoadingScreen />
+          </ImageBodyContainer>
+        );
+      }
+      return (
+        <ImageBodyContainer style={{ marginTop: containerMarginTop }}>
+          <NotFoundImage resizeMode="contain" source={NotFound} />
+          <NotFoundLabelContainer>
+            <NotFoundLabel>{I18n.t("DigitalAssets.Market.NoFavorite")}</NotFoundLabel>
+            <AddWatchlitItemButton
+              onPress={() => handleAddWatchlist()}
+              label={I18n.t("DigitalAssets.Market.AddWatchlistItem")}
+            />
+          </NotFoundLabelContainer>
+        </ImageBodyContainer>
+      );
+    }
+    return <></>;
+  };
+
+  return (
+    <Container>
+      <FlatList
+        removeClippedSubviews={false}
+        // eslint-disable-next-line react/prop-types
+        keyExtractor={item => item.id}
+        data={dataList}
+        showsVerticalScrollIndicator={false}
+        renderItem={renderItem}
+        ListHeaderComponent={renderFilterTabs()}
+        ListEmptyComponent={renderEmpty()}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor="#A593C2"
+            colors={["#3D084A"]}
+            onRefresh={handleOnRefresh}
+            progressViewOffset={32}
+          />
+        }
+        contentContainerStyle={contentContainerStyle}
+      />
+    </Container>
+  );
+};
+
+CoinPriceChart.defaultProps = {
+  filterTabType: "",
+  initialTab: FILTER_TAB.POPULAR,
+  tag: "",
+  desc: "",
+  display: 0,
+  onRefresh: null,
+  groupCoinList: "",
+  daWatchlistProcessStatus: ProcessStatus.PROCESSING,
+  daWatchlistFolders: [],
+  daSelectedWatchlistId: null,
+  daSelectedWatchlistItems: {},
+  isDisplayInvestScreen: false
+};
+
+CoinPriceChart.propTypes = {
+  initialTab: PropTypes.string,
+  instrumentDAList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  instrumentL1Data: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  tradingSignListing: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  instrumentsTicker: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  tag: PropTypes.string,
+  desc: PropTypes.string,
+  apexAuthenticated: PropTypes.bool.isRequired,
+  display: PropTypes.number,
+  onViewProductInformation: PropTypes.func.isRequired,
+  filterTabType: PropTypes.oneOf(["home", "market", ""]),
+  onRefresh: PropTypes.func,
+  groupCoinList: PropTypes.string,
+  daWatchlistProcessStatus: PropTypes.string,
+  daWatchlistFolders: PropTypes.arrayOf(PropTypes.shape({})),
+  daSelectedWatchlistItems: PropTypes.shape({
+    details: PropTypes.shape({
+      filter: PropTypes.func
+    })
+  }),
+  daSelectedWatchlistId: PropTypes.number,
+  goToInstrumentList: PropTypes.func.isRequired,
+  goToEditWatchlist: PropTypes.func.isRequired,
+  setShowDACreateWatchlistModal: PropTypes.func.isRequired,
+  postWatchlistResponse: PropTypes.shape({
+    processStatus: PropTypes.string
+  }).isRequired,
+  deleteWatchlistResponse: PropTypes.shape({}).isRequired,
+  isDisplayInvestScreen: PropTypes.bool
+};
+
+export default CoinPriceChart;

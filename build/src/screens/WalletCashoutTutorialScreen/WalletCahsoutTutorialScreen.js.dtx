@@ -1,0 +1,132 @@
+import React, { Component } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { Navigation } from "react-native-navigation";
+import { Image, Platform, Dimensions } from "react-native";
+import styled from "styled-components/native";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+import AsyncStorage from "@react-native-community/async-storage";
+import { ViewContainer } from "../../components";
+import { WixScreenTearingWorkaround } from "../../modules/navigation/defaultStyle";
+import { TUTORIAL_CASHOUT } from "../../features/wallet/redux/wallet-constants";
+
+const cashoutAmountImage = require("../../../assets/images/wallet/profile-tutorial-cashout_amount-section.png");
+const cashoutAmountMessage = require("../../../assets/images/wallet/profile-tutorial-cashout_amount-message.png");
+
+const MARGIN_TOP = 15;
+
+const Overlay = styled(ViewContainer)`
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+`;
+
+const ImageWrapper = styled.View`
+  position: absolute;
+  top: ${props => props.positionTop - MARGIN_TOP};
+  left: ${props => props.positionLeft};
+  margin-top: -5px;
+  margin-left: ${props => props.marginLeft / 2 - props.imageWidth / 2};
+`;
+
+const MessageWrapper = styled.View`
+  position: absolute;
+  top: ${props => props.positionTop - props.messageHeight - MARGIN_TOP};
+  right: 30px;
+  margin-top: -5px;
+`;
+
+class WalletCahsoutTutorialScreen extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      currentStep: 0
+    };
+  }
+
+  onPressedPage = () => {
+    const { currentStep } = this.state;
+    this.setState({ currentStep: currentStep + 1 });
+  };
+
+  marginOS = () => {
+    const isIphone = Platform.OS === "ios";
+    if (isIphoneX()) { return 0; }
+    if (isIphone) { return -5; }
+    return 15;
+  };
+
+  marginBottomOS = () => {
+    const isIphone = Platform.OS === "ios";
+    if (isIphone) { return 20; }
+    return 0;
+  };
+
+  positionTop = pageY => {
+    if (!pageY) { return 0; }
+    return WixScreenTearingWorkaround.paddingTop + pageY + this.marginOS();
+  };
+
+  renderTutorialPage = () => {
+    const { currentStep } = this.state;
+    switch (currentStep) {
+      case 0:
+        return this.renderStepFirst();
+      default:
+        Navigation.dismissModal({ animationType: "none" });
+        AsyncStorage.setItem(TUTORIAL_CASHOUT, "Y");
+        return null;
+    }
+  };
+
+  renderStepFirst = () => {
+    const { tutorialPosition } = this.props;
+    const { cashoutAmount } = tutorialPosition;
+    const { height, width } = Dimensions.get("window");
+    const MAX_COMPONENT_WIDTH = 748;
+    const MAX_COMPONENT_HEIGHT = 376;
+    const COMPONENT_HEIGHT = (width * MAX_COMPONENT_HEIGHT) / MAX_COMPONENT_WIDTH;
+    const MAX_MESSAGE_WIDTH = 344;
+    const MAX_MESSAGE_HEIGHT = 334;
+    const MESSAGE_WIDTH = 200;
+    const MESSAGE_HEIGHT = (MESSAGE_WIDTH * MAX_MESSAGE_HEIGHT) / MAX_MESSAGE_WIDTH;
+
+    return (
+      <TouchableWithoutFeedback onPress={this.onPressedPage}>
+        <Overlay>
+          <MessageWrapper
+            positionTop={height - COMPONENT_HEIGHT + this.marginBottomOS()}
+            messageHeight={MESSAGE_HEIGHT}
+          >
+            <Image
+              source={cashoutAmountMessage}
+              style={{ width: MESSAGE_WIDTH, height: MESSAGE_HEIGHT, resizeMode: "contain" }}
+            />
+          </MessageWrapper>
+          <ImageWrapper
+            positionTop={height - COMPONENT_HEIGHT + this.marginBottomOS()}
+            positionLeft={cashoutAmount.pageX}
+            marginLeft={cashoutAmount.width}
+            imageWidth={width}
+          >
+            <Image
+              source={cashoutAmountImage}
+              style={{ width, height: COMPONENT_HEIGHT, resizeMode: "contain" }}
+            />
+          </ImageWrapper>
+        </Overlay>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  render() {
+    return this.renderTutorialPage();
+  }
+}
+
+WalletCahsoutTutorialScreen.propTypes = {
+  tutorialPosition: PropTypes.isRequired
+};
+
+export default WalletCahsoutTutorialScreen;

@@ -1,0 +1,262 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity, TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+
+import { trackLoginEvent, TRACK_TYPE, mobileNumberFormatter } from "@invx/redux/login/utils";
+import { FORGOT_PIN_MOBILE_OTP_LANDING } from "@invx/modules/analytics/analytics-constants";
+import {
+  Header1,
+  Body2,
+  Body3,
+  TextOverlineR,
+  TextOverlineM,
+  PinNumberInput,
+  ViewContainer,
+  NavigationBar,
+  PrimaryButton
+} from "../../../../../components-2";
+
+const OTP_LENGTH = 6;
+
+const Container = styled(ViewContainer).attrs({
+  variant: "light"
+})`
+  margin-top: ${props => props.theme.spacingXSmall};
+`;
+
+const HeaderContainer = styled.View`
+  align-items: center;
+`;
+
+const ContentContainer = styled.View`
+  flex: 1;
+`;
+
+const BodyContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmall};
+  height: 90px;
+`;
+
+const RefContainer = styled.View`
+  align-items: center;
+`;
+
+const HeaderText = styled(Header1)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  padding-vertical: ${props => props.theme.spacingXSmall};
+`;
+
+const DescriptionText = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  text-align: center;
+`;
+
+const FooterText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ResendContainer = styled.View`
+  flex-direction: row;
+`;
+
+const ResendLink = styled(Body3)`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+
+const ResendLinkDisabled = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const Timer = styled(Body3)`
+  color: ${props => props.theme.textDisableColor};
+`;
+
+const ReferenceText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+const InvalidCode = styled(TextOverlineM).attrs({
+  variant: "error"
+})`
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const NextButton = styled(PrimaryButton)`
+  margin: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const MobileOTPScreen = props => {
+  const {
+    navigator,
+    mobile,
+    otpReference,
+    invalidOtp,
+    verifyMobileOtp,
+    remainingTime,
+    isProcessing,
+    resendMobileOtp,
+    externalCustomerId,
+    flow
+  } = props;
+  let resentTimerInterval;
+  const [otp, setOtp] = useState(null);
+  const [variant, setVariant] = useState("default");
+  const [submitCode, setSubmitCode] = useState(false);
+  const [activeResend, setActiveResend] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [displayError, setDisplayError] = useState(false);
+
+  useEffect(() => {
+    let finalTime = remainingTime;
+    resentTimerInterval = setInterval(() => {
+      --finalTime;
+      if (finalTime > 0) {
+        setActiveResend(false);
+        setTimeLeft(finalTime);
+      } else {
+        setTimeLeft(null);
+        setActiveResend(true);
+        clearInterval(resentTimerInterval);
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(resentTimerInterval);
+    };
+  }, [remainingTime]);
+
+  useEffect(() => {
+    trackLoginEvent(TRACK_TYPE.SCREEN_VIEW, {
+      screen: FORGOT_PIN_MOBILE_OTP_LANDING,
+      params: {
+        external_customer_id: externalCustomerId,
+        flow
+      }
+    });
+    setDisplayError(false);
+  }, []);
+
+  const resendOTP = () => {
+    resendMobileOtp();
+    setOtp(null);
+    setVariant("default");
+  };
+
+  const mobileNumberDisplay = I18n.t("OTP.Mobile.Title", {
+    mobileNumber: mobile ? mobileNumberFormatter(mobile || "") : mobile
+  });
+
+  useEffect(() => {
+    if (!isProcessing && !invalidOtp) {
+      setOtp(null);
+      setSubmitCode(false);
+    }
+    setDisplayError(invalidOtp && submitCode && !isProcessing);
+  }, [invalidOtp, isProcessing]);
+
+  const onOTPChanged = value => {
+    setOtp(value);
+    if (value.length === 0) {
+      setVariant("default");
+    } else {
+      setVariant("typing");
+    }
+    setSubmitCode(value.length === OTP_LENGTH && !!otpReference);
+    setDisplayError(false);
+  };
+
+  const onSubmit = () => {
+    setVariant("default");
+    verifyMobileOtp({
+      otp
+    });
+  };
+
+  return (
+    <TouchableWithoutFeedback accessible={false} onPress={() => Keyboard.dismiss()}>
+      <Container>
+        <ContentContainer>
+          <NavigationBar
+            isNoBackgroundColor
+            isShowBottomRadius={false}
+            onPressBackButton={() =>
+              navigator.pop({
+                animated: false
+              })
+            }
+            rightComponent={null}
+          />
+          <HeaderContainer>
+            <HeaderText>{I18n.t("OTP.Mobile.Header")}</HeaderText>
+            <DescriptionText>{mobileNumberDisplay}</DescriptionText>
+          </HeaderContainer>
+          <BodyContainer>
+            <PinNumberInput
+              code={otp || ""}
+              codeLength={OTP_LENGTH}
+              onChangeCode={onOTPChanged}
+              variant={displayError ? "error" : variant}
+            />
+          </BodyContainer>
+          <RefContainer>
+            {displayError && <InvalidCode>{I18n.t("OTP.Mobile.Reference.Invalid")}</InvalidCode>}
+            <ResendContainer>
+              <FooterText>{I18n.t("OTP.Mobile.Resend.Description")}</FooterText>
+              {activeResend ? (
+                <TouchableOpacity onPress={() => resendOTP()}>
+                  <ResendLink>{I18n.t("OTP.Mobile.Resend.Link")}</ResendLink>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <ResendLinkDisabled>{I18n.t("OTP.Mobile.Resend.Link")}</ResendLinkDisabled>
+                  {timeLeft !== null ? (
+                    <Timer>{I18n.t("OTP.Mobile.Resend.Timer", { timeLeft })}</Timer>
+                  ) : null}
+                </>
+              )}
+            </ResendContainer>
+            <ReferenceText>
+              {otpReference &&
+                I18n.t("OTP.Mobile.Reference.Label", {
+                  otpReference
+                })}
+            </ReferenceText>
+          </RefContainer>
+        </ContentContainer>
+        <NextButton
+          testId="btnConfirm"
+          label={I18n.t("OTP.Mobile.NextButton")}
+          onPress={() => onSubmit()}
+          size="large"
+          disable={!submitCode}
+        />
+      </Container>
+    </TouchableWithoutFeedback>
+  );
+};
+
+MobileOTPScreen.defaultProps = {
+  invalidOtp: false,
+  isProcessing: false,
+  flow: undefined,
+  externalCustomerId: undefined
+};
+
+MobileOTPScreen.propTypes = {
+  navigator: PropTypes.shape().isRequired,
+  invalidOtp: PropTypes.bool,
+  isProcessing: PropTypes.bool,
+  verifyMobileOtp: PropTypes.func.isRequired,
+  mobile: PropTypes.string.isRequired,
+  otpReference: PropTypes.string.isRequired,
+  remainingTime: PropTypes.number.isRequired,
+  resendMobileOtp: PropTypes.func.isRequired,
+  flow: PropTypes.string,
+  externalCustomerId: PropTypes.string
+};
+
+export default MobileOTPScreen;

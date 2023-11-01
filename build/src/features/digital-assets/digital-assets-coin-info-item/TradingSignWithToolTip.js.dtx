@@ -1,0 +1,115 @@
+import React, { useState, useMemo } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import Tooltip from "react-native-walkthrough-tooltip";
+import { View, Platform } from "react-native";
+import { isIphoneX } from "react-native-iphone-screen-helper";
+import styled, { withTheme } from "styled-components/native";
+import { TextOverlineR } from "../../../components-2";
+import TradingSign from "./TradingSign";
+import { dateTime } from "../utils";
+
+const ContentWrapper = styled.View``;
+
+const Description = styled(TextOverlineR)(props => ({
+  color: props.theme.contentColorWhite,
+  fontSize: 12
+}));
+
+const TradingSignContainer = styled(TouchableOpacity)(() => ({
+  alignSelf: "center",
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+  flex: 1
+}));
+
+const TradingSignBody = styled(View)(() => ({
+  height: 18
+}));
+
+const renderTradingSign = shortName => <TradingSign shortName={shortName} />;
+
+const TradingSignWithTooltip = ({ tradingSignsListing, theme }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleOnOpen = () => {
+    setIsVisible(true);
+    setTimeout(() => {
+      setIsVisible(false);
+    }, 5000);
+  };
+
+  const topAdjustment = () => {
+    let result = 0;
+    if (Platform.OS === "ios") {
+      if (isIphoneX()) {
+        result = 92;
+      } else {
+        result = theme.spacingXXXLargeValue;
+      }
+    }
+    return result;
+  };
+
+  const tradingSignShortNameUniqueList = useMemo(() => {
+    return [...new Set(tradingSignsListing.map(item => item.trading_sign_short_name))];
+  }, [tradingSignsListing]);
+
+  return (
+    <Tooltip
+      isVisible={isVisible}
+      showChildInTooltip={false}
+      content={
+        <ContentWrapper>
+          {tradingSignsListing &&
+            tradingSignsListing.map(item => (
+              <Description key={item.trading_sign_id}>
+                <Description style={{ fontWeight: "bold" }}>{item.trading_sign_name} </Description>
+                <Description>
+                  {item.trading_sign_short_name !== "SP" &&
+                    dateTime.displayTradingSignDate(
+                      item.trading_sign_short_name === "C" ? item.trade_time : item.created_at
+                    )}
+                  {item.trading_sign_description}
+                </Description>
+              </Description>
+            ))}
+        </ContentWrapper>
+      }
+      onClose={() => setIsVisible(false)}
+      placement="bottom"
+      contentStyle={{
+        backgroundColor: theme.contentColorCTAPurple,
+        borderRadius: theme.spacingXSmallValue
+      }}
+      displayInsets={{
+        left: theme.spacingXSmallValue,
+        right: theme.spacingSmallValue
+      }}
+      backgroundColor="transparent"
+      tooltipStyle={{
+        marginTop: Platform.OS === "android" ? 4 : 0
+      }}
+      disableShadow
+      topAdjustment={topAdjustment()}
+    >
+      <TradingSignBody>
+        <TradingSignContainer onPress={handleOnOpen}>
+          {tradingSignShortNameUniqueList.map(item => renderTradingSign(item))}
+        </TradingSignContainer>
+      </TradingSignBody>
+    </Tooltip>
+  );
+};
+
+TradingSignWithTooltip.propTypes = {
+  tradingSignsListing: PropTypes.arrayOf(
+    PropTypes.shape({
+      trading_sign_short_name: PropTypes.string
+    })
+  ).isRequired,
+  theme: PropTypes.shape(PropTypes.object).isRequired
+};
+
+export default withTheme(TradingSignWithTooltip);

@@ -1,0 +1,105 @@
+import React, { useMemo } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import _ from "lodash";
+import OrderCard from "./components/OrderCard";
+import { Header1, TextButtonM } from "../../../../components-2";
+import { useIntrumentDetail } from "../../hooks";
+import { convertToOrderItem } from "../../../../modules/digital-asset/converter";
+
+const Wrapper = styled.View`
+  flex: 1;
+`;
+const RowTitle = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin: ${(props) => props.theme.spacingMedium};
+`;
+const OrderCardContainer = styled.View`
+  padding: 0px ${(props) => props.theme.spacingMedium};
+`;
+const ButtonM = styled(TextButtonM)`
+  color: ${(props) => props.theme.contentColorCTAPurple};
+`;
+
+const OpenOrderList = ({
+  apexOpenOrders,
+  instrumentDAList,
+  apexInstruments,
+  tradingSignListing,
+  onViewActivityDetail,
+  onViewAllActivity
+}) => {
+  const { addInstrumentInfo } = useIntrumentDetail({
+    apexInstruments,
+    daInstruments: instrumentDAList
+  });
+
+  const openOrders = useMemo(() => {
+    const instrumentEnabled = instrumentDAList?.map((item) => item.instrumentId);
+
+    return apexOpenOrders
+      ?.filter((order) => instrumentEnabled?.includes(order.Instrument))
+      .sort((oldOrder, newOrder) => newOrder.ReceiveTime - oldOrder.ReceiveTime)
+      .slice(0, 2)
+      .map(convertToOrderItem)
+      .map(addInstrumentInfo);
+  }, [apexOpenOrders, instrumentDAList]);
+
+  const seeAll = () => {
+    onViewAllActivity();
+  };
+
+  const onViewDetail = (detail) => {
+    const orderDetail = {
+      orderId: detail.orderId,
+      baseProduct: detail.base,
+      quoteProduct: detail.quote,
+      side: detail.side,
+      type: detail.type,
+      amountPrecision: detail.amountPrecision,
+      icon: detail.icon
+    };
+    onViewActivityDetail(orderDetail);
+  };
+
+  return (
+    openOrders.length > 0 && (
+      <Wrapper>
+        <RowTitle>
+          <Header1>{I18n.t("DigitalAssets.Home.OpenOrderList.Title")}</Header1>
+          <TouchableOpacity onPress={seeAll}>
+            <ButtonM>{I18n.t("DigitalAssets.Home.HighVolChange.SeeAll")}</ButtonM>
+          </TouchableOpacity>
+        </RowTitle>
+        <OrderCardContainer>
+          {!_.isEmpty(openOrders) &&
+            openOrders.map((order) => (
+              <OrderCard
+                key={order.OrderId}
+                tradingSignListing={tradingSignListing}
+                onViewActivity={() => onViewDetail(order)}
+                {...order}
+              />
+            ))}
+        </OrderCardContainer>
+      </Wrapper>
+    )
+  );
+};
+
+OpenOrderList.defaultProps = {
+  tradingSignListing: []
+};
+OpenOrderList.propTypes = {
+  apexOpenOrders: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  instrumentDAList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  apexInstruments: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  tradingSignListing: PropTypes.arrayOf(PropTypes.shape({})),
+  onViewActivityDetail: PropTypes.func.isRequired,
+  onViewAllActivity: PropTypes.func.isRequired
+};
+
+export default OpenOrderList;

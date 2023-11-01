@@ -1,0 +1,81 @@
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import { Header2, Body3, Tag } from "../../../components-2";
+import ActivityAmount from "./ActivityAmount";
+import { ACTIVITY_STATUS } from "../fxconversion-constants";
+
+const Container = styled.View`
+  padding-vertical: ${props => props.theme.spacingSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const ActivityListItem = ({ item, onPress }) => {
+  const { action, status, createdAt, currencyCode, debitAmount, description } = item;
+
+  const titleText = React.useMemo(() => {
+    return I18n.t(`FXConversion.Activities.Activity.${action}`, {
+      currency: currencyCode
+    });
+  }, [currencyCode]);
+
+  return (
+    <TouchableWithoutFeedback onPress={() => onPress(item)}>
+      <Container>
+        <Row style={{ marginBottom: 4 }}>
+          <Body3 variant="greyHigh">{createdAt}</Body3>
+          {status !== ACTIVITY_STATUS.SUCCESS && (
+            <Tag
+              variant="secondary"
+              size="small"
+              label={I18n.t(`FXConversion.Activities.Status.${status}`)}
+            />
+          )}
+        </Row>
+        <Row>
+          <Header2>{titleText}</Header2>
+          <ActivityAmount
+            action={action}
+            amount={debitAmount}
+            currency={currencyCode}
+            status={status}
+          />
+        </Row>
+        {description && (
+          <Row>
+            <Body3>{description}</Body3>
+          </Row>
+        )}
+      </Container>
+    </TouchableWithoutFeedback>
+  );
+};
+
+ActivityListItem.propTypes = {
+  item: PropTypes.shape({
+    action: PropTypes.string.isRequired,
+    createdAt: PropTypes.string.isRequired,
+    requestId: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+    currencyCode: PropTypes.string.isRequired,
+    currencyDescription: PropTypes.string,
+    netRate: PropTypes.string.isRequired,
+    debitAmount: PropTypes.string.isRequired,
+    description: PropTypes.string
+  }).isRequired,
+  onPress: PropTypes.func
+};
+
+ActivityListItem.defaultProps = {
+  onPress: () => {}
+};
+
+export default ActivityListItem;

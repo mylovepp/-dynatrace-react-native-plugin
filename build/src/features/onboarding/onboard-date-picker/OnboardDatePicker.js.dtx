@@ -1,0 +1,217 @@
+import React, { PureComponent, Fragment } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View, Platform } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Modal from "react-native-modal";
+import i18n from "react-native-i18n";
+
+import DateRoller from "../../../components-2/picker/DateRoller";
+import { Body2, Body3, Header3, Icon } from "../../../components-2";
+import Row from "../../../components/row/Row";
+import withInactiveRestore from "../../../components/modal/withInactiveRestore";
+import { dateToString } from "../../../redux/onboarding/onboarding-utils";
+import { greyBackground } from "../onboard-styled";
+
+const Container = styled(View)`
+  flex: 1;
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const InputContainer = styled(TouchableOpacity)`
+  justify-content: center;
+  padding-vertical: ${props => props.theme.spacingSmall};
+  border-color: ${props => {
+    if (props.disabled) {
+      return props.theme.separatorGrey;
+    } else if (props.error) {
+      return props.theme.textErrorColor;
+    }
+    return props.theme.contentColorLight;
+  }};
+  border-width: 1px;
+  background-color: ${props => (props.disabled ? greyBackground : props.theme.backgroundWhite)};
+  border-radius: 8px;
+`;
+
+const IconCalendar = styled(Icon).attrs(props => ({
+  color: props.theme.contentColorHigh,
+  name: "calendar",
+  size: "icon16"
+}))``;
+
+const TextDate = styled(Body2)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorMedium : props.theme.contentColorVeryHigh};
+`;
+
+const Asterisk = styled(Header3).attrs({ children: "*" })`
+  color: ${({ theme }) => theme.graphRed};
+  top: -4px;
+`;
+
+const Title = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const InputErrorContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+
+const InputErrorText = styled(Body3)`
+  margin-left: ${props => props.theme.spacingXXSmallValue};
+`;
+
+const InputErrorIcon = styled(Icon).attrs(props => ({
+  name: "exclamation-circle",
+  color: props.theme.textErrorColor,
+  size: "icon16"
+}))``;
+
+const ModalEx = withInactiveRestore(Modal);
+
+const PickerModalStyled = styled(ModalEx).attrs(props => ({
+  backdropOpacity: props.theme.modalBackdropOpacity
+}))`
+  justify-content: flex-end;
+  margin: 0;
+`;
+
+const isAndroid = Platform.OS === "android";
+
+class OnboardDatePicker extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      displayModal: false,
+      displayText: props.resetDateValue?.displayText || null
+    };
+    this.today = new Date();
+    this.updatedCount = 0;
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (nextProps.resetDateValue) {
+      this.setState({
+        displayText: nextProps.resetDateValue?.displayText || null
+      });
+    }
+  }
+
+  componentDidUpdate() {
+    this.updatedCount += 1;
+  }
+
+  onSelectedDate = value => {
+    const { selectedDate } = this.props;
+    this.setState({ displayModal: false });
+    selectedDate(value);
+  };
+
+  renderInput = () => {
+    const { placeholder, disabled, value } = this.props;
+    const { displayText } = this.state;
+    const calendar = <IconCalendar />;
+    const displayDateString = !displayText ? dateToString(value) || placeholder : displayText;
+
+    const date = <TextDate disabled={disabled}>{displayDateString}</TextDate>;
+
+    return <Row noPaddingVertical leftStyle={{ flex: 10 }} left={date} right={calendar} />;
+  };
+
+  render() {
+    const {
+      theme,
+      minimumDate,
+      maximumDate,
+      label,
+      required,
+      disabled,
+      value,
+      isError,
+      errorText
+    } = this.props;
+
+    return (
+      <Fragment>
+        <Container>
+          <Title>
+            {label}
+            {required && <Asterisk>*</Asterisk>}
+          </Title>
+          <InputContainer
+            disabled={disabled}
+            onPress={() => {
+              this.setState({ displayModal: true });
+            }}
+            error={isError}
+          >
+            {this.renderInput()}
+          </InputContainer>
+          {
+            isError &&
+            <InputErrorContainer>
+              <InputErrorIcon />
+              <InputErrorText variant="error">{errorText}</InputErrorText>
+            </InputErrorContainer>
+          }
+        </Container>
+
+        <PickerModalStyled
+          isVisible={this.state.displayModal}
+          onBackdropPress={() => this.setState({ displayModal: false })}
+        >
+          <DateRoller
+            key={isAndroid ? this.updatedCount : "fixed_key"}
+            confirmText={i18n.t("Onboarding.DatePicker.Submit")}
+            cancelText={i18n.t("Onboarding.DatePicker.Cancel")}
+            onConfirm={this.onSelectedDate}
+            onCancel={() => this.setState({ displayModal: false })}
+            mode="date"
+            initialDate={value}
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
+            theme={theme}
+            isUseNewComponent
+          />
+        </PickerModalStyled>
+      </Fragment>
+    );
+  }
+}
+
+OnboardDatePicker.defaultProps = {
+  required: null,
+  disabled: null,
+  theme: null,
+  placeholder: null,
+  label: null,
+  minimumDate: undefined,
+  maximumDate: undefined,
+  resetDateValue: null,
+  value: null,
+  isError: false,
+  errorText: ""
+};
+
+OnboardDatePicker.propTypes = {
+  required: PropTypes.bool,
+  disabled: PropTypes.bool,
+  placeholder: PropTypes.string,
+  label: PropTypes.string,
+  theme: PropTypes.shape(),
+  minimumDate: PropTypes.instanceOf(Date),
+  maximumDate: PropTypes.instanceOf(Date),
+  resetDateValue: PropTypes.shape({
+    displayText: PropTypes.string
+  }),
+  selectedDate: PropTypes.func.isRequired,
+  value: PropTypes.instanceOf(Date),
+  isError: PropTypes.bool,
+  errorText: PropTypes.string
+};
+
+export default OnboardDatePicker;

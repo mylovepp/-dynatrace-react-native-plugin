@@ -1,0 +1,66 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { localiseCurrency } from "../../../modules/i18n";
+import PortfolioAccountCard from "../portfolio-account-card";
+
+const PortfolioWalletStocks = props => {
+  const {
+    i18n,
+    totalStocksCash,
+    loadAccounts,
+    stocksAccountInfo,
+    onPress,
+    isStocksAccountUnavailable
+  } = props;
+  const displayStocksCash = localiseCurrency({
+    value: totalStocksCash,
+    hideCurrency: true
+  });
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  const [isStocksAccountUnavailableBefore,
+    setIsStocksAccountUnavailableBefore] = useState(isStocksAccountUnavailable);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setIsStocksAccountUnavailableBefore(isStocksAccountUnavailable);
+    }, 3000);
+  }, [isStocksAccountUnavailable]);
+
+  return (
+    <TouchableOpacity onPress={() => onPress()}>
+      <PortfolioAccountCard
+        accountName={i18n.translations["Portfolio.Cash.Stocks.Title"]}
+        unitDesc={i18n.translations["Portfolio.Cash.Stocks.TotalAmount"]}
+        cost={displayStocksCash}
+        accountNo={stocksAccountInfo?.accountNo}
+        currency={i18n.translations["Wallet.Currency.THB"]}
+        optionalText={i18n.translations["Portfolio.Cash.Stocks.ShortTotalDescription"]}
+        isStocksAccountUnavailable={isStocksAccountUnavailable && isStocksAccountUnavailableBefore}
+      />
+    </TouchableOpacity>
+  );
+};
+
+PortfolioWalletStocks.defaultProps = {
+  totalStocksCash: 0,
+  stocksAccountInfo: {},
+  loadAccounts: () => {},
+  onPress: () => {}
+};
+
+PortfolioWalletStocks.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  totalStocksCash: PropTypes.number,
+  stocksAccountInfo: PropTypes.object, // eslint-disable-line react/forbid-prop-types
+  loadAccounts: PropTypes.func,
+  onPress: PropTypes.func,
+  isStocksAccountUnavailable: PropTypes.bool.isRequired
+};
+
+export default PortfolioWalletStocks;

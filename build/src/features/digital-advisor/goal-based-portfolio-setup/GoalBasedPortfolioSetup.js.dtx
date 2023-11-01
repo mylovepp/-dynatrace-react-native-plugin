@@ -1,0 +1,942 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { switchProp } from "styled-tools";
+import styled, { css } from "styled-components/native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import GeneralErrorModal from "../../../screens/DigitalAdvisorScreen/GeneralErrorModal.js";
+import { startTabBasedApp } from "../../../modules/navigation";
+import { formatNumber } from "../../../modules/format";
+
+import {
+  ViewContainer,
+  PrimaryButton,
+  Toggle,
+  Separator,
+  Header1,
+  Body3,
+  Icon,
+  TextInput,
+  MessageBottomModal,
+  I18nPropTypes,
+  LoadingScreen
+} from "../../../components-2";
+import theme from "../../../theme";
+
+import GoalBasedSuggestionModal from "../goal-based-suggestion-modal";
+import PickerRollerModal from "../components/picker-roller-modal";
+import RefreshIcon from "../../thematic-portfolio-setup-form/icon/RefreshIcon";
+import LoginOrReigsterButton from "../../../features/login-or-register-button";
+
+const SectionNoseContainer = styled.View`
+  height: 16px;
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  border-bottom-right-radius: 16px;
+  border-bottom-left-radius: 16px;
+`;
+
+const KeyBoardAware = styled(KeyboardAwareScrollView)`
+  flex: 1;
+`;
+
+const ButtonContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const FormContainer = styled.View`
+  flex: 1;
+`;
+
+const Form = styled.View`
+  flex: 0;
+  padding-left: ${props => props.theme.spacingMedium};
+  padding-right: ${props => props.theme.spacingMedium};
+`;
+
+const FormInput = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const SwitchContainer = styled.View`
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const ToggleContainer = styled.View`
+  transform: scale(0.8, 0.8);
+`;
+
+const Title = styled(Header1)`
+  flex: 1;
+  color: ${props => props.theme.contentColorVeryHigh};
+  padding-left: ${props => props.theme.spacingXSmall};
+`;
+
+const SeparatorContainer = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+`;
+
+const FormRow = styled.TouchableOpacity`
+  flex: 1;
+`;
+
+const Spacer = styled.View`
+  width: 8px;
+`;
+
+const IconContainer = styled.View`
+  padding-right: ${props => props.theme.spacingXXSmall};
+`;
+
+const Helper = styled.View`
+  padding-top: ${props => props.theme.spacingXSmall};
+  flex-direction: row;
+  align-items: center;
+`;
+
+const HelperText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+  flex-shrink: 1;
+  ${switchProp("variant", {
+    success: css`
+      color: ${props => props.theme.graphGreen};
+    `,
+    error: css`
+      color: ${props => props.theme.graphRed};
+    `,
+    warning: css`
+      color: ${props => props.theme.graphWarningOrange};
+    `
+  })};
+`;
+
+const DCAIcon = styled(RefreshIcon).attrs(props => {
+  return {
+    color: props.theme.contentColorVeryHigh
+  };
+})``;
+
+const getIconName = variant => {
+  switch (variant) {
+    case "success":
+      return "check-circle-reversed";
+    case "error":
+      return "exclamation-circle";
+    case "warning":
+      return "exclamation-circle";
+    default:
+      return "";
+  }
+};
+
+const getIconColor = variant => {
+  switch (variant) {
+    case "success":
+      return theme.graphGreen;
+    case "error":
+      return theme.graphRed;
+    case "warning":
+      return theme.graphWarningOrange;
+    default:
+      return "";
+  }
+};
+
+const defaultErrors = {
+  planName: false,
+  firstInvestment: false,
+  durationYear: false,
+  investGoal: false,
+  dayOfMonth: false,
+  monthlyInvestment: false
+};
+
+const WAIT_INTERVAL = 400;
+
+class GoalBasedPortfolioSetUp extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isLoading: false,
+      isGetRoboSuccess: true,
+      planName: "",
+      firstInvestment: 0,
+      dayOfMonth: "",
+      monthlyInvestment: 0,
+      openDCA: false,
+      agreeDCA: false,
+      openConfirmation: false,
+      durationYear: "",
+      durationMonth: "",
+      investGoal: 0,
+      dayItems: [],
+      monthItems: [],
+      yearItems: [],
+      isButtonEnabled: false,
+      pickerType: "",
+      pickerItems: [],
+      pickerSelected: null,
+      openPickerRollerModal: false,
+      touched: {
+        planName: true,
+        firstInvestment: false,
+        investGoal: false,
+        durationYear: false,
+        durationMonth: false,
+        dayOfMonth: false,
+        monthlyInvestment: false
+      },
+      errors: {
+        planName: false,
+        firstInvestment: false,
+        investGoal: false,
+        durationYear: false,
+        dayOfMonth: false,
+        monthlyInvestment: false
+      },
+      helperText: {
+        investDurationEx: "GoalBased.Setup.InvestDuration",
+        InvestGoalEX: "GoalBased.Setup.InvestGoal"
+      },
+      isPortfolioNameExists: true,
+      openGoalBasedSuggestionModal: false
+    };
+  }
+
+  componentDidMount() {
+    const { i18n, navigator } = this.props;
+
+    this.createTimes();
+    this.timer = null;
+    this.displayDynamicLabel();
+
+    navigator.setStyle({
+      navBarCustomView: "digitalAdvisorNavBarScreen",
+      navBarCustomViewInitialProps: {
+        title: i18n.translations["Thematic.ScreenTitle"],
+        onButtonPress: () => this.state.isGetRoboSuccess
+          ? navigator.pop({ animated: true })
+          : navigator.popToRoot({ animated: true })
+      }
+    });
+  }
+
+  componentDidUpdate(prevProps) {
+    if (this.props.portfolio !== prevProps.portfolio && this.props.portfolio != null) {
+      this.onCheckPortfolioName();
+    }
+  }
+
+  onPlanNameInput = () => {
+    this.updateTouched("planName");
+    this.validateOnInputChange();
+  };
+
+  onNameChange = name => {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(this.onCheckPortfolioName, WAIT_INTERVAL);
+    this.setState({ planName: name });
+  };
+
+  onCheckPortfolioName = () => {
+    const { portfolio } = this.props;
+    const { planName: name } = this.state;
+    if (portfolio && name) {
+      this.props.checkPortfolioName({
+        account_id: portfolio.id,
+        account_name: name,
+        onRequestDone: (response) => {
+          let isPortfolioNameExists = true;
+          if (response.success && response.data !== undefined && response.data !== null) {
+            isPortfolioNameExists = response.data.exists;
+          }
+          this.setState({
+            isPortfolioNameExists,
+            isLoading: false
+          }, () => this.onPlanNameInput());
+        }
+      });
+    }
+  };
+
+  onDisagreeDCA = () => {
+    this.setState({ openDCA: false, agreeDCA: false });
+  };
+
+  onAgreeDCA = () => {
+    this.setState({ openDCA: false, agreeDCA: true });
+  };
+
+  onAcceptRisk = () => {
+    this.setState({ openGoalBasedSuggestionModal: false }, () => {
+      this.props.goalBasedAcceptRisk();
+    });
+  };
+
+  onChangeAsSuggest = data => {
+    const state = {
+      firstInvestment: this.onFormatNumber(data.initialAmount, 2),
+      durationYear: Number(data.initialYear).toString(),
+      durationMonth: Number(data.initialMonth).toString(),
+      openGoalBasedSuggestionModal: false
+    };
+    if (data.dcaAmount > 0) {
+      state.agreeDCA = true;
+      state.dayOfMonth = "1";
+      state.monthlyInvestment = this.onFormatNumber(data.dcaAmount, 2);
+      this.updateTouched("dayOfMonth");
+      this.updateTouched("monthlyInvestment");
+    }
+    this.setState(state, () => {
+      this.props.clearGoalBasedSuggestion();
+      this.validateOnInputChange();
+    });
+  };
+
+  onSuggestionModalClose = () => {
+    this.setState({ openGoalBasedSuggestionModal: false }, () => {
+      this.props.clearGoalBasedSuggestion();
+    });
+  };
+
+  onContinueWithRisk = () => {
+  };
+
+  onSubmitPlanNameField = () => {
+    if (this.firstInvestmentInput != null) {
+      this.firstInvestmentInput.current.focus();
+    }
+  };
+
+  onFormatNumber = (value, decimal) => {
+    if (value !== null && value !== undefined) {
+      const regex = /,/g;
+      const number = value.toString().replace(regex, "");
+      let total = this.displayNumber(Number(number) || 0);
+      if (decimal === 0 && total.toString().includes(".")) {
+        const temp = total.toString().split(".")[0];
+        total = temp;
+      }
+      return total;
+    }
+    return 0;
+  };
+
+  onSubmitNumber = (number, type) => {
+    this.updateTouched(type);
+    const formatNum = this.onFormatNumber(number, 0);
+    this.setState({ [type]: formatNum }, () => this.validateOnInputChange());
+  };
+
+  onSwitchValueChange = value => {
+    if (!this.state.agreeDCA) {
+      this.setState(
+        old => ({ ...old, openDCA: value, agreeDCA: value }),
+        () => this.validateOnInputChange()
+      );
+    } else {
+      this.setState(
+        old => ({ ...old, agreeDCA: value }),
+        () => this.validateOnInputChange()
+      );
+    }
+  };
+
+  onModalClose = () => {
+    this.validateOnInputChange();
+  };
+
+  onPickerConfirm = value => {
+    const { pickerType } = this.state;
+    let defaultValue = "1";
+    if (pickerType === "durationMonth") {
+      defaultValue = "0";
+    }
+    this.updateTouched(pickerType);
+    const pickerValue = value === "" ? defaultValue : value;
+    this.setState(
+      {
+        [pickerType]: pickerValue,
+        openPickerRollerModal: false
+      },
+      () => this.validateOnInputChange()
+    );
+  };
+
+  onLoginSuccess = () => {
+    this.setState({ isLoading: true });
+    this.props.getRoboTokenAndUserAccount({
+      onRequestDone: (response) => {
+        if (response.id === null || response.id === undefined) {
+          this.setState({ isLoading: false, isGetRoboSuccess: false });
+        }
+      }
+    });
+  };
+
+  getVariantType = input => {
+    const { durationYear, dayOfMonth } = this.state.errors;
+    const onFocus = this.state.openPickerRollerModal;
+    if (onFocus) {
+      return "focus";
+    }
+    if (input === "durationYear" && durationYear) {
+      return "error";
+    }
+    if (input === "dayOfMonth" && dayOfMonth) {
+      return "error";
+    }
+    return "";
+  };
+
+  getErrorPlanNameInput = () => {
+    const { i18n } = this.props;
+    const { errors, planName, isPortfolioNameExists } = this.state;
+    if (errors.planName && planName !== "" && isPortfolioNameExists) {
+      return i18n.translations["Thematic.PlanNameAlreadyBeenUsedHelperText"];
+    }
+    if (errors.planName && planName === "") {
+      return i18n.translations["Thematic.PlanNameLabel"];
+    }
+    return null;
+  };
+
+  goToNextPage = async () => {
+    const { selectedGoalBased } = this.props;
+
+    const {
+      firstInvestment,
+      monthlyInvestment,
+      durationYear,
+      durationMonth,
+      investGoal,
+      planName,
+      dayOfMonth,
+      agreeDCA
+    } = this.state;
+
+    const data = {
+      portfolio_name: planName,
+      first_investment: this.stringToNumber(firstInvestment),
+      isDCAEnable: agreeDCA,
+      objective: selectedGoalBased.objective_code,
+      theme: selectedGoalBased.theme_code,
+      risk_level: selectedGoalBased.risk_level,
+      total_forecast_value: this.stringToNumber(investGoal),
+      no_year: durationYear,
+      no_month: durationMonth,
+      model_id: selectedGoalBased.model_id
+    };
+
+    const params = {
+      portfolioName: planName,
+      initial_investment: this.stringToNumber(firstInvestment),
+      period_year: durationYear,
+      period_month: durationMonth,
+      monthly_investment: 0,
+      investment_goal: this.stringToNumber(investGoal),
+      objective_id: selectedGoalBased.objective_id,
+      theme_id: selectedGoalBased.theme_id // where is dayOfMonth??
+    };
+
+    if (agreeDCA) {
+      data.start_date_monthly_contribution = Number(dayOfMonth);
+      data.monthly_investment = this.stringToNumber(monthlyInvestment);
+      params.monthly_investment = this.stringToNumber(monthlyInvestment);
+    }
+
+    this.props.savePortfolioData(data);
+    return this.props.getGoalBasedSuggestion({
+      ...params,
+      onRequestDone: () => this.setState({ openGoalBasedSuggestionModal: true })
+    });
+  };
+
+  createTimes = () => {
+    const days = [];
+    const months = ["0"];
+    const years = [];
+    for (let i = 1; i <= 50; i++) {
+      if (i < 12) {
+        months.push(i.toString());
+      }
+      if (i < 32) {
+        days.push(i.toString());
+      }
+      years.push(i.toString());
+    }
+    this.setState({ yearItems: years, monthItems: months, dayItems: days });
+  };
+
+  pickerDateModal = pickerType => {
+    const { dayItems, monthItems, yearItems } = this.state;
+    let pickerItems = ["0"];
+    const pickerSelected = this.state[pickerType];
+    if (pickerType === "dayOfMonth") {
+      pickerItems = dayItems;
+    }
+    if (pickerType === "durationMonth") {
+      pickerItems = monthItems;
+    }
+    if (pickerType === "durationYear") {
+      pickerItems = yearItems;
+    }
+    this.setState({
+      pickerItems,
+      pickerSelected,
+      pickerType,
+      openPickerRollerModal: true
+    });
+  };
+
+  displayNumber = value => {
+    const options = {
+      thousandSeparated: true,
+      mantissa: 2
+    };
+    return formatNumber(value, options);
+  };
+
+  displayDynamicLabel = () => {
+    const { selectedGoalBased } = this.props;
+    if (selectedGoalBased !== null) {
+      let planName = "";
+      const helperText = {
+        investDurationEx: "GoalBased.Setup.InvestDuration",
+        InvestGoalEX: "GoalBased.Setup.InvestGoal"
+      };
+      const code = selectedGoalBased.theme_code;
+      switch (code) {
+        case "retirement":
+          planName = "แผนเกษียณ";
+          helperText.investDurationEx = "GoalBased.Setup.RetirementInvestDurationEx";
+          helperText.InvestGoalEX = "GoalBased.Setup.RetirementInvestGoalEX";
+          break;
+        case "education":
+          planName = "เก็บเงินจ่ายค่าเทอม";
+          helperText.investDurationEx = "GoalBased.Setup.EducationInvestDurationEx";
+          helperText.InvestGoalEX = "GoalBased.Setup.EducationInvestGoalEX";
+          break;
+        case "home":
+          planName = "เก็บเงินซื้อบ้าน";
+          helperText.investDurationEx = "GoalBased.Setup.HomeInvestDurationEx";
+          helperText.InvestGoalEX = "GoalBased.Setup.HomeInvestGoalEX";
+          break;
+        case "car":
+          planName = "รถยนต์คันแรก";
+          helperText.investDurationEx = "GoalBased.Setup.CarInvestDurationEx";
+          helperText.InvestGoalEX = "GoalBased.Setup.CarInvestGoalEX";
+          break;
+        default:
+          break;
+      }
+      this.onNameChange(planName);
+      this.setState({ helperText });
+    }
+  };
+
+  stringToNumber = string => {
+    if (string !== null && string !== undefined) {
+      const regex = /,/g;
+      const number = string.toString().replace(regex, "");
+      return Number(number || 0);
+    }
+    return 0;
+  };
+
+  validateOnInputChange = () => {
+    const { selectedGoalBased, isFreemiumMode } = this.props;
+    const {
+      planName,
+      firstInvestment,
+      durationYear,
+      investGoal,
+      dayOfMonth,
+      monthlyInvestment,
+      agreeDCA,
+      touched,
+      isPortfolioNameExists
+    } = this.state;
+    const errors = { ...defaultErrors };
+    let valid = true;
+
+    if (
+      planName === "" ||
+      planName === null ||
+      planName === undefined ||
+      planName.length > 50 ||
+      (isPortfolioNameExists && !isFreemiumMode)
+    ) {
+      valid = false;
+      if (touched.planName) {
+        errors.planName = true;
+      }
+    }
+    const minimumInvest = selectedGoalBased.minimum_initial_investment_amount || 0;
+    const minimumMonthlyInvest = selectedGoalBased.subsequent_investment_amount || 0;
+    if (this.stringToNumber(firstInvestment) < this.stringToNumber(minimumInvest)) {
+      valid = false;
+      if (touched.firstInvestment) {
+        errors.firstInvestment = true;
+      }
+    }
+    if (Number(durationYear || 0) < 1) {
+      valid = false;
+      if (touched.durationYear) {
+        errors.durationYear = true;
+      }
+    }
+    if (this.stringToNumber(investGoal) < 1) {
+      valid = false;
+      if (touched.investGoal) {
+        errors.investGoal = true;
+      }
+    }
+    // DCA option
+    if (agreeDCA) {
+      if (dayOfMonth.length === 0) {
+        valid = false;
+        if (touched.dayOfMonth) {
+          errors.dayOfMonth = true;
+        }
+      }
+      if (this.stringToNumber(monthlyInvestment) < this.stringToNumber(minimumMonthlyInvest)) {
+        valid = false;
+        if (touched.monthlyInvestment) {
+          errors.monthlyInvestment = true;
+        }
+      }
+    }
+    this.setState({ isButtonEnabled: valid, errors });
+  };
+
+  updateTouched = type => {
+    this.setState(old => ({ ...old, touched: { ...old.touched, [type]: true } }));
+  };
+
+  renderCustomHelperText = (i18n, variant, helperText) => {
+    const iconName = getIconName(variant);
+    const iconColor = getIconColor(variant);
+    return (
+      <Helper>
+        <IconContainer>
+          <Icon name={iconName} size="13" color={iconColor} />
+        </IconContainer>
+        <HelperText variant={variant}>{i18n.translations[helperText.investDurationEx]}</HelperText>
+      </Helper>
+    );
+  };
+
+  render() {
+    const {
+      i18n,
+      selectedGoalBased,
+      selectedThematicModel,
+      isFreemiumMode,
+      navigator
+    } = this.props;
+    const {
+      errors,
+      planName,
+      firstInvestment,
+      monthlyInvestment,
+      durationYear,
+      durationMonth,
+      investGoal,
+      openDCA,
+      agreeDCA,
+      openPickerRollerModal,
+      dayOfMonth,
+      helperText,
+      isPortfolioNameExists,
+      openGoalBasedSuggestionModal,
+      isLoading,
+      isGetRoboSuccess
+    } = this.state;
+    const { goalBasedSuggestMsg } = this.props;
+    const minimumInvest = selectedGoalBased.minimum_initial_investment_amount || 0;
+    const minimumMonthlyInvest = selectedGoalBased.subsequent_investment_amount || 0;
+
+    if (!isGetRoboSuccess) {
+      return (
+        <ViewContainer variant="light" isFullScreen>
+          <GeneralErrorModal
+            isATS={false}
+            navigator={navigator}
+            onGoToMain={() => {
+              startTabBasedApp();
+            }}
+          />
+        </ViewContainer>
+      );
+    }
+
+    if (isLoading) {
+      return <LoadingScreen caption="Loading..." />;
+    }
+
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        <SectionNoseContainer />
+        <KeyBoardAware>
+          <FormContainer>
+            <Form>
+              <FormInput>
+                <TextInput
+                  id="PlanNameInput"
+                  label={i18n.translations["Thematic.PlanNameLabel"]}
+                  placeholder={i18n.translations["Thematic.PlanNamePlaceholder"]}
+                  maxLength={50}
+                  variant={errors.planName ? "error" : null}
+                  value={planName}
+                  onChangeText={this.onNameChange}
+                  onSubmitEditing={() => this.onPlanNameInput()}
+                  onBlur={() => this.onPlanNameInput()}
+                  helperText={this.getErrorPlanNameInput()}
+                />
+              </FormInput>
+              <FormInput>
+                <TextInput
+                  id="FirstInvestInput"
+                  label={i18n.translations["Thematic.FirstInvestLabel"]}
+                  suffixPlaceholder={i18n.translations["Thematic.Currency.THB"]}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  variant={errors.firstInvestment ? "error" : null}
+                  value={firstInvestment}
+                  onChangeText={(value) => this.setState({ firstInvestment: value })}
+                  onSubmitEditing={() => this.onSubmitNumber(firstInvestment, "firstInvestment")}
+                  onBlur={() => this.onSubmitNumber(firstInvestment, "firstInvestment")}
+                  helperText={`${i18n.translations["GoalBased.Setup.Min"]} ${i18n.amountValueDisplay(minimumInvest)} ${i18n.translations["GoalBased.Setup.THB"]}`}
+                  returnKeyType="done"
+                />
+              </FormInput>
+              <Row>
+                <FormRow
+                  id="PickerYear"
+                  activeOpacity={1}
+                  onPress={() => this.pickerDateModal("durationYear")}
+                  pointerEvents="box-only"
+                >
+                  <FormInput pointerEvents="none">
+                    <TextInput
+                      label={i18n.translations["GoalBased.Setup.InvestDuration"]}
+                      suffixPlaceholder={i18n.translations["GoalBased.Setup.Year"]}
+                      placeholder={`${i18n.translations["GoalBased.Setup.EX"]} 1`}
+                      id="DurationYearInput"
+                      accessibilityLabel="DurationYearInput"
+                      autoCapitalize="none"
+                      value={durationYear}
+                      variant={this.getVariantType("durationYear")}
+                      pointerEvents="none"
+                    />
+                  </FormInput>
+                </FormRow>
+                <Spacer />
+                <FormRow
+                  id="PickerMonth"
+                  activeOpacity={1}
+                  onPress={() => this.pickerDateModal("durationMonth")}
+                  pointerEvents="box-only"
+                >
+                  <FormInput pointerEvents="none">
+                    <TextInput
+                      label=" "
+                      suffixPlaceholder={i18n.translations["GoalBased.Setup.Month"]}
+                      placeholder="0"
+                      id="DurationMonthInput"
+                      accessibilityLabel="DurationMonthInput"
+                      autoCapitalize="none"
+                      value={durationMonth}
+                      pointerEvents="none"
+                    />
+                  </FormInput>
+                </FormRow>
+              </Row>
+              {this.renderCustomHelperText(i18n, this.getVariantType("durationYear"), helperText)}
+              <FormInput>
+                <TextInput
+                  id="InvestGoalInput"
+                  label={i18n.translations["GoalBased.Setup.InvestGoal"]}
+                  suffixPlaceholder={i18n.translations["GoalBased.Setup.THB"]}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  variant={errors.investGoal ? "error" : null}
+                  value={investGoal}
+                  onChangeText={(value) => this.setState({ investGoal: value })}
+                  onSubmitEditing={() => this.onSubmitNumber(investGoal, "investGoal")}
+                  onBlur={() => this.onSubmitNumber(investGoal, "investGoal")}
+                  helperText={i18n.translations[helperText.InvestGoalEX]}
+                  returnKeyType="done"
+                />
+              </FormInput>
+            </Form>
+            <SeparatorContainer>
+              <Separator variant="full" />
+            </SeparatorContainer>
+            <SwitchContainer>
+              <DCAIcon />
+              <Title>{i18n.translations["Thematic.DCALabel"]}</Title>
+              <ToggleContainer>
+                <Toggle
+                  id="SwitchDCA"
+                  value={agreeDCA}
+                  onPress={(value) => this.onSwitchValueChange(value)}
+                />
+              </ToggleContainer>
+            </SwitchContainer>
+            {
+              agreeDCA &&
+              <Form>
+                <TouchableOpacity
+                  id="PickerDay"
+                  activeOpacity={1}
+                  onPress={() => this.pickerDateModal("dayOfMonth")}
+                  pointerEvents="box-only"
+                >
+                  <FormInput pointerEvents="none">
+                    <TextInput
+                      id="DayOfMonthInput"
+                      label={i18n.translations["Thematic.DayOfMonthLabel"]}
+                      placeholder="1"
+                      suffixPlaceholder={i18n.translations["Thematic.DayOfMonthInlineLabel"]}
+                      keyboardType="numeric"
+                      value={dayOfMonth}
+                      variant={this.getVariantType("dayOfMonth")}
+                      pointerEvents="none"
+                    />
+                  </FormInput>
+                </TouchableOpacity>
+                <FormInput>
+                  <TextInput
+                    id="MonthlyInvestmentInput"
+                    label={i18n.translations["Thematic.MonthlyInvestmentLabel"]}
+                    placeholder={i18n.translations["Thematic.MonthlyInvestmentPlaceholder"]}
+                    suffixPlaceholder={i18n.translations["Thematic.Currency.THB"]}
+                    keyboardType="numeric"
+                    value={monthlyInvestment}
+                    onChangeText={(value) => this.setState({ monthlyInvestment: value })}
+                    onSubmitEditing={() => this.onSubmitNumber(monthlyInvestment, "monthlyInvestment")}
+                    onBlur={() => this.onSubmitNumber(monthlyInvestment, "monthlyInvestment")}
+                    variant={errors.monthlyInvestment ? "error" : null}
+                    helperText={`${i18n.translations["GoalBased.Setup.Min"]} ${i18n.amountValueDisplay(minimumMonthlyInvest)} ${i18n.translations["GoalBased.Setup.THB"]}`}
+                    returnKeyType="done"
+                  />
+                </FormInput>
+              </Form>
+            }
+          </FormContainer>
+        </KeyBoardAware>
+        <MessageBottomModal
+          id="messageBottomModal"
+          isVisible={openDCA}
+          title={i18n.translations["Thematic.DCADialog.Header"]}
+          body={i18n.translations["Thematic.DCADialog.Message"]}
+          buttonAlignment="row"
+          onModalHide={this.onModalClose}
+          buttons={[
+            {
+              variant: "secondary",
+              label: i18n.translations["Thematic.DCADialog.Cancel"],
+              onPress: this.onDisagreeDCA
+            },
+            {
+              variant: "primary",
+              label: i18n.translations["Thematic.DCADialog.OK"],
+              onPress: this.onAgreeDCA
+            }
+          ]}
+        />
+        <ButtonContainer>
+          {this.props.isFreemiumMode ? (
+            <LoginOrReigsterButton onLoginSuccess={this.onLoginSuccess} />
+          ) : (
+            <PrimaryButton
+              id="NextButton"
+              onPress={() => this.goToNextPage()}
+              disable={!this.state.isButtonEnabled || (isPortfolioNameExists && !isFreemiumMode)}
+              label={i18n.translations["Thematic.Button.SavePlan"]}
+              size="large"
+            />
+          )}
+        </ButtonContainer>
+        <MessageBottomModal
+          id="messageBottomModal"
+          isVisible={openDCA}
+          title={i18n.translations["Thematic.DCADialog.Header"]}
+          body={i18n.translations["Thematic.DCADialog.Message"]}
+          buttonAlignment="row"
+          onModalHide={this.onModalClose}
+          buttons={[
+            {
+              variant: "secondary",
+              label: i18n.translations["Thematic.DCADialog.Cancel"],
+              onPress: this.onDisagreeDCA
+            },
+            {
+              variant: "primary",
+              label: i18n.translations["Thematic.DCADialog.OK"],
+              onPress: this.onAgreeDCA
+            }
+          ]}
+        />
+        <GoalBasedSuggestionModal
+          isVisible={openGoalBasedSuggestionModal}
+          investGoal={investGoal}
+          dateYear={durationYear}
+          dateMonth={durationMonth}
+          suggestionList={goalBasedSuggestMsg || []}
+          selectedThematicModel={selectedThematicModel}
+          onModalClose={this.onSuggestionModalClose}
+          onChangeAsSuggest={this.onChangeAsSuggest}
+          onAcceptRisk={this.onAcceptRisk}
+        />
+        <PickerRollerModal
+          isVisible={openPickerRollerModal}
+          onModalClose={this.onModalClose}
+          pickerProps={{
+            confirmText: "Done",
+            pickerData: this.state.pickerItems,
+            selectedValue: this.state.pickerSelected,
+            onConfirm: this.onPickerConfirm
+          }}
+        />
+      </ViewContainer>
+    );
+  }
+}
+
+GoalBasedPortfolioSetUp.defaultProps = {
+  // isPortfolioNameExists: true,
+  goalBasedSuggestMsg: null
+};
+
+GoalBasedPortfolioSetUp.propTypes = {
+  navigator: PropTypes.shape({
+    setStyle: PropTypes.func.isRequired,
+    pop: PropTypes.func.isRequired,
+    popToRoot: PropTypes.func.isRequired
+  }).isRequired,
+  i18n: I18nPropTypes.isRequired,
+  // isPortfolioNameExists: PropTypes.bool,
+  selectedGoalBased: PropTypes.shape().isRequired,
+  selectedThematicModel: PropTypes.shape().isRequired,
+  portfolio: PropTypes.shape().isRequired,
+  savePortfolioData: PropTypes.func.isRequired,
+  checkPortfolioName: PropTypes.func.isRequired,
+  // navigateToGoalBasedSingleModel: PropTypes.func.isRequired,
+  goalBasedSuggestMsg: PropTypes.arrayOf(PropTypes.shape({})),
+  goalBasedAcceptRisk: PropTypes.func.isRequired,
+  clearGoalBasedSuggestion: PropTypes.func.isRequired,
+  isFreemiumMode: PropTypes.bool.isRequired,
+  getRoboTokenAndUserAccount: PropTypes.func.isRequired,
+  getGoalBasedSuggestion: PropTypes.func.isRequired
+};
+
+export default GoalBasedPortfolioSetUp;

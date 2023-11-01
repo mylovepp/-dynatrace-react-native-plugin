@@ -1,0 +1,285 @@
+import React, { useEffect, useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import I18n from "react-native-i18n";
+import AsyncStorage from "@react-native-community/async-storage";
+import { LOGGED_IN } from "@invx/features/login/login-constants";
+import { map } from "lodash/fp";
+import PropTypes from "prop-types";
+import styled, { useTheme } from "styled-components/native";
+import { analyticTracking } from "@invx/features/insurance/utils";
+import { mapProductNameToFirebase } from "@invx/redux/insurance/insurance-helper";
+import {
+  navigationPushScreen,
+  navigationPushScreenWithLogin,
+  openSelectRegisterOrLoginScreen,
+  showBottomMessageBox,
+  openLoginPinScreen
+} from "../../../modules/navigation";
+import {
+  ErrorSevereBanner,
+  Icon,
+  Header1,
+  TextOverlineR,
+  MessageBottomModal
+} from "../../../components-2";
+
+const Container = styled.View`
+  margin-top: 8px;
+`;
+
+const RemarkContainer = styled.View`
+  margin: 16px 16px 0px 16px;
+  flex-direction: row;
+`;
+
+const CardContainer = styled.View`
+  margin: 8px 16px 0px 16px;
+  background-color: ${props => props.theme.backgroundLightColor};
+  border-radius: 16px;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.5;
+  shadow-radius: 4px;
+  shadow-offset: 0px 2px;
+`;
+
+const CardBodyContainer = styled.View`
+  padding: 16px;
+  background-color: ${props => props.theme.backgroundLightColor};
+  z-index: 1;
+  border-radius: 16px;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+`;
+
+const Column = styled.View`
+  flex-direction: column;
+`;
+
+const ArrowContainer = styled.View`
+  align-items: center;
+  justify-content: center;
+  padding-top: 9px;
+`;
+
+const SummaryContainer = styled.View`
+  flex: 1;
+`;
+
+const FooterContainer = styled.View`
+  margin-top: 14px;
+  flex: 1;
+`;
+
+const ProductRemarkText = styled(TextOverlineR)`
+  font-size: 12px;
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const RemarkText = styled(TextOverlineR)`
+  font-size: 10px;
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const FooterText = styled(TextOverlineR)`
+  font-size: 12px;
+  font-weight: 500;
+  color: ${props => props.theme.textBlueColor};
+`;
+
+const Products = ["E_HEALTH", "E_SAVE"];
+
+const InsuranceProductCategory = ({
+  isForeigner,
+  isLoggedIn, // this mean successfully logged in
+  isFreemiumMode,
+  navigator,
+  selectProduct,
+  generateUuid,
+  error,
+  clearError,
+  isProcessing
+}) => {
+  const theme = useTheme();
+  const [showMore, setShowMore] = useState(false);
+  useEffect(() => {
+    analyticTracking();
+  }, []);
+  const goToNextPage = () => {
+    navigationPushScreen({
+      screen: "insurancePrefillConsentScreen",
+      navigatorStyle: { tabBarHidden: true, navBarHidden: true },
+      overrideBackPress: false
+    });
+  };
+
+  const login = () => {
+    AsyncStorage.getItem(LOGGED_IN).then(isPreviouslyLoggedIn => {
+      if (!isPreviouslyLoggedIn) {
+        openSelectRegisterOrLoginScreen();
+      } else {
+        openLoginPinScreen({
+          onLoginSuccess: () => goToNextPage(),
+        });
+      }
+    });
+  };
+
+  const onSelectProduct = async productName => {
+    analyticTracking(mapProductNameToFirebase(productName));
+    if (isLoggedIn && isForeigner) {
+      // Successfully logged in, is foreigner, show modal
+      showBottomMessageBox({
+        title: I18n.t("Insurance.Product.Category.Error.Foreigner.Title"),
+        titleStyle: { justifyContent: "center", alignItems: "center" },
+        description: `<span style="text-align:center;width: 100%;">${I18n.t(
+          "Insurance.Product.Category.Error.Foreigner.SubTitle"
+        )}<br/>${I18n.t("Insurance.Product.Category.Error.Foreigner.SubTitle2")}</span>`,
+        rightButton: {
+          text: I18n.t("Insurance.Product.Category.Error.Foreigner.Ok"),
+          onPress: () => {
+            navigator.dismissAllModals({ animationType: "none" });
+          }
+        },
+        // eslint-disable-next-line react/display-name
+        svgComponent: () => <ErrorSevereBanner size="illus78" />,
+        variant: "headerBold",
+        hasPaddingTop: true
+      });
+    } else {
+      // side effect save product to display webview later on
+      selectProduct(productName);
+
+      if (!isLoggedIn) {
+        // push to login
+        showBottomMessageBox({
+          title: I18n.t("Insurance.Product.Category.Freemium.Title"),
+          titleStyle: { fontSize: 18 },
+          description: `<span style="font-size:16px;">${I18n.t(
+            "Insurance.Product.Category.Freemium.SubTitle"
+          )}</span>`,
+          variant: "headerBold",
+          isDisplayVerticalButton: true,
+          rightButton: {
+            text: I18n.t("Insurance.Product.Category.Freemium.Login"),
+            onPress: () => {
+              // use click login, option regis or login
+              navigator.dismissAllModals({ animationType: "none" });
+              login();
+            }
+          },
+          leftButton: {
+            text: I18n.t("Insurance.Product.Category.Freemium.Next"),
+            onPress: () => {
+              // use not login go next
+              navigator.dismissAllModals({ animationType: "none" });
+              generateUuid();
+            }
+          }
+        });
+      } else {
+        navigationPushScreenWithLogin(() => {
+          goToNextPage();
+        }, isFreemiumMode);
+      }
+    }
+  };
+
+  const renderProduct = productName => {
+    return (
+      <CardContainer>
+        <CardBodyContainer>
+          <TouchableOpacity disabled={isProcessing} onPress={() => onSelectProduct(productName)}>
+            <Row>
+              <SummaryContainer>
+                <Header1>{I18n.t(`Insurance.Product.Category.Title.${productName}`)}</Header1>
+                <ProductRemarkText>
+                  {I18n.t(`Insurance.Product.Category.SubTitle.${productName}`)}
+                </ProductRemarkText>
+              </SummaryContainer>
+            </Row>
+            <Row>
+              <FooterContainer>
+                <FooterText>{I18n.t("Insurance.Product.Category.Select")}</FooterText>
+              </FooterContainer>
+              <ArrowContainer>
+                <Icon name="chevron-right-2" size="icon24" color={theme.textBlueColor} />
+              </ArrowContainer>
+            </Row>
+          </TouchableOpacity>
+        </CardBodyContainer>
+      </CardContainer>
+    );
+  };
+  return (
+    <>
+      <Container>{map(productName => renderProduct(productName))(Products)}</Container>
+      <RemarkContainer>
+        <Column style={{ marginRight: 4, marginTop: 3 }}>
+          <View>
+            <Icon name="info-2" size="icon12" color={theme.textSubduedColor} />
+          </View>
+        </Column>
+        <Column>
+          <RemarkText>{I18n.t("Insurance.Product.Category.Remark1")}</RemarkText>
+          <RemarkText>{I18n.t("Insurance.Product.Category.Remark2")}</RemarkText>
+          {showMore ? (
+            <>
+              <RemarkText>{I18n.t("Insurance.Product.Category.Remark3")}</RemarkText>
+              <RemarkText>{I18n.t("Insurance.Product.Category.Remark4")}</RemarkText>
+              <RemarkText>{I18n.t("Insurance.Product.Category.Remark5")}</RemarkText>
+              <Row>
+                <RemarkText>{I18n.t("Insurance.Product.Category.Remark6")}</RemarkText>
+                <FooterText style={{ fontSize: 10 }} onPress={() => setShowMore(false)}>
+                  Show Less
+                </FooterText>
+              </Row>
+            </>
+          ) : (
+            <Row>
+              <RemarkText>{I18n.t("Insurance.Product.Category.Remark3Less")}</RemarkText>
+              <FooterText style={{ fontSize: 10 }} onPress={() => setShowMore(true)}>
+                Show more
+              </FooterText>
+            </Row>
+          )}
+        </Column>
+      </RemarkContainer>
+      <MessageBottomModal
+        isVisible={error}
+        title={I18n.t("Insurance.Error.Title")}
+        body={I18n.t("Insurance.Error.Description")}
+        buttons={[
+          {
+            variant: "primary",
+            label: I18n.t("General.Close"),
+            onPress: clearError
+          }
+        ]}
+        onModalClose={clearError}
+      />
+    </>
+  );
+};
+
+InsuranceProductCategory.defaultProps = {
+  isFreemiumMode: false,
+  error: null,
+  isProcessing: false
+};
+
+InsuranceProductCategory.propTypes = {
+  isForeigner: PropTypes.bool.isRequired,
+  isLoggedIn: PropTypes.bool.isRequired,
+  isFreemiumMode: PropTypes.bool,
+  navigator: PropTypes.func.isRequired,
+  selectProduct: PropTypes.func.isRequired,
+  generateUuid: PropTypes.func.isRequired,
+  error: PropTypes.shape(),
+  clearError: PropTypes.func.isRequired,
+  isProcessing: PropTypes.bool
+};
+
+export default InsuranceProductCategory;

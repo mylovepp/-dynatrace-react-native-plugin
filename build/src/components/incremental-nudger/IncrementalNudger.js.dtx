@@ -1,0 +1,84 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import Icon from "../icon/Icon";
+import { Footnote, Caption3 } from "../";
+
+const TouchableIcon = styled(TouchableOpacity).attrs(props => ({
+  hitSlop: props.theme.iconHitSlopRestricted
+}))``;
+
+const ColouredIcon = styled(Icon).attrs(props => ({
+  color: props.disabled ? props.theme.disabledNudgerColor : props.theme.enabledNudgerColor
+}))``;
+
+const IncrementalNudgerContainer = styled.View`
+  flex-direction: row;
+`;
+const LabelContainer = styled.View`
+  flex: 3;
+  padding-horizontal: ${props => props.theme.spacingXXSmallValue};
+  align-items: center;
+`;
+const ValueContainer = styled.View`
+  padding-bottom: ${props => props.theme.spacingXXSmallValue};
+`;
+const DecrementContainer = styled.View`
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+`;
+const IncrementContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+`;
+
+const IncrementalNudger = ({
+  title,
+  value,
+  incrementEnabled,
+  decrementEnabled,
+  onIncrement,
+  onDecrement
+}) => (
+  <IncrementalNudgerContainer>
+    <DecrementContainer>
+      <TouchableIcon onPress={onDecrement} disabled={!decrementEnabled}>
+        <ColouredIcon name="nudge-minus" size="medium" disabled={!decrementEnabled} />
+      </TouchableIcon>
+    </DecrementContainer>
+    <LabelContainer>
+      <ValueContainer>
+        <Footnote variant="light">{value}</Footnote>
+      </ValueContainer>
+      <Caption3 variant="subdued">{title.toUpperCase()}</Caption3>
+    </LabelContainer>
+    <IncrementContainer>
+      <TouchableIcon onPress={onIncrement} disabled={!incrementEnabled}>
+        <ColouredIcon name="nudge-plus" size="medium" disabled={!incrementEnabled} />
+      </TouchableIcon>
+    </IncrementContainer>
+  </IncrementalNudgerContainer>
+);
+
+IncrementalNudger.defaultProps = {
+  title: "",
+  value: "",
+  incrementEnabled: true,
+  decrementEnabled: true,
+  onIncrement: () => {},
+  onDecrement: () => {}
+};
+
+IncrementalNudger.propTypes = {
+  title: PropTypes.string,
+  value: PropTypes.string,
+  incrementEnabled: PropTypes.bool,
+  decrementEnabled: PropTypes.bool,
+  onIncrement: PropTypes.func,
+  onDecrement: PropTypes.func
+};
+
+export default IncrementalNudger;

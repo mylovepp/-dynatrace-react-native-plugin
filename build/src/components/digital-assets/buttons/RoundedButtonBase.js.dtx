@@ -1,0 +1,91 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { StyleSheet } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import Text from "../Text";
+
+const TextContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: ${props => (props.hasIcon ? "flex-start" : "center")};
+`;
+
+const IconContainer = styled.View`
+  margin-right: 36px;
+`;
+
+const baseStyles = StyleSheet.create({
+  button: {
+    alignSelf: "stretch",
+    flex: 1
+  }
+});
+
+const sizeStyles = {
+  large: StyleSheet.create({
+    button: {
+      borderRadius: 15,
+      height: 48
+    },
+    text: {
+      fontSize: 24
+    }
+  }),
+  small: StyleSheet.create({
+    button: {
+      borderRadius: 10,
+      height: 32
+    },
+    text: {
+      fontSize: 12
+    }
+  }),
+  xlarge: StyleSheet.create({
+    button: {
+      borderRadius: 20,
+      height: 56
+    },
+    text: {
+      fontSize: 24
+    }
+  })
+};
+
+const RoundedButtonBase = ({ title, icon, size, onPress, disabled, style, textStyle }) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[baseStyles.button, sizeStyles[size].button, style]}
+      disabled={disabled}
+    >
+      <TextContainer hasIcon={!!icon}>
+        {icon && <IconContainer>{icon}</IconContainer>}
+        <Text fontWeight="600" style={[sizeStyles[size].text, textStyle]}>
+          {title}
+        </Text>
+      </TextContainer>
+    </TouchableOpacity>
+  );
+};
+
+RoundedButtonBase.defaultProps = {
+  icon: null,
+  size: "xlarge",
+  disabled: false,
+  style: {},
+  textStyle: {}
+};
+
+RoundedButtonBase.propTypes = {
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.string,
+  size: PropTypes.string,
+  onPress: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+  style: PropTypes.objectOf(PropTypes.any),
+  textStyle: PropTypes.objectOf(PropTypes.any)
+};
+
+export default RoundedButtonBase;

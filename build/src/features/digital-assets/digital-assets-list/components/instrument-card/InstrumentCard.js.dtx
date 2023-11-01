@@ -1,0 +1,120 @@
+import React from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { Header2, Body2, Header3 } from "../../../../../components-2";
+import CoinImageIcon from "../../../../../components/icon/CoinImageIcon";
+import { displayDaPercentageChange } from "../../../../../modules/digital-asset/format";
+import {
+  digitalAssetPriceValueDisplay,
+  digitalAssetVolumeDisplay
+} from "../../../../../modules/i18n/value-display";
+import { getPriceChangeColor } from "../../../utils";
+
+const InstrumentCard = ({
+  baseSymbol,
+  quoteSymbol,
+  icon,
+  volume,
+  lastPrice,
+  price24hPercentageChange,
+  pricePrecision,
+  onPress
+}) => {
+  return (
+    <TouchableWithoutFeedback onPress={onPress} testID={baseSymbol} accessibilityLabel={baseSymbol}>
+      <Container>
+        <Column>
+          <TitleContainer>
+            <CoinImageIcon uri={icon} width={20} height={20} />
+            <InstrumentTitle>
+              {baseSymbol}/{quoteSymbol}
+            </InstrumentTitle>
+          </TitleContainer>
+          <VolumeDisplay>
+            {I18n.t("DigitalAssets.ProductBanner.Value")}{" "}
+            {digitalAssetVolumeDisplay(volume, 2)?.toUpperCase()}
+          </VolumeDisplay>
+        </Column>
+        <Column>
+          <PriceTitle>
+            {digitalAssetPriceValueDisplay(lastPrice, pricePrecision)}{" "}
+            <PriceSuffix>
+              {quoteSymbol === "THB" ? I18n.t("General.Currencies.THB") : quoteSymbol}
+            </PriceSuffix>
+          </PriceTitle>
+          <PriceChange color={getPriceChangeColor(price24hPercentageChange)}>
+            {displayDaPercentageChange(price24hPercentageChange)}
+          </PriceChange>
+        </Column>
+      </Container>
+    </TouchableWithoutFeedback>
+  );
+};
+
+InstrumentCard.propTypes = {
+  baseSymbol: PropTypes.string.isRequired,
+  quoteSymbol: PropTypes.string.isRequired,
+  icon: PropTypes.string.isRequired,
+  volume: PropTypes.number.isRequired,
+  lastPrice: PropTypes.number.isRequired,
+  price24hPercentageChange: PropTypes.number.isRequired,
+  pricePrecision: PropTypes.number.isRequired,
+  onPress: PropTypes.func.isRequired
+};
+
+export default React.memo(InstrumentCard);
+
+const Container = styled.View`
+  padding: 12px 0px;
+  flex-direction: row;
+  border-color: ${props => props.theme.separatorGrey};
+  border-bottom-width: 1px;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const Column = styled.View`
+  width: 40%;
+`;
+
+const TitleContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const InstrumentTitle = styled(Header2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin: 0px 0px 0px 4px;
+`;
+
+const VolumeDisplay = styled(Body2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const PriceTitle = styled(Header2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorVeryHigh};
+  text-align: right;
+`;
+
+const PriceSuffix = styled(Header3).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.theme.contentColorVeryHigh};
+  text-align: right;
+`;
+
+const PriceChange = styled(Body2).attrs({
+  numberOfLines: 1
+})`
+  color: ${props => props.color};
+  text-align: right;
+`;

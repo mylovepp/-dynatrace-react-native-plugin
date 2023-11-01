@@ -1,0 +1,197 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { ActivityIndicator, View } from "react-native";
+import styled from "styled-components/native";
+import {
+  Body1,
+  Body2,
+  Display2,
+  Display3,
+  ChipTabs,
+  IconButton,
+  PrimaryButton,
+  TextButtonL,
+  TextInput as TextInputCommon,
+  NumberInput as NumberInputCommon
+} from "../../../components-2";
+import { WixScreenTearingWorkaround } from "../../../modules/navigation/defaultStyle";
+
+export const Spinner = styled(ActivityIndicator).attrs(props => ({
+  color: props.theme.loaderColor,
+  size: "small"
+}))``;
+
+export const TextInput = styled(props => (
+  <View style={{ paddingVertical: 8 }}>
+    <TextInputCommon {...props} />
+  </View>
+))``;
+
+export const NumberInput = styled(props => (
+  <View style={{ paddingVertical: 8 }}>
+    <NumberInputCommon {...props} />
+  </View>
+))``;
+
+export const SignupContainer = styled.ScrollView`
+  flex: 1;
+`;
+export const DescriptionContainer = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+export const SelectView = styled.View`
+  width: 100%;
+  padding-top: ${props => props.theme.spacingLargeValue};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+export const HeaderThai = styled(Display3)`
+  text-align: ${props => (props.center ? "center" : "left")};
+`;
+
+export const OpenAccountContainer = styled.View`
+  display: ${props => (props.isSsoRegister ? "none" : "flex")};
+  background-color: ${props => props.theme.backgroundLightColor};
+`;
+export const DescriptionThai = styled(Body1)`
+  color: ${props => (props.linkColor ? props.theme.primaryColor : props.theme.textSubduedColor)};
+  text-decoration-line: ${props => (props.underline ? "underline" : "none")};
+  text-align-vertical: center;
+`;
+export const FullButton = styled(PrimaryButton).attrs(() => ({
+  fullWidth: true,
+  size: "large"
+}))``;
+export const InformationRowView = styled.View`
+  flex-direction: row;
+  align-items: flex-start;
+  padding-top: ${props => (props.paddingTop ? 10 : 0)};
+  padding-right: ${props => props.theme.spacingMedium};
+  justify-content: ${props => (props.center ? "center" : "flex-start")};
+`;
+export const RowContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: ${props => (props.spaceBetween ? "space-between" : "flex-start")};
+  padding-top: ${props => (props.paddingTop ? 30 : 0)};
+  flex-wrap: wrap;
+`;
+export const RowView = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: ${props => (props.marginBottom ? 16 : 0)};
+  margin-top: ${props => (props.marginTop ? 16 : 0)};
+  flex-wrap: wrap;
+`;
+export const DialogContainer = styled.View`
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  position: absolute;
+  background-color: transparent;
+  flex-direction: column;
+  justify-content: center;
+  background-color: "rgba(0, 0, 0, 0.5)";
+  flex: 1;
+`;
+export const CloseIcon = styled(IconButton).attrs(props => ({
+  name: "close",
+  size: "small",
+  color: props.theme.primaryColor
+}))``;
+
+export const IconContainer = styled.View`
+  padding-right: ${props => props.theme.spacingSmall};
+`;
+
+export const ContinueButton = styled(PrimaryButton).attrs(props => ({
+  label: typeof props.children === "string" ? props.children : null,
+  disable: props.isDisabled,
+  size: "large"
+}))`
+  margin-horizontal: ${props => props.theme.spacingSmall};
+`;
+
+export const FooterButtonContainer = styled.View`
+  align-items: center;
+  background-color: ${props => props.theme.backgroundLightColor};
+  justify-content: flex-end;
+`;
+
+export const Container = styled.View`
+  align-items: center;
+  margin-vertical: ${props => props.theme.spacingMediumLarge};
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingMediumLarge};
+  background-color: ${props => props.theme.scbEasyBackGround};
+  width: 100%;
+`;
+
+export const LargeCaptionThaiContainer = styled.View`
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+export const TopContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+  padding-top: ${WixScreenTearingWorkaround.paddingTop}px;
+  background-color: ${props => props.theme.sectionBackgroundColor};
+`;
+
+export const LoginWithSCBButtonContainer = styled.View`
+  width: 92%;
+`;
+
+export const BottomDialogContainer = styled.View`
+  margin-vertical: 10;
+  padding-horizontal: 20;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-bottom: ${props => props.theme.spacingSmall};
+`;
+
+export const HeaderContainer = styled.View`
+  flex-basis: auto;
+  padding: ${props => props.theme.spacingMedium};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+`;
+
+export const Header = styled(Display2)`
+  justify-content: center;
+  width: 100%;
+  margin-bottom: ${props => props.theme.spacingXXSmall};
+  color: ${props => props.theme.textDarkestColor};
+`;
+
+export const SubHeader = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+export const ContentContainer = styled.View`
+  flex: 1;
+  padding-top: ${props => props.theme.spacingSmall};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+`;
+export const ForeignerButtonContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmall};
+  align-self: flex-end;
+`;
+export const ForeignerButton = styled(TouchableOpacity)`
+  flex-direction: row;
+  flex-basis: auto;
+  align-items: flex-end;
+`;
+export const ForeignButtonText = styled(TextButtonL)`
+  color: ${props => props.theme.ctaPurple};
+  margin-right: ${props => props.theme.spacingXSmall};
+  justify-content: flex-start;
+`;
+export const SelectOptionContainer = styled.View`
+  margin-top: ${props => props.theme.spacingMedium};
+`;
+
+export const Tabs = styled(ChipTabs)``;

@@ -1,0 +1,150 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import i18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { DraggableGrid } from "react-native-draggable-grid";
+import FeatureIcon from "../../features/home/features/FeatureIcon";
+import { Body3, ShortcutIconBadge } from "../../components-2";
+import { withPreventDoublePress } from "../../modules/hoc";
+
+const RowContainer = styled.View(props => ({
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "wrap",
+  paddingTop: props.theme.spacingMedium
+}));
+
+const FeatureMenuItemDrag = styled.View(props => ({
+  paddingTop: props.theme.spacingXSmall,
+  flex: 1,
+  justifyContent: "flex-start",
+  alignItems: "center"
+}));
+
+const FeatureMenuItem = withPreventDoublePress(
+  styled(TouchableOpacity)(props => ({
+    width: `${100 / (props.numColumns || 1)}%`,
+    paddingTop: props.theme.spacingXSmall,
+    justifyContent: "flex-start",
+    alignItems: "center"
+  }))
+);
+
+const FeatureText = styled(Body3)(props => ({
+  textAlign: "center",
+  paddingTop: props.theme.spacingXXSmall,
+  color: props.isEmpty && props.theme.contentColorLight
+}));
+
+const translate = value => {
+  let label = value;
+  try {
+    label = i18n.t(value);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e);
+  }
+  return label;
+};
+
+const FeatureItem = props => {
+  const { data, isDraggable, isEdit, signType, disabledSign, onDragRelease, onItemPress } = props;
+  if (isDraggable) {
+    return (
+      <RowContainer>
+        <DraggableGrid
+          numColumns={4}
+          data={data}
+          itemHeight={100}
+          onDragRelease={items => {
+            onDragRelease(items);
+          }}
+          onItemPress={item => {
+            if (!item.exclude) {
+              onItemPress(item);
+            }
+          }}
+          renderItem={item => {
+            const label = translate(item.label);
+            return item.isShortcut ? (
+              <FeatureMenuItemDrag key={item.key} onPress={() => onItemPress(item)}>
+                <FeatureIcon
+                  signType={!item.exclude ? signType : ""}
+                  source={item.icon}
+                  svgName={item.iconSvg}
+                  disabledSign={disabledSign}
+                />
+                <FeatureText>{label}</FeatureText>
+              </FeatureMenuItemDrag>
+            ) : (
+              <FeatureMenuItem
+                key={item.featureName}
+                style={{ height: 100 }}
+                onPress={() => onItemPress(item)}
+              >
+                <FeatureIcon
+                  source={item.icon}
+                  svgName={item.iconSvg}
+                  disabledSign={disabledSign}
+                />
+                <FeatureText>{label}</FeatureText>
+              </FeatureMenuItem>
+            );
+          }}
+        />
+      </RowContainer>
+    );
+  }
+  return (
+    <RowContainer>
+      {data.map(item => {
+        const label = translate(item.label);
+        return (
+          <FeatureMenuItem key={item.key} numColumns={4} onPress={() => onItemPress(item)}>
+            <FeatureIcon
+              signType={signType}
+              source={item.icon}
+              svgName={item.iconSvg}
+              disabledSign={disabledSign}
+            />
+            {!isEdit && (
+              <ShortcutIconBadge
+                badgeName={item.badgeName}
+                badgeMessage={item.badgeMessage}
+                badgeBgColor={item.badgeBgColor}
+              />
+            )}
+            <FeatureText>{label}</FeatureText>
+          </FeatureMenuItem>
+        );
+      })}
+    </RowContainer>
+  );
+};
+FeatureItem.defaultProps = {
+  data: [],
+  isDraggable: false,
+  isEdit: false,
+  signType: null,
+  disabledSign: false,
+  onDragRelease: () => {},
+  onItemPress: () => {}
+};
+
+FeatureItem.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      featureName: PropTypes.string,
+      isShortcut: PropTypes.bool
+    })
+  ),
+  isDraggable: PropTypes.bool,
+  isEdit: PropTypes.bool,
+  signType: PropTypes.string,
+  disabledSign: PropTypes.bool,
+  onDragRelease: PropTypes.func,
+  onItemPress: PropTypes.func
+};
+
+export default FeatureItem;

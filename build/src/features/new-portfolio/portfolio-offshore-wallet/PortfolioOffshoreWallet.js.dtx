@@ -1,0 +1,40 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import PortfolioAccountCard from "../portfolio-account-card/PortfolioAccountCard";
+
+const PortfolioOffshoreWallet = props => {
+  const {
+    i18n,
+    totalOffshoreWalletInfoCash,
+    onPress
+  } = props;
+
+  return (
+    <TouchableOpacity onPress={() => onPress()}>
+      <PortfolioAccountCard
+        accountName={i18n.translations["Portfolio.Cash.Stocks.Title"]}
+        unitDesc={i18n.translations["Portfolio.Cash.Stocks.TotalAmount"]}
+        cost={totalOffshoreWalletInfoCash}
+        accountNo=""
+        currency={i18n.translations["Wallet.Currency.THB"]}
+        optionalText={i18n.translations["Portfolio.Cash.Stocks.ShortTotalDescription"]}
+        isStocksAccountUnavailable={false}
+      />
+    </TouchableOpacity>
+  );
+};
+
+PortfolioOffshoreWallet.defaultProps = {
+  onPress: () => {}
+};
+
+PortfolioOffshoreWallet.propTypes = {
+  totalOffshoreWalletInfoCash: PropTypes.string.isRequired,
+  onPress: PropTypes.func,
+  i18n: I18nPropTypes.isRequired
+};
+
+export default PortfolioOffshoreWallet;

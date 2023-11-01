@@ -1,0 +1,187 @@
+import React, { useEffect, useState, useRef } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { SafeAreaView, ScrollView } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Modal from "react-native-modal";
+import theme from "../../../theme";
+import easyInvestPortfolio from "../../../../assets/images/term-and-policy.png";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import {
+  Body2,
+  Body3,
+  Header1,
+  PrimaryButton,
+  CheckBox,
+  ViewContainer,
+  Icon
+} from "../../../components-2";
+
+const BackIcon = styled(TouchableOpacity)`
+  margin-top: ${props => props.theme.spacingMedium};
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const TermAndPolicyViewContainer = styled(ViewContainer)`
+  justify-content: center;
+`;
+
+const PortfolioImage = styled.Image`
+  right: ${props => props.theme.spacingMedium};
+  bottom: ${props => props.theme.spacingMedium};
+`;
+
+const IconContainer = styled.View`
+  margin: 36px 36px 36px 36px;
+  justify-content: center;
+  align-items: center;
+`;
+
+const TextContainer = styled.View`
+  margin-top: 24px;
+`;
+
+const HeadText = styled(Header1)``;
+
+const CheckBoxContainer = styled.View`
+  margin-top: ${props => props.theme.spacingSmall};
+`;
+
+const CheckBoxGroup = styled.TouchableOpacity`
+  flex-direction: row;
+  margin-left: 5px;
+  margin-bottom: 20px;
+  padding-right: 20px;
+`;
+
+const DescriptionContainer = styled.View`
+  font-size: 21px;
+  text-align: left;
+  color: #0a0b0d;
+  margin-bottom: ${props => props.theme.spacingLarge};
+`;
+
+const CalloutCustom = styled(Body2)`
+  margin-left: 5px;
+  margin-right: 5px;
+`;
+
+const DescriptionCustom = styled(Body3)`
+  color: ${props => props.theme.textSubduedColor};
+`;
+
+const DigitalAssetTermAndPolicy = ({
+  onSubmit,
+  i18n,
+  setUserConfig,
+  unmaskUserConfig,
+  isVisible,
+  onPressCloseModal,
+  coin
+}) => {
+  const [checkOne, setCheckOne] = useState(false);
+  const [checkTwo, setCheckTwo] = useState(false);
+  const scrollViewRef = useRef();
+
+  useEffect(() => {
+    if (checkOne && checkTwo) {
+      scrollViewRef.current.scrollToEnd();
+    }
+  }, [checkOne, checkTwo]);
+
+
+  const handleCheckBoxOne = () => {
+    setCheckOne(!checkOne);
+  };
+
+  const handleCheckBoxTwo = () => {
+    setCheckTwo(!checkTwo);
+  };
+
+  const goToDeposit = async () => {
+    await setUserConfig({ config: [{ Key: "DepositTermAndPolicy", Value: true }] });
+    await unmaskUserConfig();
+    await onPressCloseModal();
+    return onSubmit(coin);
+  };
+
+  return (
+    <Modal visible={isVisible} statusBarTranslucent animationType="fade" transparent={false}>
+      <BackIcon onPress={onPressCloseModal}>
+        <Icon name="chevron-left-2" size="icon24" color={theme.contentColorCTAPurple} />
+      </BackIcon>
+      <TermAndPolicyViewContainer variant="light">
+        <SafeAreaView isFullScreen>
+          <ScrollView
+            ref={scrollViewRef}
+          >
+            <IconContainer>
+              <PortfolioImage source={easyInvestPortfolio} />
+            </IconContainer>
+            <TextContainer>
+              <HeadText>{i18n.translations["DigitalAssets.Deposit.TermAndPolicy.Title"]}</HeadText>
+            </TextContainer>
+            <CheckBoxContainer>
+              <CheckBoxGroup onPress={handleCheckBoxOne}>
+                <CheckBox onValueChange={handleCheckBoxOne} value={checkOne} />
+                <CalloutCustom>
+                  {i18n.translations["DigitalAssets.Deposit.TermAndPolicy.CheckBox1"]}
+                </CalloutCustom>
+              </CheckBoxGroup>
+
+              <CheckBoxGroup onPress={handleCheckBoxTwo}>
+                <CheckBox onValueChange={handleCheckBoxTwo} value={checkTwo} />
+                <CalloutCustom>
+                  {i18n.translations["DigitalAssets.Deposit.TermAndPolicy.CheckBox2"]}
+                </CalloutCustom>
+              </CheckBoxGroup>
+            </CheckBoxContainer>
+
+            <DescriptionContainer>
+              <DescriptionCustom>
+                {i18n.translations["DigitalAssets.Deposit.TermAndPolicy.Description"]}
+              </DescriptionCustom>
+            </DescriptionContainer>
+            <PrimaryButton
+              disable={!checkOne || !checkTwo}
+              onPress={goToDeposit}
+              size="large"
+              label={i18n.translations["DigitalAssets.Deposit.TermAndPolicy.Submit"]}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </TermAndPolicyViewContainer>
+    </Modal>
+  );
+};
+
+DigitalAssetTermAndPolicy.defaultProps = {
+  onSubmit: () => {},
+  isVisible: false,
+  onPressCloseModal: () => {},
+  coin: {
+    assetId: "",
+    quantity: 0,
+    productId: "",
+    accountNo: "",
+    priceTHB: ""
+  }
+};
+
+DigitalAssetTermAndPolicy.propTypes = {
+  coin: PropTypes.shape({
+    assetId: PropTypes.string,
+    quantity: PropTypes.number,
+    productId: PropTypes.string,
+    accountNo: PropTypes.string,
+    priceTHB: PropTypes.string
+  }),
+  isVisible: PropTypes.bool,
+  onPressCloseModal: PropTypes.func,
+  i18n: I18nPropTypes.isRequired,
+  onSubmit: PropTypes.func,
+  setUserConfig: PropTypes.func.isRequired,
+  unmaskUserConfig: PropTypes.func.isRequired
+};
+
+export default DigitalAssetTermAndPolicy;

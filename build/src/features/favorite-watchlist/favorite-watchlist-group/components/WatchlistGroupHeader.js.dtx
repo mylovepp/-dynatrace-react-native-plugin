@@ -1,0 +1,144 @@
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { Fragment, useEffect } from "react";
+import { Platform, StatusBar, BackHandler } from "react-native";
+import i18n from "react-native-i18n";
+import styled from "styled-components/native";
+import { Display2, Icon, SecondaryButton, Header1 } from "../../../../components-2";
+import theme from "../../../../theme";
+import { TutorialWatchlistSetMain1Step } from "../../../tutorial/watchlist";
+
+const statusBarHeight = StatusBar.currentHeight || 24;
+
+/** ******************************************* */
+// Styles
+/** ******************************************* */
+const NavBarContainer = styled.View(props => ({
+  position: "relative",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXXLargeValue + 14}px`
+      : `${props.theme.spacingXXLargeValue + 14 - statusBarHeight}px`,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const Container = styled.View(props => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  paddingTop:
+    Platform.OS === "ios"
+      ? `${props.theme.spacingXSmallValue}px`
+      : `${props.theme.spacingXSmallValue - statusBarHeight}px`,
+  paddingBottom: props.theme.spacingMedium,
+  paddingHorizontal: props.theme.spacingMedium,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  borderBottomLeftRadius: props.theme.spacingMedium,
+  borderBottomRightRadius: props.theme.spacingMedium,
+  boxShadow: `0px ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall} rgba(223, 219, 236, 0.3)`
+}));
+
+const Button = styled(SecondaryButton)(() => ({
+  marginBottom: 0
+}));
+
+const ConfirmHeader = styled(Header1)`
+  color: ${props => props.isDisabled ? props.theme.textDisableColor : props.theme.contentColorCTAPurple};
+`;
+
+const Column = styled.View(props => ({
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: props.leftSide ? "flex-start" : "flex-end",
+  flex: 1
+}));
+
+const WatchlistGroupHeader = props => {
+  const {
+    navigator,
+    onPressLeftButton,
+    onPressRightButton,
+    isButtonDisabled,
+    isEdit,
+    isConfirmEnabled
+  } = props;
+
+  const handleOnRightButtonPressed = () => {
+    onPressRightButton();
+  };
+
+  const handleOnBackButtonPressed = () => {
+    onPressLeftButton();
+    navigator.pop();
+  };
+
+  useEffect(() => {
+    BackHandler.addEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    return () => {
+      BackHandler.removeEventListener("hardwareBackPress", handleOnBackButtonPressed);
+    };
+  }, []);
+
+  return (
+    <Fragment>
+      <NavBarContainer>
+        <Column leftSide>
+          <TouchableOpacity onPress={handleOnBackButtonPressed}>
+            <Icon name="chevron-left-2" size="icon24" color={theme.contentColorCTAPurple} />
+          </TouchableOpacity>
+        </Column>
+        {isEdit &&
+          <Column>
+            <TouchableOpacity disabled={!isConfirmEnabled} onPress={handleOnRightButtonPressed}>
+              <ConfirmHeader isDisabled={!isConfirmEnabled}>
+                {i18n.translate("FavoriteWatchlist.WatchlistEditor.Confirm")}
+              </ConfirmHeader>
+            </TouchableOpacity>
+          </Column>
+        }
+      </NavBarContainer>
+      <Container>
+        <Display2 variant="black">
+          {!isEdit ? i18n.translate("FavoriteWatchlist.WatchlistGroup.Title")
+            : i18n.translate("FavoriteWatchlist.WatchlistGroupEdit.Title")
+          }
+        </Display2>
+        {!isEdit &&
+          <TutorialWatchlistSetMain1Step>
+            <Button
+              disable={isButtonDisabled}
+              onPress={handleOnRightButtonPressed}
+              label={i18n.translate("FavoriteWatchlist.WatchlistGroup.EditMainWatchlist")}
+            />
+          </TutorialWatchlistSetMain1Step>
+        }
+      </Container>
+    </Fragment>
+  );
+};
+
+WatchlistGroupHeader.defaultProps = {
+  onPressRightButton: () => { },
+  onPressLeftButton: () => { },
+  isButtonDisabled: false,
+  isEdit: false,
+  isConfirmEnabled: false,
+};
+
+WatchlistGroupHeader.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func
+  }).isRequired,
+  isButtonDisabled: PropTypes.bool,
+  onPressRightButton: PropTypes.func,
+  onPressLeftButton: PropTypes.func,
+  isEdit: PropTypes.bool,
+  isConfirmEnabled: PropTypes.bool,
+};
+
+export default WatchlistGroupHeader;

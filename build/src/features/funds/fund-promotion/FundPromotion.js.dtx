@@ -1,0 +1,201 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Navigation } from "react-native-navigation";
+import { showBottomMessageBox } from "../../../modules/navigation";
+
+import {
+  Header2,
+  I18nPropTypes,
+  LoadingScreen,
+  SearchInput,
+  SectionBackground,
+  ViewContainer
+} from "../../../components-2";
+import FundPromotionList from "../fund-promotion-list";
+import FundPromotionNoSearch from "../fund-promotion-no-search";
+import FundPromotionValid from "../fund-promotion-valid";
+
+const ExtendedTop = styled(SectionBackground)`
+  flex-direction: row;
+  padding: ${props => props.theme.spacingMedium};
+  width: 100%;
+`;
+
+const SearchInputContainer = styled(View)`
+  flex: 1;
+`;
+
+const SearchText = styled(Header2)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const ButtonContainer = styled(TouchableOpacity)`
+  padding-left: ${props => props.theme.spacingMedium};
+  justify-content: center;
+`;
+
+const SearchContentContainer = styled.View`
+  flex-grow: 1;
+`;
+
+class FundPromotion extends PureComponent {
+  state = {
+    searchText: "",
+    isSearching: false,
+    loadingPromoCode: false
+  };
+
+  onChangeSearchText = text => {
+    let enchangeText = "";
+    let regexText = "";
+    const regex = /[a-zA-Z]|[0-9]/g;
+    for (let i = 0; i < text.length; i++) {
+      regexText = text.charAt(i);
+      if (regexText.match(regex)) {
+        enchangeText += regexText;
+      } else {
+        enchangeText += "";
+      }
+    }
+    this.setState({ searchText: enchangeText, isSearching: false });
+  };
+
+  onCloseDialog = () => {
+    this.props.navigator.pop();
+    this.setState({ isSearching: false, loadingPromoCode: false });
+    Navigation.dismissAllModals({ animationType: "none" });
+  };
+
+  onClickSearch = () => {
+    this.setState({ isSearching: true, loadingPromoCode: true });
+    this.props.searchFundPromotionCode(this.state.searchText);
+  };
+
+  onClear = () => {
+    this.setState({ searchText: "" });
+  };
+
+  showLockedDialog = () => {
+    const { i18n } = this.props;
+    const options = {
+      title: i18n.translations["FundInvest.Promotion.SearchError.Locked.Title"],
+      description: i18n.translations["FundInvest.Promotion.SearchError.Locked.Message"],
+      rightButton: {
+        text: i18n.translations["FundInvest.Promotion.SearchError.Locked.Button"],
+        onPress: this.onCloseDialog
+      },
+      variant: "headerBold"
+    };
+    showBottomMessageBox(options);
+  };
+
+  showGeneralDialog = () => {
+    const { i18n } = this.props;
+    const options = {
+      title: i18n.translations["General.Error.Title"],
+      description: i18n.translations["FundInvest.Promotion.SearchError.General.Message"],
+      rightButton: {
+        text: i18n.translations["FundInvest.Promotion.SearchError.Locked.Button"],
+        onPress: this.onCloseDialog
+      },
+      variant: "headerBold"
+    };
+    showBottomMessageBox(options);
+  };
+
+  renderSearchResults = () => {
+    const { onViewPromotion, onUseNowPromotion, promoItem, showError, errorMessage } = this.props;
+    const conditionSearch = this.state.searchText !== "" && this.state.isSearching;
+    if (showError && errorMessage === "locked") {
+      if (conditionSearch) {
+        this.showLockedDialog();
+      }
+    }
+    if (
+      showError &&
+      (errorMessage === "UNAUTHORIZED" ||
+        errorMessage === "RESOURCE_NOT_FOUND" ||
+        errorMessage === "GENERAL_ERROR")
+    ) {
+      if (conditionSearch) {
+        this.showGeneralDialog();
+      }
+    }
+    if (showError && errorMessage !== "locked") {
+      if (conditionSearch) {
+        return <FundPromotionValid errorMessage={errorMessage} />;
+      }
+    }
+    if (promoItem && conditionSearch) {
+      const promoArray = promoItem[0];
+      try {
+        if (promoItem && promoArray.campaign_display_name) {
+          return (
+            <FundPromotionList
+              onViewPromotion={onViewPromotion}
+              onUseNowPromotion={onUseNowPromotion}
+              promoItem={promoItem}
+            />
+          );
+        }
+        if (this.state.loadingPromoCode) {
+          return <LoadingScreen />;
+        }
+        return <FundPromotionNoSearch />;
+      } catch (error) {
+        return <LoadingScreen />;
+      }
+    }
+    return <FundPromotionNoSearch />;
+  };
+
+  render() {
+    const { i18n } = this.props;
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <ExtendedTop variant="secondary">
+          <SearchInputContainer>
+            <SearchInput
+              placeholder={i18n.translations["FundInvest.Promotion.SearchPlaceholder"]}
+              onChangeText={this.onChangeSearchText}
+              onClear={this.onClear}
+              value={this.state.searchText}
+            />
+          </SearchInputContainer>
+          {!!this.state.searchText && (
+            <ButtonContainer onPress={this.onClickSearch}>
+              <SearchText>{i18n.translations["FundInvest.Promotion.SearchButtonText"]}</SearchText>
+            </ButtonContainer>
+          )}
+        </ExtendedTop>
+        <SearchContentContainer>{this.renderSearchResults()}</SearchContentContainer>
+      </ViewContainer>
+    );
+  }
+}
+
+FundPromotion.defaultProps = {
+  promoItem: [],
+  showError: false,
+  errorMessage: "",
+  onViewPromotion: () => {},
+  onUseNowPromotion: () => {}
+};
+
+FundPromotion.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func.isRequired
+  }).isRequired,
+  promoItem: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
+  showError: PropTypes.bool,
+  errorMessage: PropTypes.string,
+  onViewPromotion: PropTypes.func,
+  onUseNowPromotion: PropTypes.func,
+  searchFundPromotionCode: PropTypes.func.isRequired
+};
+
+export default FundPromotion;

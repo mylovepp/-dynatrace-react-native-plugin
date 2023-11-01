@@ -1,0 +1,388 @@
+import React, { useState } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import RadioForm from "react-native-simple-radio-button";
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { I18nPropTypes, ViewContainer, MonthYearPicker } from "../../../components";
+import {
+  PrimaryButton,
+  DatePicker,
+  Row,
+  TextInput,
+  MessageBottomModal,
+  LoadingScreen,
+  BlurredModal,
+  Body2,
+  Body3,
+  Header3,
+  RadioButton
+} from "../../../components-2";
+import { formatDate } from "../../../modules/format";
+import { requestTaxInvoice, requestComfirmationNote } from "../services";
+import { showNewInAppNotification } from "../../../modules/navigation";
+import theme from "../../../theme";
+
+import DigitalAssetsTaxInvoiceContent from "./DigitalAssetsTaxInvoiceContent";
+
+const unitHolderColor = {
+  color: theme.contentColorVeryHigh
+};
+
+const RowContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const SelectorContainer = styled(View)`
+  flex-direction: row;
+  padding: ${props => props.theme.spacingMedium};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+  border: 2px ${props => (props.isSelected ? props.theme.ctaPurple : props.theme.contentColorLight)};
+  border-radius: ${props => props.theme.spacingXSmall};
+`;
+
+const RadioContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+`;
+
+const RadioSelectionForm = styled(RadioForm).attrs({
+  formHorizontal: false
+})`
+  padding-vertical: ${props => props.theme.spacingXXSmall};
+`;
+const RadioLabelContainer = styled(View)`
+  flex-direction: row;
+  align-items: flex-start;
+`;
+
+const TitleLabel = styled(Body2)`
+  padding-right: 40;
+  padding-left: 6;
+  line-height: 18px;
+  flex-shrink: 1;
+`;
+
+const LabelContainer = styled.View(props => ({
+  paddingBottom: props.theme.spacingXXSmall
+}));
+
+const BoldLabel = styled(Header3)(props => ({
+  color: props.theme.contentColorVeryHigh
+}));
+
+const DigitalAssetsTaxInvoice = ({ userEmail, navigator, i18n }) => {
+  const [datePicker, setDatePicker] = useState({
+    fromDate: null,
+    toDate: null,
+    fromMonth: null,
+    toMonth: null
+  });
+  const [isShowModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState(undefined);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(0);
+
+  const maximumDate = new Date();
+  const minimumDate = new Date();
+  minimumDate.setDate(maximumDate.getDate() - 90);
+
+  const maximumMonth = new Date();
+  const minimumMonth = new Date();
+  minimumMonth.setFullYear(maximumMonth.getFullYear() - 2);
+
+  const convertDateToMonthTitle = date => {
+    return date ? formatDate(date, "MMM YYYY", "th") : null;
+  };
+
+  const renderRadioButton = option => {
+    return (
+      <TouchableWithoutFeedback disabled={option.disable} onPress={option.onPress}>
+        <SelectorContainer isSelected={option.isSelect}>
+          <RadioContainer>
+            <RadioButton
+              onPress={option.onPress}
+              value={{ value: option.objValue }}
+              isSelected={option.isSelect}
+              disabled={option.disable}
+            />
+            <RadioLabelContainer>
+              <TitleLabel>{option.label}</TitleLabel>
+            </RadioLabelContainer>
+          </RadioContainer>
+        </SelectorContainer>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  const changeDocument = type => {
+    setSelectedDocument(type);
+    if (type === 0) {
+      setDatePicker(prevState => ({ ...prevState, fromMonth: null, toMonth: null }));
+    } else if (type === 1) {
+      setDatePicker(prevState => ({ ...prevState, fromDate: null, toDate: null }));
+    }
+  };
+
+  const renderTaxInvoice = () => {
+    const params = {
+      objValue: "TaxInvoice",
+      label: i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.Title"],
+      onPress: () => changeDocument(0),
+      isSelect: selectedDocument === 0
+    };
+
+    return renderRadioButton(params);
+  };
+
+  const renderConfirmationNote = () => {
+    const params = {
+      objValue: "ConfirmationNote",
+      label: i18n.translations["DigitalAssets.RequestDocument.ConfirmationNote.Title"],
+      onPress: () => changeDocument(1),
+      isSelect: selectedDocument === 1
+    };
+
+    return renderRadioButton(params);
+  };
+
+  const getTaxInvoice = async () => {
+    const response = await requestTaxInvoice({
+      fromDate: formatDate(datePicker.fromDate, "YYYY-MM-DD"),
+      toDate: formatDate(datePicker.toDate, "YYYY-MM-DD")
+    });
+    setSubmitting(false);
+    if (response.code === "0000") {
+      navigator.pop({ animated: false });
+      setTimeout(() => {
+        showNewInAppNotification(navigator, {
+          body: "DigitalAssets.RequestDocument.SuccessResponse",
+          variant: "success",
+          iconName: "success"
+        });
+      }, 500);
+    } else {
+      const modalMsg =
+        response.code === "4004"
+          ? i18n.translations["DigitalAssets.RequestDocument.Error.NoTransactionBody"]
+          : i18n.translations["DigitalAssets.RequestDocument.Error.Body"];
+      setModalMessage(modalMsg);
+      setTimeout(() => {
+        setShowModal(true);
+      }, 350);
+    }
+  };
+
+  const getMonthlyTransaction = async () => {
+    const nextMonth = new Date(datePicker.toMonth);
+    nextMonth.setMonth(datePicker.toMonth.getMonth() + 1);
+    const lastDate = nextMonth;
+    lastDate.setDate(nextMonth.getDate() - 1);
+    const response = await requestComfirmationNote({
+      fromDate: formatDate(datePicker.fromMonth, "YYYY-MM-DD"),
+      toDate: formatDate(lastDate, "YYYY-MM-DD")
+    });
+    setSubmitting(false);
+    if (response.code === "0000") {
+      navigator.pop({ animated: false });
+      setTimeout(() => {
+        showNewInAppNotification(navigator, {
+          body: "DigitalAssets.RequestDocument.SuccessResponse",
+          variant: "success",
+          iconName: "success"
+        });
+      }, 500);
+    } else {
+      const modalMsg =
+        response.code === "4004"
+          ? i18n.translations["DigitalAssets.RequestDocument.Error.NoTransactionBody"]
+          : i18n.translations["DigitalAssets.RequestDocument.Error.Body"];
+      setModalMessage(modalMsg);
+      setTimeout(() => {
+        setShowModal(true);
+      }, 350);
+    }
+  };
+
+  const handleConfirmPress = () => {
+    setSubmitting(true);
+    switch (selectedDocument) {
+      case 0:
+        getTaxInvoice();
+        break;
+      case 1:
+        getMonthlyTransaction();
+        break;
+      default:
+    }
+  };
+
+  return (
+    <ViewContainer variant="default" isFullScreen>
+      <BlurredModal visible={submitting}>
+        <LoadingScreen
+          caption={i18n.translations["DigitalAssets.Common.Loading.Label1"]}
+          subCaption={i18n.translations["DigitalAssets.Common.Loading.Label2"]}
+        />
+      </BlurredModal>
+      <DigitalAssetsTaxInvoiceContent>
+        <RadioSelectionForm>
+          {renderTaxInvoice()}
+          {renderConfirmationNote()}
+        </RadioSelectionForm>
+      </DigitalAssetsTaxInvoiceContent>
+      {selectedDocument === 0 && (
+        <DigitalAssetsTaxInvoiceContent>
+          <Row
+            noPaddingVertical
+            noPaddingHorizontal
+            rightStyle={{ alignItems: "flex-start", paddingLeft: 0 }}
+            left={
+              <DatePicker
+                label={i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.StartDate"]}
+                value={datePicker.toDate}
+                placeholder={
+                  i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.Placeholder"]
+                }
+                maximumDate={datePicker.fromDate || maximumDate}
+                minimumDate={minimumDate}
+                onConfirm={date => setDatePicker(prevState => ({ ...prevState, toDate: date }))}
+                displayDateFormat="DD MMM YYYY"
+                calendarType="gregorian"
+              />
+            }
+            right={
+              <DatePicker
+                label={i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.EndDate"]}
+                value={datePicker.fromDate}
+                placeholder={
+                  i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.Placeholder"]
+                }
+                maximumDate={maximumDate}
+                minimumDate={datePicker.toDate || minimumDate}
+                onConfirm={date => setDatePicker(prevState => ({ ...prevState, fromDate: date }))}
+                displayDateFormat="DD MMM YYYY"
+                calendarType="gregorian"
+              />
+            }
+          />
+          <Body3 style={{ color: "#7e7e7e", marginTop: 8 }}>
+            {i18n.translations["DigitalAssets.RequestDocument.TaxInvoice.Description"]}
+          </Body3>
+        </DigitalAssetsTaxInvoiceContent>
+      )}
+      {selectedDocument === 1 && (
+        <DigitalAssetsTaxInvoiceContent>
+          <Row
+            noPaddingVertical
+            noPaddingHorizontal
+            rightStyle={{ alignItems: "flex-start", paddingLeft: 0 }}
+            left={
+              <>
+                <LabelContainer>
+                  <BoldLabel>
+                    {i18n.translations["DigitalAssets.RequestDocument.ConfirmationNote.StartDate"]}
+                  </BoldLabel>
+                </LabelContainer>
+                <RowContainer>
+                  <MonthYearPicker
+                    titleStyle={unitHolderColor}
+                    displayValue={
+                      convertDateToMonthTitle(datePicker.fromMonth) ||
+                      i18n.translations[
+                        "DigitalAssets.RequestDocument.ConfirmationNote.Placeholder"
+                      ]
+                    }
+                    value={datePicker.fromMonth || maximumMonth}
+                    minimumDate={minimumMonth}
+                    maximumDate={datePicker.toMonth || maximumMonth}
+                    onChange={date =>
+                      setDatePicker(prevState => ({ ...prevState, fromMonth: date }))
+                    }
+                    testID="da-confirmation-note-from-month"
+                  />
+                </RowContainer>
+              </>
+            }
+            right={
+              <>
+                <LabelContainer>
+                  <BoldLabel>
+                    {i18n.translations["DigitalAssets.RequestDocument.ConfirmationNote.EndDate"]}
+                  </BoldLabel>
+                </LabelContainer>
+                <RowContainer>
+                  <MonthYearPicker
+                    titleStyle={unitHolderColor}
+                    displayValue={
+                      convertDateToMonthTitle(datePicker.toMonth) ||
+                      i18n.translations[
+                        "DigitalAssets.RequestDocument.ConfirmationNote.Placeholder"
+                      ]
+                    }
+                    value={datePicker.toMonth || maximumMonth}
+                    minimumDate={datePicker.fromMonth || minimumMonth}
+                    maximumDate={maximumMonth}
+                    onChange={date => setDatePicker(prevState => ({ ...prevState, toMonth: date }))}
+                    testID="da-confirmation-note-to-month"
+                  />
+                </RowContainer>
+              </>
+            }
+          />
+          <Body3 style={{ color: "#7e7e7e", marginTop: 4 }}>
+            {i18n.translations["DigitalAssets.RequestDocument.ConfirmationNote.Description"]}
+          </Body3>
+        </DigitalAssetsTaxInvoiceContent>
+      )}
+      <DigitalAssetsTaxInvoiceContent>
+        <TextInput
+          style={{ marginBottom: 10 }}
+          label={i18n.translations["DigitalAssets.RequestDocument.SendTo"]}
+          value={userEmail}
+          editable={false}
+          disabled
+        />
+      </DigitalAssetsTaxInvoiceContent>
+      <PrimaryButton
+        onPress={handleConfirmPress}
+        disable={
+          (datePicker.fromDate === null || datePicker.toDate === null) &&
+          (datePicker.fromMonth === null || datePicker.toMonth === null)
+        }
+        style={{ margin: 16, marginTop: "auto", marginBottom: 16 }}
+        size="large"
+        label={i18n.translations["DigitalAssets.RequestDocument.Request"]}
+        testId="da-request-document-confirm"
+      />
+      <MessageBottomModal
+        isVisible={isShowModal}
+        title={i18n.translations["DigitalAssets.RequestDocument.Error.Title"]}
+        body={modalMessage}
+        buttons={[
+          {
+            variant: "primary",
+            label: i18n.translations["DigitalAssets.RequestDocument.Error.Button"],
+            onPress: () => {
+              setShowModal(false);
+              setModalMessage(undefined);
+            }
+          }
+        ]}
+        onModalClose={() => setShowModal(false)}
+      />
+    </ViewContainer>
+  );
+};
+
+DigitalAssetsTaxInvoice.propTypes = {
+  i18n: I18nPropTypes.isRequired,
+  userEmail: PropTypes.string.isRequired,
+  navigator: PropTypes.func.isRequired
+};
+
+export default DigitalAssetsTaxInvoice;

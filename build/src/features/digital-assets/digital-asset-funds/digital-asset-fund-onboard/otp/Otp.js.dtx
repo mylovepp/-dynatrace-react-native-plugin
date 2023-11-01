@@ -1,0 +1,253 @@
+/* eslint-disable no-unused-vars */
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import { Platform } from "react-native";
+
+import {
+  ViewContainer,
+  Header1,
+  Body2,
+  Body3,
+  Header3,
+  TextOverlineR,
+  PinNumberInput,
+  PrimaryButton,
+  LoadingScreen,
+  TextOverlineM
+} from "../../../../../components-2";
+import useOtpData, { ErrorTypes } from "./useOtpData";
+
+const showMockButton = true;
+
+const OnboardOtp = ({
+  mobile,
+  goToSuitabilityTest,
+  sendOtp,
+  verifyOtp,
+  updateConsent,
+  fundCompanyId,
+  goToErrorScreen
+}) => {
+  const getErrorMessage = errorType => {
+    switch (errorType) {
+      case ErrorTypes.WrongOtp:
+        return I18n.t("DigitalAssetsFunds.Onboarding.Otp.ErrorMessage.WrongOtp");
+      case ErrorTypes.FailedSent:
+        return I18n.t("DigitalAssetsFunds.Onboarding.Otp.ErrorMessage.FailedSent");
+      case ErrorTypes.Unknown:
+      default:
+        return I18n.t("DigitalAssetsFunds.Onboarding.Otp.ErrorMessage.Unknown");
+    }
+  };
+
+  const [code, setCode] = useState("");
+  const {
+    reference,
+    tokenUUID,
+    otpKey,
+    countdownInSeconds,
+    showResendButton,
+    resendOtp,
+    errorMessage,
+    setErrorMessage,
+    isLoading,
+    setIsLoading
+  } = useOtpData({
+    sendOtp,
+    mobile,
+    fundCompanyId,
+    getErrorMessage,
+    goToErrorScreen
+  });
+  const [inputVariant, setInputVariant] = useState("default");
+
+  const onChangeCode = value => {
+    setCode(value);
+    setErrorMessage(undefined);
+  };
+
+  useEffect(() => {
+    if (errorMessage) {
+      setInputVariant("error");
+    } else if (code === "" && !errorMessage) {
+      setInputVariant("default");
+    } else if (code.length > 0 && !errorMessage) {
+      setInputVariant("typing");
+    }
+  }, [code, errorMessage]);
+
+  const handleUpdateConsent = () => {
+    updateConsent(
+      { fundCompanyId },
+      () => goToSuitabilityTest({ fundCompanyId }),
+      () => {
+        setIsLoading(false);
+        setErrorMessage(getErrorMessage(ErrorTypes.Unknown));
+      }
+    );
+  };
+
+  const handleSubmit = () => {
+    setIsLoading(true);
+    verifyOtp({ otp: code, otpKey, tokenUUID, fundCompanyId }, handleUpdateConsent, () => {
+      setIsLoading(false);
+      setErrorMessage(getErrorMessage(ErrorTypes.WrongOtp));
+    });
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+  };
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <Container>
+        <HeaderText>{I18n.t("DigitalAssetsFunds.Onboarding.Otp.Title")}</HeaderText>
+        {mobile?.length === 10 && (
+          <BodyText>
+            {I18n.t("Onboarding.OTP.Mobile.Title", {
+              mobileNumber: `XXX XXX ${mobile.slice(6)}`
+            })}
+          </BodyText>
+        )}
+        <PinContainer>
+          <PinNumberInput
+            code={code}
+            codeLength={6}
+            onChangeCode={onChangeCode}
+            variant={inputVariant}
+          />
+        </PinContainer>
+        <BottomMessageContainer>
+          {errorMessage && <ErrorText>{errorMessage}</ErrorText>}
+          <Row>
+            <ResendText>{I18n.t("Onboarding.OTP.Mobile.Resend.Description")} </ResendText>
+            {!showResendButton && (
+              <ResendCountdownText>
+                {I18n.t("DigitalAssetsFunds.Onboarding.Otp.ResendCountdown", {
+                  countdownInSeconds
+                })}
+              </ResendCountdownText>
+            )}
+            {showResendButton && (
+              <TouchableOpacity onPress={resendOtp}>
+                <ResendLink>{I18n.t("Onboarding.OTP.Mobile.Resend.Link")}</ResendLink>
+              </TouchableOpacity>
+            )}
+          </Row>
+          {reference?.length > 0 && (
+            <ReferenceText>
+              {I18n.t("Onboarding.OTP.Mobile.Reference.Label", {
+                otpReference: reference
+              })}
+            </ReferenceText>
+          )}
+        </BottomMessageContainer>
+      </Container>
+      <ButtonContainer>
+        {showMockButton && (
+          <MockButton
+            size="large"
+            label="Bypass To WebView"
+            onPress={() => {
+              goToSuitabilityTest({ fundCompanyId });
+            }}
+          />
+        )}
+        <PrimaryButton
+          size="large"
+          label={I18n.t("DigitalAssetsFunds.Onboarding.Otp.Confirm")}
+          onPress={handleSubmit}
+          disable={code.length !== 6}
+        />
+      </ButtonContainer>
+    </KeyboardAvoidingView>
+  );
+};
+
+export default OnboardOtp;
+
+OnboardOtp.propTypes = {
+  mobile: PropTypes.string,
+  sendOtp: PropTypes.func.isRequired,
+  verifyOtp: PropTypes.func.isRequired,
+  updateConsent: PropTypes.func.isRequired,
+  goToSuitabilityTest: PropTypes.func.isRequired,
+  fundCompanyId: PropTypes.number.isRequired,
+  goToErrorScreen: PropTypes.func.isRequired
+};
+
+OnboardOtp.defaultProps = {
+  mobile: ""
+};
+
+const KeyboardAvoidingView = styled.KeyboardAvoidingView`
+  flex: 1;
+`;
+
+const Container = styled(ViewContainer)`
+  padding: 16px;
+`;
+
+const HeaderText = styled(Header1)`
+  padding-bottom: 4px;
+`;
+
+const BodyText = styled(Body2)`
+  color: ${props => props.theme.contentColorHigh};
+  padding-bottom: 16px;
+`;
+
+const PinContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmall};
+  height: 90px;
+`;
+
+const BottomMessageContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+`;
+
+const ErrorText = styled(TextOverlineM)`
+  color: ${props => props.theme.graphRed};
+  margin-bottom: 8px;
+`;
+
+const ResendText = styled(Body3)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ResendCountdownText = styled(Body3)`
+  color: ${props => props.theme.contentColorMedium};
+`;
+
+const ResendLink = styled(Header3)`
+  color: ${props =>
+    props.disabled ? props.theme.contentColorDisabled : props.theme.contentColorCTAPurple};
+`;
+
+const ReferenceText = styled(TextOverlineR)`
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const ButtonContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+`;
+
+const MockButton = styled(PrimaryButton)`
+  margin-bottom: 8px;
+`;

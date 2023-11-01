@@ -1,0 +1,164 @@
+// @ts-nocheck
+import React, { PureComponent } from "react";
+import { TouchableOpacity, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { TextInput as RNTextInput, View } from "react-native";
+import PropTypes from "prop-types";
+import styled, { css } from "styled-components/native";
+import { switchProp } from "styled-tools";
+
+import InputStatus from "./InputStatus";
+import { Header3 } from "../text/Text";
+import { Container, Label, StyledLabelText } from "./StyledTextInput";
+
+const MockInput = styled(View)`
+  flex: 1;
+  width: 328px;
+  height: ${props => props.height};
+  padding: ${props => props.theme.spacingSmall} ${props => props.theme.spacingMedium};
+  letter-spacing: ${props => props.theme.body2.letterSpacing}px;
+  padding-vertical: ${props => props.theme.spacingXSmall};
+  ${switchProp("variant", {
+    reversed: css`
+      border-color: ${props => props.theme.inputReversedBorderColor};
+    `
+  })};
+`;
+
+const MockText = styled(Text)`
+  width: ${props => props.textWidth || "100%"};
+  padding: ${props => props.theme.spacingSmall} ${props => props.theme.spacingMedium};
+  padding-right: 0;
+  color: black;
+  font-family: ${props => props.theme.body2.fontFamily};
+  font-size: ${props => props.theme.body2.fontSize}px;
+  font-weight: ${props => props.theme.body.fontWeight};
+`;
+
+const MockPlaceholderText = styled(Text)`
+  width: ${props => props.textWidth || "100%"};
+  padding: ${props => props.theme.spacingSmall} ${props => props.theme.spacingMedium};
+  padding-right: 0;
+  color: #a5a5a5;
+  font-family: ${props => props.theme.body2.fontFamily};
+  font-size: ${props => props.theme.body2.fontSize}px;
+  font-weight: ${props => props.theme.body.fontWeight};
+`;
+class IconTextInput extends PureComponent {
+  state = {
+    isFocused: false
+  };
+
+  onBlur = (...args) => {
+    this.setState({
+      isFocused: false
+    });
+    if (this.props.onBlur) {
+      this.props.onBlur(...args);
+    }
+  };
+
+  onFocus = (...args) => {
+    this.setState({
+      isFocused: true
+    });
+    if (this.props.onFocus) {
+      this.props.onFocus(...args);
+    }
+  };
+
+  focus() {
+    this.input.focus();
+  }
+
+  blur() {
+    this.input.blur();
+  }
+
+  clear() {
+    this.input.clear();
+  }
+
+  isFocused() {
+    if (this.input) {
+      return this.input.isFocused();
+    }
+    return false;
+  }
+
+  render() {
+    const { label, required, rightComponent, clickFunction, value } = this.props;
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          clickFunction();
+        }}
+      >
+        <Container>
+          <Label>
+            <StyledLabelText>
+              {label}
+              {!!required && <Header3 variant="error">*</Header3>}
+            </StyledLabelText>
+          </Label>
+          <InputStatus {...this.props} isFocused={this.state.isFocused}>
+            {this.props.placeholder && !value ? (
+              <MockPlaceholderText {...this.props.textStyle}>
+                {this.props.placeholder}
+              </MockPlaceholderText>
+            ) : (
+              <MockText {...this.props.textStyle}>{value}</MockText>
+            )}
+            <MockInput
+              {...this.props}
+              allowFontScaling={false}
+              ref={input => {
+                this.input = input;
+              }}
+            />
+            {rightComponent}
+          </InputStatus>
+        </Container>
+      </TouchableOpacity>
+    );
+  }
+}
+
+export const InputTypeVariants = [
+  "",
+  "success",
+  "error",
+  "warning",
+  "disabled",
+  "reversed",
+  "hidden"
+];
+
+IconTextInput.defaultProps = {
+  helperText: "",
+  label: null,
+  variant: "",
+  value: null,
+  placeholder: "",
+  required: false,
+  secure: false,
+  rightComponent: null,
+  height: 64,
+  clickFunction: () => {}
+};
+
+IconTextInput.propTypes = {
+  ...RNTextInput.propTypes,
+  value: PropTypes.string,
+  label: PropTypes.string,
+  placeholder: PropTypes.string,
+  required: PropTypes.bool,
+  helperText: PropTypes.string,
+  variant: PropTypes.oneOf(InputTypeVariants),
+  secure: PropTypes.bool,
+  rightComponent: PropTypes.element,
+  height: PropTypes.number,
+  clickFunction: PropTypes.func
+};
+
+export default IconTextInput;

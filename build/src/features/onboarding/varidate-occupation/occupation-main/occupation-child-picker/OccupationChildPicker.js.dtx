@@ -1,0 +1,46 @@
+import React, { Component, Fragment } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { Icon, Body2 } from "../../../../../components-2";
+
+const ChevronDownIcon = <Icon name="chevron-down" size="icon8" />;
+
+const OccupationContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  padding-left: ${props => props.theme.spacingMedium};
+  padding-right: ${props => props.theme.spacingMedium};
+`;
+
+const TextContainer = styled.View`
+  flex: 1;
+  flex-direction: row;
+  flex-wrap: wrap;
+`;
+
+class OccupationChildPicker extends Component {
+  render() {
+    const { occupationParent, loadOccupation } = this.props;
+    return (
+      <Fragment>
+        <TouchableWithoutFeedback onPress={loadOccupation}>
+          <OccupationContainer>
+            <TextContainer>
+              <Body2>{occupationParent?.name}</Body2>
+            </TextContainer>
+            {ChevronDownIcon}
+          </OccupationContainer>
+        </TouchableWithoutFeedback>
+      </Fragment>
+    );
+  }
+}
+
+OccupationChildPicker.propTypes = {
+  loadOccupation: PropTypes.func.isRequired,
+  occupationParent: PropTypes.shape({ id: PropTypes.string, name: PropTypes.string }).isRequired,
+};
+
+export default OccupationChildPicker;

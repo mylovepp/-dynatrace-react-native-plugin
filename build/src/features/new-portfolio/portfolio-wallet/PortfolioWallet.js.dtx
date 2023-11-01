@@ -1,0 +1,52 @@
+import React, { useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import PortfolioAccountCard from "../portfolio-account-card/PortfolioAccountCard";
+
+const PortfolioWallet = props => {
+  const {
+    i18n,
+    user,
+    portfolio,
+    onFetchPortfolioWalletInfo,
+    onPress
+  } = props;
+
+  useEffect(() => {
+    onFetchPortfolioWalletInfo(user.userId);
+  }, []);
+  return (
+    <TouchableOpacity onPress={() => onPress()}>
+      <PortfolioAccountCard
+        accountName={portfolio.walletInfo?.walletLabel ||
+            i18n.translations["FXConversion.Title.WALLET"]}
+        unitDesc={i18n.translations["Wallet.Balance"]}
+        cost={portfolio.walletInfo?.avalAmt}
+        accountNo={portfolio.walletInfo?.walletId}
+        currency={i18n.translations["Wallet.Currency.THB"]}
+        isWalletUnavailable={portfolio.isWalletUnavailable}
+      />
+    </TouchableOpacity>
+  );
+};
+
+PortfolioWallet.defaultProps = {
+  user: {},
+  portfolio: {},
+  onFetchPortfolioWalletInfo: () => {},
+  onPress: () => {}
+};
+
+PortfolioWallet.propTypes = {
+  // eslint-disable-next-line react/forbid-prop-types
+  user: PropTypes.object,
+  // eslint-disable-next-line react/forbid-prop-types
+  portfolio: PropTypes.object,
+  onFetchPortfolioWalletInfo: PropTypes.func,
+  onPress: PropTypes.func,
+  i18n: I18nPropTypes.isRequired
+};
+
+export default PortfolioWallet;

@@ -1,0 +1,396 @@
+// @ts-nocheck
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import {
+  formatNumber,
+  stringToNumberFormat,
+  stripNonNumericChars
+} from "../../../modules/format";
+import { showInAppNotification } from "../../../modules/navigation";
+
+import {
+  PrimaryButton,
+  Header3,
+  Separator,
+  TextInput,
+  ViewContainer,
+  LoadingScreen,
+} from "../../../components-2";
+import Select from "../../../components-2/select/Select";
+import PickerRollerModal from "../components/picker-roller-modal";
+import PlanRow from "../components/plan-row/PlanRow";
+import PinCode from "../../digital-advisor/pin-code";
+
+const SectionNoseContainer = styled.View`
+  height: 16px;
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  border-bottom-right-radius: ${props => props.theme.spacingMedium};
+  border-bottom-left-radius: ${props => props.theme.spacingMedium};
+`;
+
+const KeyBoardAware = styled.KeyboardAvoidingView`
+  flex: 1;
+`;
+
+const ScrollView = styled.ScrollView`
+  flex: 1;
+`;
+
+const ButtonContainer = styled.View`
+  padding: ${props => props.theme.spacingMedium};
+`;
+
+const Form = styled.View`
+  flex: 1;
+  padding-left: ${props => props.theme.spacingMedium};
+  padding-right: ${props => props.theme.spacingMedium};
+`;
+
+const FormInput = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const LabelText = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-top: ${props => props.theme.spacingXSmall};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const SeparatorContainer = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+class ThematicCreateDCA extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      amount: null,
+      day: null,
+      dayItems: [],
+      isInputValid: false,
+      errorDayText: null,
+      errorAmountText: null,
+      options: [],
+      selectedOption: null,
+      minimumAmount: 10000,
+      isShowPin: false,
+      openPickerRollerModal: false,
+    };
+  }
+
+  componentDidMount() {
+    if (!this.props.portfolioDetail) {
+      this.props.getPortfolioSummary();
+    }
+    this.createDays();
+    this.onDidMount();
+  }
+
+  onDidMount = () => {
+    const { portfolioSummary, portfolioId, portfolioDetail } = this.props;
+    let options = [];
+    if (portfolioDetail) {
+      const { summary_detail: summaryDetail } = portfolioDetail;
+      options = [{
+        title: summaryDetail.account_name,
+        placeholder: summaryDetail.account_name,
+        type: summaryDetail.objective_name,
+        portfolioId: summaryDetail.portfolios_id,
+        minimumAmount: summaryDetail.subsequent_investment_amount
+      }];
+    } else if (portfolioSummary?.results?.length > 0) {
+      options = portfolioSummary.results
+      .filter(p => p.monthly_contribution.status !== "active")
+      .map(data => ({
+        title: data.account_name,
+        placeholder: data.account_name,
+        type: data.objective_name,
+        portfolioId: data.portfolios_id,
+        minimumAmount: data.subsequent_investment_amount
+      }));
+    }
+
+    if (options) {
+      let selectedOption = options[0];
+      const index = options.findIndex(option => option.portfolioId === portfolioId);
+      if (portfolioId != null && index !== -1) {
+        selectedOption = options[index];
+      }
+      const { minimumAmount } = selectedOption;
+      this.setState({ options, selectedOption, minimumAmount });
+    }
+  }
+
+  onFormatNumber = value => {
+    if (value !== null && value !== undefined) {
+      const number = this.stringToInt(value);
+      const total = this.displayNumber(number);
+      this.setState({ amount: total }, () => this.validateInput());
+    }
+  }
+
+  onSelect = (option) => {
+    this.setState({
+      selectedOption: option,
+      minimumAmount: option.minimumAmount
+    });
+  }
+
+  onSubmit = () => {
+    this.setState({ isShowPin: true });
+  }
+
+  onSubmittedPin = (userPin) => {
+    const { day, amount, selectedOption } = this.state;
+    if (selectedOption) {
+      const { portfolioId } = selectedOption;
+      this.props.updateDCAThematicPortfolio({
+        portfolioId,
+        userPin,
+        monthlyInvestment: stripNonNumericChars(amount),
+        date: Number(day),
+        onRequestDone: this.onHandleRequestDone
+      });
+    }
+  }
+
+  onHandleRequestDone = (result) => {
+    const { isDcaUpdated, navigator } = this.props;
+
+    if (result.success) {
+      if (isDcaUpdated) {
+        isDcaUpdated(false);
+      }
+
+      this.setState({ isShowPin: false });
+      const message = I18n.t("Thematic.DCACreateSuccessful");
+      showInAppNotification(navigator, {
+        text: message,
+        variant: "success"
+      });
+      navigator.pop();
+    }
+  }
+
+  onPinCancel = () => {
+    this.setState({ isShowPin: false });
+  }
+
+  onPickerModalClose = () => {
+    const { errorDayText } = this.state;
+    if (errorDayText) {
+      this.validateInput();
+    }
+  }
+
+  onPickerConfirm = (value) => {
+    const { errorDayText } = this.state;
+    const dayIsNull = value === null || value === "";
+    const day = dayIsNull ? "1" : value;
+    this.setState({ day, openPickerRollerModal: false }, () => {
+      if (errorDayText) {
+        this.validateInput();
+      }
+    });
+  }
+
+  createDays = () => {
+    const days = [];
+    for (let i = 1; i <= 31; i++) {
+      days.push(i.toString());
+    }
+    this.setState({ dayItems: days });
+  }
+
+  stringToInt = value => {
+    const regex = /,/g;
+    const number = value.toString().replace(regex, "");
+    return Number(number) || 0;
+  }
+
+  validateInput = () => {
+    const { amount, day, minimumAmount } = this.state;
+    let errorDayText = null;
+    let errorAmountText = null;
+    let valid = true;
+    if (day === null || day === undefined) {
+      valid = false;
+      errorDayText = I18n.t("Thematic.Validation.Date");
+    }
+    if (amount === null || amount === undefined) {
+      valid = false;
+      errorAmountText = I18n.t("Thematic.Validation.Number");
+    }
+    if (amount) {
+      if (this.stringToInt(amount) < 1 || this.stringToInt(amount) < minimumAmount) {
+        valid = false;
+        errorAmountText = I18n.t("Thematic.Validation.Number");
+      }
+    }
+    if (valid) {
+      this.setState({
+        isInputValid: true,
+        errorDayText: null,
+        errorAmountText: null
+      });
+    } else {
+      this.setState({
+        isInputValid: false,
+        errorDayText,
+        errorAmountText
+      });
+    }
+  }
+
+  displayNumber = value => {
+    const options = {
+      thousandSeparated: true,
+      mantissa: 2
+    };
+    return formatNumber(value, options);
+  }
+
+  renderRow = data => <PlanRow {...data} />;
+
+  render() {
+    const { navigator, portfolioSummary, portfolioDetail } = this.props;
+    const {
+      amount,
+      day,
+      isInputValid,
+      errorAmountText,
+      errorDayText,
+      options,
+      selectedOption,
+      minimumAmount,
+      isShowPin,
+      openPickerRollerModal,
+      dayItems,
+    } = this.state;
+
+    if (!portfolioSummary && !portfolioDetail) {
+      return <LoadingScreen caption="Loading..." />;
+    }
+
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        {
+          isShowPin && (
+            <PinCode
+              onSubmittedPin={this.onSubmittedPin}
+              onPinCancel={this.onPinCancel}
+              navigator={navigator}
+            />
+          )
+        }
+        <SectionNoseContainer />
+        <KeyBoardAware
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={100}
+        >
+          <ScrollView>
+            <Form>
+              <LabelText>{I18n.t("Thematic.DCAPlanLabel")}</LabelText>
+              <Select
+                id="selector"
+                options={options}
+                renderRow={this.renderRow}
+                label={I18n.t("Thematic.DCAPlanLabel")}
+                keyExtractor={item => item.title}
+                selectedOption={selectedOption}
+                onSelect={this.onSelect}
+              />
+            </Form>
+            <SeparatorContainer>
+              <Separator variant="full" />
+            </SeparatorContainer>
+            <Form>
+              <TouchableOpacity
+                id="dropdownButton"
+                activeOpacity={1}
+                onPress={() => this.setState({ openPickerRollerModal: true })}
+                pointerEvents="box-only"
+              >
+                <FormInput pointerEvents="none">
+                  <TextInput
+                    id="dropdownInput"
+                    label={I18n.t("Thematic.DayOfMonthLabel")}
+                    suffixPlaceholder={I18n.t("Thematic.DayOfMonthInlineLabel")}
+                    placeholder="1"
+                    keyboardType="numeric"
+                    value={day}
+                    variant={errorDayText ? "error" : null}
+                    helperText={errorDayText}
+                    pointerEvents="none"
+                  />
+                </FormInput>
+              </TouchableOpacity>
+              <FormInput>
+                <TextInput
+                  id="textInput"
+                  label={I18n.t("Thematic.MonthlyInvestmentLabel")}
+                  suffixPlaceholder={I18n.t("Thematic.Currency.THB")}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  variant={errorAmountText ? "error" : null}
+                  value={amount}
+                  onChangeText={(value) => this.setState({ amount: value })}
+                  onSubmitEditing={() => this.onFormatNumber(amount)}
+                  onBlur={() => this.onFormatNumber(amount)}
+                  helperText={`*${I18n.t("Thematic.FirstInvestHelperText", { minimum: stringToNumberFormat(minimumAmount) })}`}
+                  returnKeyType="done"
+                />
+              </FormInput>
+            </Form>
+          </ScrollView>
+        </KeyBoardAware>
+        <ButtonContainer>
+          <PrimaryButton
+            id="navigate"
+            onPress={this.onSubmit}
+            disable={!isInputValid}
+            label="ยืนยันการาสร้างแผน DCA"
+            size="large"
+          />
+        </ButtonContainer>
+        <PickerRollerModal
+          isVisible={openPickerRollerModal}
+          onModalClose={this.onPickerModalClose}
+          pickerProps={{
+            confirmText: "Done",
+            pickerData: dayItems,
+            selectedValue: day,
+            onConfirm: this.onPickerConfirm,
+          }}
+        />
+      </ViewContainer>
+    );
+  }
+}
+
+ThematicCreateDCA.defaultProps = {
+  portfolioId: null,
+  portfolioDetail: null
+};
+
+ThematicCreateDCA.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+  }).isRequired,
+  portfolioSummary: PropTypes.shape({
+    results: PropTypes.array,
+  }).isRequired,
+  portfolioDetail: PropTypes.shape(),
+  portfolioId: PropTypes.number,
+  isDcaUpdated: PropTypes.func.isRequired,
+  getPortfolioSummary: PropTypes.func.isRequired,
+  updateDCAThematicPortfolio: PropTypes.func.isRequired,
+  updateTopMessageBox: PropTypes.func.isRequired,
+};
+
+export default ThematicCreateDCA;

@@ -1,0 +1,503 @@
+/* eslint-disable react/prop-types */
+import PropTypes from "prop-types";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Image, View } from "react-native";
+import i18n from "react-native-i18n";
+import { Navigation } from "react-native-navigation";
+import styled from "styled-components/native";
+import { WATCHLIST_DETAIL, WATCH_LIST } from "../../../modules/analytics/analytics-constants";
+import NotFound from "../../../../assets/images/watchlist-not-found.png";
+import { Row } from "../../../components";
+import {
+  Body2,
+  Body3,
+  BottomModal,
+  Button,
+  Header1,
+  Icon,
+  IconButton,
+  MessageBottomModal,
+  NavigationBar,
+  Separator,
+  ViewContainer
+} from "../../../components-2";
+import LoadingScreen from "../../../components-2/loadingIndicator/LoadingScreen/LoadingScreen";
+import { StatusCode } from "../../../redux/favorite-watchlist/favorite-watchlist-constants";
+import {
+  FAVORITE_WATCHLIST_EDITOR,
+  FAVORITE_WATCHLIST_VIEWER
+} from "../../../redux/navigation/navigation-constants";
+import ListItem from "../../favorite-watchlist/favorite-watchlist-group/components/ListItem";
+import {
+  TutorialWatchlistEditFolderStep,
+  TutorialWatchlistDeleteFolderStep,
+  TutorialWatchlistAddAssetButtonStep
+} from "../../tutorial/watchlist";
+import { TUTORIAL_STEP } from "../../../redux/tutorial/tutorial-constants";
+
+const SELECT_OPTION_HEIGHT = 64;
+const DIVIDER_HEIGHT = 1;
+
+const OverflowView = styled.View(props => ({
+  color: props.theme.contentColorHigh,
+  padding: `${props.theme.spacingXXSmall} ${props.theme.spacingMedium} ${props.theme.spacingMedium}`,
+  backgroundColor: props.theme.backgroundSecondaryPurple,
+  borderBottomLeftRadius: props.theme.spacingMedium,
+  borderBottomRightRadius: props.theme.spacingMedium,
+  boxShadow: `0 ${props.theme.spacingXXXSmall} ${props.theme.spacingXXXSmall}
+    rgba(223, 219, 236, 0.3)`
+}));
+
+const Title = styled(Header1)(props => ({
+  marginBottom: props.theme.spacingMedium,
+  textAlign: "center"
+}));
+
+const OptionTitle = styled(Body2)(props => ({
+  marginLeft: `${props.theme.spacingXSmallValue + 2}px`
+}));
+
+const ImageBodyContainer = styled.View(props => ({
+  marginTop: `${props.theme.spacingXSmallValue * 8}px`,
+  alignItems: "center",
+  justifyContent: "center"
+}));
+
+const BoxContainer = styled.View(() => ({
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "wrap"
+}));
+
+const PlusIcon = styled(IconButton).attrs(props => ({
+  icon: "plus",
+  color: props.theme.contentColorCTAPurple,
+  size: "icon24"
+}))``;
+
+const OtherIcon = styled(IconButton).attrs(props => ({
+  icon: "other-menu",
+  color: props.theme.contentColorCTAPurple,
+  size: "icon24"
+}))``;
+
+const BlackIcon = styled(Icon).attrs(props => ({
+  name: props.name,
+  size: "icon24",
+  color: props.theme.contentColorVeryHigh
+}))``;
+
+const FlatListContainer = styled(FlatList).attrs(props => ({
+  contentContainerStyle: { paddingBottom: props.theme.spacingLargeValue }
+}))``;
+
+const FavoriteWatchlistViewer = props => {
+  const {
+    selectedItem,
+    watchlistSelectedItem,
+    hasDeleteSuccess,
+    hasDeleteFailure,
+    navigator,
+    deleteWatchlist,
+    getWatchListDetail,
+    updateAssetMappings,
+    assetMappings,
+    hasGetWatchlistDetailFailure,
+    loadingScreen,
+    deleteWatchlistResult,
+    popularProductsResult,
+    resetGetWatchlistDetail,
+    resetDeleteWatchlist,
+    setAnalyticsTrackChannel,
+    resetGetWatchlistSummary,
+    resetGetWatchlistInquiry,
+    currentScreenId,
+    currentStep
+  } = props;
+  const [visible, setVisible] = useState(false);
+  const [isShowErrorModal, setIsShowErrorModal] = useState(false);
+  const [isShowDeleteModal, setIsShowDeleteModal] = useState(false);
+  const [selectedOption, setSelectedOption] = useState("");
+
+  const options = [
+    {
+      title: i18n.t("FavoriteWatchlist.WatchlistViewer.BottomModal.Option.edit"),
+      icon: "pencil",
+      onPress: () => {
+        setSelectedOption("modify");
+        setVisible(false);
+      }
+    },
+    {
+      title: i18n.t("FavoriteWatchlist.WatchlistViewer.BottomModal.Option.delete"),
+      icon: "delete",
+      onPress: () => {
+        setSelectedOption("delete");
+        setVisible(false);
+      }
+    }
+  ];
+
+  useEffect(() => {
+    if (currentScreenId === FAVORITE_WATCHLIST_VIEWER && !watchlistSelectedItem) {
+      getWatchListDetail(selectedItem.id);
+    }
+  }, [getWatchListDetail, selectedItem, currentScreenId]);
+
+  useEffect(() => {
+    if (hasGetWatchlistDetailFailure) {
+      setIsShowErrorModal(true);
+    }
+  }, [hasGetWatchlistDetailFailure]);
+
+  useEffect(() => {
+    if (currentStep === TUTORIAL_STEP.WATCHLIST_RENAME_FOLDER_STEP && selectedItem.id) {
+      navigator.push({
+        screen: FAVORITE_WATCHLIST_EDITOR,
+        backButtonTitle: "",
+        passProps: {
+          watchlistId: selectedItem.id,
+          screenId: FAVORITE_WATCHLIST_EDITOR
+        },
+        navigatorStyle: {
+          tabBarHidden: true
+        }
+      });
+    }
+  }, [currentStep, selectedItem]);
+
+  useEffect(() => {
+    if (hasDeleteSuccess) {
+      navigator.pop();
+      resetGetWatchlistDetail();
+      resetGetWatchlistSummary();
+      resetGetWatchlistInquiry();
+    }
+  }, [navigator, hasDeleteSuccess, resetGetWatchlistDetail]);
+
+  useEffect(() => {
+    if (hasDeleteFailure) {
+      if (
+        [StatusCode.RemoveMainFolder, StatusCode.RemoveLastFolder].includes(
+          deleteWatchlistResult.statusCode
+        )
+      ) {
+        setIsShowDeleteModal(true);
+      } else {
+        setIsShowErrorModal(true);
+      }
+    }
+  }, [hasDeleteFailure, deleteWatchlistResult]);
+
+  const handleTrackChannel = useCallback(() => {
+    setAnalyticsTrackChannel(WATCHLIST_DETAIL);
+  }, [setAnalyticsTrackChannel]);
+
+  const rightComponent = () => {
+    return (
+      <Fragment>
+        <TutorialWatchlistAddAssetButtonStep>
+          <PlusIcon
+            onPress={() => {
+              Navigation.handleDeepLink({ link: "App.openSearch" });
+            }}
+          />
+        </TutorialWatchlistAddAssetButtonStep>
+        <TutorialWatchlistDeleteFolderStep>
+          <TutorialWatchlistEditFolderStep>
+            <OtherIcon onPress={() => setVisible(true)} />
+          </TutorialWatchlistEditFolderStep>
+        </TutorialWatchlistDeleteFolderStep>
+      </Fragment>
+    );
+  };
+
+  // eslint-disable-next-line react/prop-types
+  const renderListItem = ({ item: data, index }) => {
+    renderListItem.propTypes = {
+      item: PropTypes.shape({}).isRequired
+    };
+
+    return (
+      <ListItem
+        setTrackChannel={handleTrackChannel}
+        updateAssetMappings={updateAssetMappings}
+        assetMappings={assetMappings}
+        data={data}
+        navigator={props.navigator}
+        showBottomLine={index !== watchlistSelectedItem?.details.length - 1}
+        departure={WATCH_LIST}
+      />
+    );
+  };
+  const renderItem = useCallback(option => {
+    const { item } = option;
+    const leftComponent = () => {
+      return (
+        <View style={{ flexDirection: "row" }}>
+          <BlackIcon name={item?.icon} />
+          <OptionTitle variant="black">{item?.title}</OptionTitle>
+        </View>
+      );
+    };
+
+    return (
+      <TouchableOpacity onPress={item?.onPress}>
+        <Row noPaddingHorizontal left={leftComponent()} />
+      </TouchableOpacity>
+    );
+  }, []);
+
+  const renderSeperator = () => <Separator variant="full" />;
+
+  const getItemLayout = useCallback(
+    (data, index) => ({
+      length: SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT,
+      offset: (SELECT_OPTION_HEIGHT + DIVIDER_HEIGHT) * index,
+      index
+    }),
+    []
+  );
+
+  const renderContent = useMemo(() => {
+    if (loadingScreen) {
+      return <LoadingScreen />;
+    }
+    if (hasGetWatchlistDetailFailure || !watchlistSelectedItem) {
+      return null;
+    }
+    return (
+      <>
+        {!watchlistSelectedItem?.details.length ? (
+          <ImageBodyContainer>
+            <Image style={{ width: 182, height: 78 }} resizeMode="stretch" source={NotFound} />
+            <View style={{ width: 240, alignItems: "center" }}>
+              <Header1 variant="black" style={{ marginTop: 24 }}>
+                {i18n.t("FavoriteWatchlist.WatchlistViewer.NotFound.Title")}
+              </Header1>
+              <Body2 variant="greyHigh" style={{ marginTop: 8, textAlign: "center" }}>
+                {i18n.t("FavoriteWatchlist.WatchlistGroup.NotFound.Description")}
+              </Body2>
+              <BoxContainer>
+                <Button
+                  style={{ marginTop: 24 }}
+                  label={i18n.t("FavoriteWatchlist.WatchlistViewer.NotFound.Button")}
+                  size="medium"
+                  variant="Primary"
+                  onPress={() => Navigation.handleDeepLink({ link: "App.openSearch" })}
+                />
+              </BoxContainer>
+            </View>
+          </ImageBodyContainer>
+        ) : (
+          <FlatListContainer
+            showsVerticalScrollIndicator={false}
+            data={watchlistSelectedItem?.details || []}
+            renderItem={renderListItem}
+          />
+        )}
+      </>
+    );
+  }, [
+    loadingScreen,
+    watchlistSelectedItem,
+    hasGetWatchlistDetailFailure,
+    popularProductsResult.data.data
+  ]);
+
+  const getMessageBottomModalTitle = useMemo(() => {
+    if (isShowErrorModal) {
+      return i18n.t("ErrorModal.Header");
+    } else if (isShowDeleteModal) {
+      if (deleteWatchlistResult.statusCode === StatusCode.RemoveMainFolder) {
+        return i18n.t("FavoriteWatchlist.WatchlistViewer.ErrorModal.Code5000.Title");
+      }
+      return i18n.t("FavoriteWatchlist.WatchlistViewer.ErrorModal.Title");
+    }
+    return undefined;
+  }, [isShowErrorModal, isShowDeleteModal, deleteWatchlistResult]);
+
+  const getMessageBottomModalBody = useMemo(() => {
+    if (isShowErrorModal) {
+      return i18n.t("ErrorModal.Description");
+    } else if (isShowDeleteModal) {
+      if (deleteWatchlistResult.statusCode === StatusCode.RemoveMainFolder) {
+        return i18n.t("FavoriteWatchlist.WatchlistViewer.ErrorModal.Code5000.Description");
+      }
+      if (deleteWatchlistResult.statusCode === StatusCode.RemoveLastFolder) {
+        return i18n.t("FavoriteWatchlist.WatchlistViewer.ErrorModal.Code5001.Description");
+      }
+      return i18n.t("FavoriteWatchlist.WatchlistViewer.ErrorModal.Description");
+    }
+    return undefined;
+  }, [isShowErrorModal, isShowDeleteModal, deleteWatchlistResult]);
+
+  const getMessageBottomModalButton = useMemo(() => {
+    if (isShowErrorModal || deleteWatchlistResult.statusCode === StatusCode.RemoveMainFolder) {
+      return [
+        {
+          variant: "primary",
+          label: i18n.t("ErrorModal.Button"),
+          onPress: () => {
+            if (isShowErrorModal) {
+              setIsShowErrorModal(false);
+            } else {
+              setIsShowDeleteModal(false);
+            }
+            resetDeleteWatchlist();
+          }
+        }
+      ];
+    } else if (isShowDeleteModal) {
+      return [
+        {
+          variant: "secondary",
+          label: i18n.t("FavoriteWatchlist.BottomDialog.General.Cancel"),
+          onPress: () => {
+            setIsShowDeleteModal(false);
+            resetDeleteWatchlist();
+          }
+        },
+        {
+          variant: "primary",
+          label: i18n.t("FavoriteWatchlist.BottomDialog.General.Delete"),
+          onPress: () => {
+            setIsShowDeleteModal(false);
+            if (deleteWatchlistResult.statusCode === StatusCode.RemoveLastFolder) {
+              deleteWatchlist(watchlistSelectedItem.id, [StatusCode.RemoveLastFolder]);
+            } else {
+              deleteWatchlist(watchlistSelectedItem.id);
+            }
+          }
+        }
+      ];
+    }
+    return [];
+  }, [isShowErrorModal, isShowDeleteModal, deleteWatchlistResult]);
+
+  const handleOnModalClose = useCallback(() => {
+    if (isShowErrorModal) {
+      setIsShowErrorModal(false);
+    } else {
+      setIsShowDeleteModal(false);
+      resetDeleteWatchlist();
+    }
+  }, [isShowErrorModal]);
+
+  const handleOnModalHide = useCallback(() => {
+    if (selectedOption === "modify") {
+      resetDeleteWatchlist();
+      navigator.push({
+        screen: FAVORITE_WATCHLIST_EDITOR,
+        backButtonTitle: "",
+        passProps: {
+          watchlistId: selectedItem.id,
+          screenId: FAVORITE_WATCHLIST_EDITOR
+        },
+        navigatorStyle: {
+          tabBarHidden: true
+        }
+      });
+    } else if (selectedOption === "delete") {
+      setIsShowDeleteModal(true);
+    }
+    setSelectedOption("");
+  }, [selectedOption, navigator, resetDeleteWatchlist, resetGetWatchlistDetail]);
+
+  return (
+    <ViewContainer variant="light">
+      <NavigationBar
+        isShowBottomRadius={false}
+        title={watchlistSelectedItem?.name}
+        onPressBackButton={() => {
+          navigator.pop();
+        }}
+        rightComponent={rightComponent()}
+      />
+      <OverflowView>
+        <Body3 variant="greyHigh">{`${watchlistSelectedItem?.numberOfAsset || 0} รายการ`}</Body3>
+      </OverflowView>
+      {renderContent}
+      <BottomModal
+        isVisible={visible}
+        onModalClose={() => setVisible(false)}
+        onModalHide={handleOnModalHide}
+      >
+        <Title vatiant="black">
+          {i18n.t("FavoriteWatchlist.WatchlistViewer.BottomModal.Title")}
+        </Title>
+        <FlatList
+          scrollEnabled
+          data={options}
+          getItemLayout={getItemLayout}
+          ItemSeparatorComponent={renderSeperator}
+          renderItem={renderItem}
+          initialScrollIndex={0}
+        />
+      </BottomModal>
+      <MessageBottomModal
+        isVisible={isShowErrorModal || isShowDeleteModal}
+        title={getMessageBottomModalTitle}
+        body={getMessageBottomModalBody}
+        buttons={getMessageBottomModalButton}
+        buttonAlignment="row"
+        animationOutTiming={150}
+        onModalClose={handleOnModalClose}
+        onModalHide={() => {
+          if (hasGetWatchlistDetailFailure) {
+            resetGetWatchlistDetail();
+            resetDeleteWatchlist();
+            navigator.pop();
+          }
+        }}
+      />
+    </ViewContainer>
+  );
+};
+
+FavoriteWatchlistViewer.defaultProps = {
+  loadingScreen: false,
+  hasDeleteSuccess: false,
+  hasDeleteFailure: false,
+  hasGetWatchlistDetailFailure: false,
+  deleteWatchlistResult: {},
+  assetMappings: [],
+  currentStep: null
+};
+
+FavoriteWatchlistViewer.propTypes = {
+  selectedItem: PropTypes.string.isRequired,
+  watchlistSelectedItem: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+    details: PropTypes.arrayOf(PropTypes.shape({})),
+    numberOfAsset: PropTypes.number.isRequired
+  }).isRequired,
+  getWatchListDetail: PropTypes.func.isRequired,
+  deleteWatchlist: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    setTitle: PropTypes.func,
+    push: PropTypes.func,
+    pop: PropTypes.func,
+    addOnNavigatorEvent: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  hasDeleteSuccess: PropTypes.bool,
+  hasDeleteFailure: PropTypes.bool,
+  hasGetWatchlistDetailFailure: PropTypes.bool,
+  loadingScreen: PropTypes.bool,
+  deleteWatchlistResult: PropTypes.shape({ statusCode: PropTypes.string }),
+  updateAssetMappings: PropTypes.func.isRequired,
+  assetMappings: PropTypes.instanceOf(PropTypes.array),
+  popularProductsResult: PropTypes.arrayOf(PropTypes.any).isRequired,
+  resetGetWatchlistDetail: PropTypes.func.isRequired,
+  resetDeleteWatchlist: PropTypes.func.isRequired,
+  setAnalyticsTrackChannel: PropTypes.func.isRequired,
+  resetGetWatchlistSummary: PropTypes.func.isRequired,
+  resetGetWatchlistInquiry: PropTypes.func.isRequired,
+  currentScreenId: PropTypes.string.isRequired,
+  currentStep: PropTypes.string
+};
+
+export default FavoriteWatchlistViewer;

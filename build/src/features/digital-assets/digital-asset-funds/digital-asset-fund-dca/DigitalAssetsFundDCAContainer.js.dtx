@@ -1,0 +1,350 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard, View } from "react-native";
+import { debounce } from "lodash";
+import { isEmpty } from "lodash/fp";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import Container from "../../../../components-2/digital-assets-funds/Container";
+import {
+  NumberInput,
+  PrimaryButton,
+  Separator,
+  KeyboardAwareScrollViewContainer,
+  Header3,
+  BottomModal,
+  TextInput,
+  MessageBottomModal,
+  Body3,
+  Header2
+} from "../../../../components-2";
+import { SelectAccount } from "../../../../components/digital-assets";
+import {
+  OptionAccountPlaceholder,
+  OptionWalletAccount
+} from "../../../../components/digital-assets/options/OptionFundAccount";
+import { DA_PAYMENT_SYSTEM } from "../../digital-assets-constants";
+import {
+  Warpper,
+  SeparatorBottom,
+  ButtomWarpper,
+  InputContainer
+} from "../../../../components-2/digital-assets-funds/DAFundsStyles";
+import { amountValueDisplay } from "../../../../modules/i18n/value-display";
+import PickerRoller from "../../../../components-2/picker/PickerRoller";
+import {
+  DA_FUND_DCA_EDIT,
+  DA_FUND_DCA_CANCEL
+} from "../../../digital-assets/digital-asset-funds/digital-assets-funds-constants";
+
+const DetailContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+`;
+
+const FormInput = styled.View`
+  padding-top: ${props => props.theme.spacingMedium};
+`;
+
+const dayInMonth = Array(31)
+  .fill()
+  .map((_, i) => i + 1);
+
+const DigitalAssetsFundsSellContainer = ({
+  i18n,
+  goNext,
+  paymentMethods,
+  dcaData,
+  infoData,
+  modalVisible,
+  setMoalVisible,
+  screen,
+  openModalEiWallet
+}) => {
+  const [state, setState] = useState({
+    paymentMethod: paymentMethods.find(method => method.code === DA_PAYMENT_SYSTEM.EI_WALLET),
+    amount: Number(dcaData?.amount) || 0,
+    amountError: ""
+  });
+
+  const [displayModal, setDisplayModal] = useState(false);
+  const [monthDay, setMonthDay] = useState(dcaData?.scheduleDate || "1");
+  const [isEdit, setIsEdit] = useState(true);
+
+  const onSelectedDate = value => {
+    const selectedValue = value || "1";
+    setMonthDay(selectedValue);
+    setDisplayModal(false);
+    setIsEdit(false);
+  };
+
+  const onSelectPaymentMethod = paymentMethod => {
+    setState(prevState => ({
+      ...prevState,
+      paymentMethod
+    }));
+    setIsEdit(false);
+  };
+
+  const getAmountError = amount => {
+    if (amount > 0 && amount < Number(infoData?.minimumInvestment)) {
+      return i18n.getLabel("DigitalAssetsFunds.Fund.Withdrawal.Error.MinimumAmount", {
+        amount: amountValueDisplay(Number(infoData?.minimumInvestment))
+      });
+    }
+
+    if (amount > 0 && amount > Number(state?.paymentMethod?.balance)) {
+      return i18n.translations["DigitalAssetsFunds.Fund.ErrorMoreAmount"];
+    }
+
+    return "";
+  };
+
+  const debouncedInput = debounce(({ numericValue }) => {
+    setState(prevState => ({
+      ...prevState,
+      amount: numericValue,
+      amountError: getAmountError(numericValue)
+    }));
+
+    if (isEdit) {
+      setIsEdit(false);
+    }
+  }, 500);
+
+  const onChangeAmount = value => {
+    debouncedInput(value);
+  };
+
+  const isButtonDisabled =
+    state.paymentMethod === null ||
+    (state.paymentMethod !== undefined && state.paymentMethod.linkToOpenAccount === true) ||
+    state.amount <= 0 ||
+    state.amount > Number(state?.paymentMethod?.balance) ||
+    state.amountError !== "" ||
+    isEdit;
+
+  const onSubmit = () => {
+    Keyboard.dismiss();
+
+    goNext({
+      info: {
+        id: dcaData?.id,
+        scheduleDate: monthDay,
+        amount: `${state.amount}`,
+        fundCompanyId: dcaData?.fundCompanyId,
+        fundId: dcaData?.fundId,
+        fundCode: dcaData?.fundCode,
+        paymentMethod: state.paymentMethod?.code,
+        buyType: DA_FUND_DCA_EDIT
+      },
+      onSuccess: i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.Success"]
+    });
+  };
+
+  const onModalClose = () => {
+    setMoalVisible(false);
+  };
+
+  useEffect(() => {
+    if (!isEmpty(state.paymentMethod) && state.paymentMethod.linkToOpenAccount) {
+      setTimeout(() => {
+        openModalEiWallet();
+      }, 1000);
+    }
+  }, [state.paymentMethod]);
+
+  const onDelete = () => {
+    setMoalVisible(false);
+    goNext({
+      info: {
+        id: dcaData?.id,
+        buyType: DA_FUND_DCA_CANCEL,
+        screen
+      }
+    });
+  };
+
+  const contentMessageModal = (
+    <>
+      <DetailContainer>
+        <Body3>{i18n.translations["DigitalAssetsFunds.Activity.Label.Fund"]}</Body3>
+        <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
+          <Header2>{infoData?.fundName}</Header2>
+          <Body3>{infoData?.fundShortName}</Body3>
+        </View>
+      </DetailContainer>
+      <DetailContainer>
+        <Body3>{i18n.translations["DigitalAssetsFunds.Activity.Label.Dca.Schedule"]}</Body3>
+        <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
+          <Header3>
+            {i18n.getLabel("DigitalAssetsFunds.Activity.Label.Dca.ScheduleDate", {
+              date: monthDay
+            })}
+          </Header3>
+        </View>
+      </DetailContainer>
+      <DetailContainer>
+        <Body3>{i18n.translations["DigitalAssetsFunds.Activity.Label.NotionalValue"]}</Body3>
+        <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
+          <Header3>{amountValueDisplay(state.amount)}</Header3>
+        </View>
+      </DetailContainer>
+    </>
+  );
+
+  return (
+    <Warpper>
+      <MessageBottomModal
+        isVisible={modalVisible}
+        title={i18n.translations["DigitalAssetsFunds.Activity.Cancel.DcaHeader"]}
+        content={contentMessageModal}
+        buttons={[
+          {
+            variant: "secondary",
+            label: i18n.translations["DigitalAssetsFunds.Fund.DCA.Delete.Button.No"],
+            onPress: onModalClose
+          },
+          {
+            variant: "primary",
+            label: i18n.translations["DigitalAssetsFunds.Fund.DCA.Delete.Button.Yes"],
+            onPress: onDelete
+          }
+        ]}
+        buttonAlignment="row"
+        onModalClose={onModalClose}
+      />
+      <KeyboardAwareScrollViewContainer>
+        <Container flexDirection="column" justifyContent="flex-start">
+          <InputContainer>
+            <Header3 style={{ marginBottom: 8 }}>
+              {i18n.translations["DigitalAssetsFunds.Fund.DCA.PayingAccount"]}
+            </Header3>
+            <SelectAccount
+              label={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.AccountLabel"]}
+              options={paymentMethods}
+              renderPlaceholder={() => (
+                <OptionAccountPlaceholder
+                  title={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.AccountLabel"]}
+                />
+              )}
+              renderSelected={option => (
+                <OptionWalletAccount
+                  i18n={i18n}
+                  type={option.code}
+                  account={option.text}
+                  accountNumber={option.accountNumber}
+                  linkToOpenAccount={option.linkToOpenAccount}
+                />
+              )}
+              renderOption={option => (
+                <OptionWalletAccount
+                  i18n={i18n}
+                  type={option.code}
+                  account={option.text}
+                  accountNumber={option.accountNumber}
+                  linkToOpenAccount={option.linkToOpenAccount}
+                  isOption
+                />
+              )}
+              keyExtractor={item => item.accountNumber}
+              selectedAccount={state.paymentMethod}
+              setSelectedAccount={onSelectPaymentMethod}
+            />
+          </InputContainer>
+          <InputContainer>
+            <SeparatorBottom variant="full" />
+            <TouchableOpacity
+              id="picker"
+              activeOpacity={1}
+              onPress={() => setDisplayModal(true)}
+              pointerEvents="box-only"
+            >
+              <FormInput pointerEvents="none">
+                <TextInput
+                  id="textInput3"
+                  label={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.AccountDate"]}
+                  suffixPlaceholder={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.Monthly"]}
+                  keyboardType="numeric"
+                  value={`${monthDay}`}
+                  pointerEvents="none"
+                />
+              </FormInput>
+            </TouchableOpacity>
+          </InputContainer>
+          <SeparatorBottom variant="full" />
+          <InputContainer>
+            <NumberInput
+              key="da-fund-input-amount"
+              label={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.FundMonthly"]}
+              placeholder="0.00"
+              inlineLabel={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.Unit"]}
+              format="unit"
+              controlledValue={state.amount}
+              variant={state.amountError ? "error" : null}
+              initialValue={Number(dcaData?.amount)}
+              onValueChange={onChangeAmount}
+              helperText={
+                state.amountError !== ""
+                  ? state.amountError
+                  : i18n.getLabel("DigitalAssetsFunds.Fund.Withdrawal.Error.MinimumAmount", {
+                      amount: amountValueDisplay(Number(infoData?.minimumInvestment))
+                    })
+              }
+            />
+          </InputContainer>
+          <Separator variant="full" />
+        </Container>
+      </KeyboardAwareScrollViewContainer>
+      <ButtomWarpper>
+        <PrimaryButton
+          label={i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.Confirmed"]}
+          size="large"
+          disable={isButtonDisabled}
+          onPress={onSubmit}
+        />
+      </ButtomWarpper>
+      <BottomModal
+        noPadding
+        propagateSwipe
+        swipeDirection={null}
+        isVisible={displayModal}
+        onModalClose={() => {
+          setDisplayModal(false);
+        }}
+      >
+        <PickerRoller
+          confirmText="Done"
+          pickerData={dayInMonth}
+          selectedValue={monthDay}
+          onConfirm={onSelectedDate}
+        />
+      </BottomModal>
+    </Warpper>
+  );
+};
+DigitalAssetsFundsSellContainer.defaultProps = {
+  screen: ""
+};
+
+DigitalAssetsFundsSellContainer.propTypes = {
+  i18n: PropTypes.shape({
+    translations: PropTypes.object,
+    getLabel: PropTypes.func
+  }).isRequired,
+  paymentMethods: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  goNext: PropTypes.func.isRequired,
+  dcaData: PropTypes.shape().isRequired,
+  infoData: PropTypes.shape().isRequired,
+  modalVisible: PropTypes.bool.isRequired,
+  setMoalVisible: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func.isRequired
+  }).isRequired,
+  screen: PropTypes.string,
+  openModalEiWallet: PropTypes.func.isRequired
+};
+
+export default DigitalAssetsFundsSellContainer;

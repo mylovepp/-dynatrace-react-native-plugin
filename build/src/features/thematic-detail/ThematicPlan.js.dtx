@@ -1,0 +1,198 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { StyleSheet, ScrollView, FlatList } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+
+import { Header2, TextButtonL, Body2, TextOverlineR, TextOverlineM } from "../../components-2";
+
+const LIMIT_NUM_OF_LINES = 4;
+
+const Container = styled.View`
+  backgroundColor: ${props => props.theme.backgroundWhite};
+  shadowColor: ${props => props.theme.boxShadowColor};
+  borderBottomLeftRadius: 16px;
+  borderBottomRightRadius: 16px;
+  paddingHorizontal: 16px;
+  paddingTop: 16px;
+  paddingBottom: 30px;
+`;
+
+const AssetContainer = styled.View`
+  backgroundColor: ${props => props.theme.backgroundWhite};
+  margin: 16px;
+  borderRadius: 16px;
+`;
+
+const AssetHeaderItem = styled.View`
+  padding: 16px;
+  borderBottomColor: ${props => props.theme.separatorGrey};
+  borderBottomWidth: 1px;
+`;
+
+const VerticalHeader = styled.View`
+  height: 27px;
+  width: 5px;
+  borderRadius: 6px;
+  backgroundColor: ${props => props.theme.scbPrimaryPurple};
+  marginRight: 8px;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+`;
+
+const HeaderText = styled(Header2)``;
+
+const HighlightText = styled(TextButtonL)`
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const CaptionText = styled(Body2)`
+   color: ${props => props.theme.contentColorHigh};
+`;
+
+const SmallText = styled(TextOverlineR)`
+  justify-content: flex-end;
+  flex: 1;
+  color: ${props => props.theme.contentColorHigh};
+`;
+
+const AssetText = styled(TextOverlineM)`
+  justify-content: flex-end;
+  color: ${props => props.theme.ctaPurple};
+  padding-right: 8px;
+  padding-left: 16px;
+`;
+
+const AssetItem = styled.View`
+  paddingVertical: 16px;
+  marginHorizontal: 16px;
+  borderBottomColor:  ${props => props.theme.separatorGrey};
+  borderBottomWidth: 1px;
+`;
+
+const CaptionContainer = styled.View`
+  paddingTop: 8px;
+  paddingBottom: 16px;
+`;
+
+const styles = StyleSheet.create({
+  shadowContainer: {
+    elevation: 2,
+    shadowRadius: 2,
+    shadowOpacity: 0.3,
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+  },
+});
+
+class ThematicPlan extends Component {
+  state = {
+    showMoreButton: false,
+  }
+
+  onReadMoreButton = () => {
+    this.props.navigateToThematicReadMore(this.props.selectedThematicModel);
+  };
+
+  onFactSheet = (title, sheet) => {
+    this.props.navigateToFactSheet({
+      title,
+      fundClass: sheet,
+      errorText: I18n.t("SingleModel.Error.PDF"),
+    });
+  }
+
+  renderListHeader = () => {
+    return (
+      <AssetHeaderItem>
+        <RowContainer>
+          <VerticalHeader />
+          <HeaderText>{I18n.t("SingleModel.Text.Assets")}</HeaderText>
+        </RowContainer>
+      </AssetHeaderItem>
+    );
+  }
+
+  renderAssetItem = (data) => {
+    const { title, sheet, value } = data.item;
+    const { index } = data;
+    const { assetData } = this.props;
+    return (
+      <AssetItem
+        style={[
+          index === assetData.length - 1 && { borderBottomWidth: 0 }
+        ]}
+        key={index}
+      >
+        <HeaderText>{title}</HeaderText>
+        <RowContainer>
+          <SmallText>{value}</SmallText>
+          <TouchableOpacity onPress={() => this.onFactSheet(title, sheet)}>
+            <AssetText>PDF</AssetText>
+          </TouchableOpacity>
+        </RowContainer>
+      </AssetItem>
+    );
+  }
+
+  render() {
+    const { showMoreButton } = this.state;
+    const { description, assetData, isGoalBased } = this.props;
+    return (
+      <ScrollView>
+        {
+          !isGoalBased && (
+            <Container style={styles.shadowContainer}>
+              <HeaderText>{I18n.t("SingleModel.Text.AboutTitle")}</HeaderText>
+              <CaptionContainer>
+                <CaptionText
+                  numberOfLines={LIMIT_NUM_OF_LINES}
+                  onTextLayout={({ nativeEvent: { lines } }) =>
+                    this.setState({ showMoreButton: lines.length >= LIMIT_NUM_OF_LINES })
+                  }
+                >
+                  {description}
+                </CaptionText>
+              </CaptionContainer>
+              {
+                showMoreButton === true && (
+                  <HighlightText onPress={this.onReadMoreButton}>{I18n.t("SingleModel.Button.ReadMore")}</HighlightText>
+                )
+              }
+            </Container>
+          )
+        }
+        <AssetContainer>
+          <FlatList
+            ListHeaderComponent={this.renderListHeader}
+            keyExtractor={(item) => item.title}
+            data={assetData || []}
+            renderItem={this.renderAssetItem}
+          />
+        </AssetContainer>
+      </ScrollView>
+    );
+  }
+}
+
+ThematicPlan.defaultProps = {
+  assetData: [],
+  description: "",
+  isGoalBased: false,
+};
+
+ThematicPlan.propTypes = {
+  assetData: PropTypes.shape(),
+  description: PropTypes.string,
+  navigateToThematicReadMore: PropTypes.func.isRequired,
+  navigateToFactSheet: PropTypes.func.isRequired,
+  selectedThematicModel: PropTypes.shape().isRequired,
+  isGoalBased: PropTypes.bool,
+};
+
+export default ThematicPlan;

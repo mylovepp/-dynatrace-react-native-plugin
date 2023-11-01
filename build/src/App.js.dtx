@@ -1,0 +1,149 @@
+import React from "react";
+import { Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import DeviceInfo from "react-native-device-info";
+import JailMonkey from "jail-monkey";
+import { Provider as RNProvider } from "react-redux";
+import { ThemeProvider } from "styled-components/native";
+import SplashScreen from "react-native-splash-screen";
+import { BackHandler, Platform } from "react-native";
+import analytics from "@react-native-firebase/analytics";
+import { initShakeDevTools } from "@invx/initialise/shakeDevTools";
+
+import {
+  clearCredentialData,
+  clearPreCredentialData,
+  syncCredential
+} from "@invx/modules/biometric";
+import AsyncStorage from "@react-native-community/async-storage";
+import { LOGGED_IN } from "@invx/features/login/login-constants";
+import { startNetworkLog } from "@invx/components/dev-tools/DevTools/DevTools";
+
+import "./modules/polyfill";
+import { TradeServiceProvider } from "./components/trading/TradeServiceContext";
+import registerScreens from "./screens/registerScreens";
+import configureStore from "./initialise/store";
+import exceptionHandler from "./initialise/exception_handler";
+import initialiseI18N from "./initialise/i18n";
+import theme from "./theme";
+import { initStreamLink } from "./initialise/initStreamlink";
+import initialiseEmitr from "./initialise/emitr";
+import initialiseTradeService from "./initialise/initTrading";
+import { startApplicationBlockedScreen } from "./modules/navigation";
+import { listenForDeeplink, listenForFirebaseDynamicLink } from "./redux/deeplink/deeplink-actions";
+import { startListeningToBackgrounding } from "./redux/backgroundScreen/background-screen-actions";
+import { getConfig, setConfigFromDeviceStorage } from "./Config";
+import { onHardwareBackPressed } from "./redux/navigation/navigation-actions";
+import { openPushNotification } from "./redux/push-notification/push-notification-action";
+import { getUniqueDeviceId } from "./modules/device";
+import { initializeRemoteConfig } from "./modules/remote-config/RemoteConfigService";
+import initApex from "./initialise/initApex";
+import { init as initialAppsFlyer } from "./initialise/appsflyer";
+import ScreenVisibilityListener from "./modules/screen-visibility-listener/ScreenVisibilityListener";
+
+export const initApp = async () => {
+  if (getConfig().DEV_MENU_ENABLED === "true") {
+    await setConfigFromDeviceStorage();
+
+    if (getConfig().NETWORK_LOGGER_ENABLED === "true") {
+      // resume config
+      startNetworkLog();
+    }
+    if (!__DEV__) {
+      initShakeDevTools();
+    }
+  }
+
+  exceptionHandler.init(); // Initialize crash handling on the JS side
+  initialAppsFlyer(); // Initial appsflyer for freemium
+  initialiseEmitr();
+  const { sl, keymasterListener } = initStreamLink();
+  const tradeService = initialiseTradeService(sl);
+
+  // eslint-disable-next-line react/prop-types
+  const Provider = ({ store, children }) => (
+    <RNProvider store={store}>
+      <ThemeProvider theme={theme}>
+        <TradeServiceProvider tradeService={tradeService}>{children}</TradeServiceProvider>
+      </ThemeProvider>
+    </RNProvider>
+  );
+
+  const store = configureStore({
+    sl,
+    subscribeToTradeChannels: () => {
+      tradeService.connect();
+    }
+  });
+  keymasterListener.setDispatch(store.dispatch);
+  initialiseI18N(store);
+  registerScreens(store, Provider);
+  const screenVisibilityListener = new ScreenVisibilityListener();
+  screenVisibilityListener.register();
+
+  // Disable font scaling for Text components
+  if (Text.defaultProps == null) {
+    Text.defaultProps = {};
+  }
+  Text.defaultProps.allowFontScaling = false;
+
+  return store;
+};
+
+class App {
+  constructor(store) {
+    this.startApp(store);
+  }
+
+  startApp = async store => {
+    // setting User Unique ID to firebase
+    // One time setting will effect the rest of firebase messages
+    analytics().setUserId(getUniqueDeviceId());
+    initializeRemoteConfig();
+
+    const isDetectEmulatorEnabled = getConfig().EMULATOR_DETECT_ENABLED === "true";
+    try {
+      if (isDetectEmulatorEnabled) {
+        const isEmulator = await DeviceInfo.isEmulator();
+        const isJailBroken = JailMonkey.isJailBroken();
+
+        if (isEmulator || isJailBroken) {
+          startApplicationBlockedScreen();
+          if (Platform.OS === "ios") {
+            SplashScreen.hide();
+          }
+          return;
+        }
+      }
+    } catch (reason) {
+      // eslint-disable-next-line no-console
+      console.log("could not detect whether device is emulator", reason);
+    }
+
+    if (Platform.OS === "ios") {
+      SplashScreen.hide();
+    }
+
+    if (Platform.OS === "android") {
+      BackHandler.addEventListener("hardwareBackPress", () => {
+        store.dispatch(onHardwareBackPressed());
+        return true;
+      });
+    }
+    store.dispatch(listenForDeeplink());
+    store.dispatch(listenForFirebaseDynamicLink());
+    store.dispatch(openPushNotification());
+    store.dispatch(startListeningToBackgrounding());
+    AsyncStorage.getItem(LOGGED_IN).then(value => {
+      if (value !== "Y") {
+        clearPreCredentialData();
+        clearCredentialData();
+      } else {
+        syncCredential();
+      }
+    });
+
+    initApex(store);
+  };
+}
+
+export default App;

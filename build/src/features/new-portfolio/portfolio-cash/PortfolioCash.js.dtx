@@ -1,0 +1,144 @@
+import React, { useState } from "react";
+import { RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { ScrollView } from "react-native";
+import styled from "styled-components/native";
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+
+import { ViewContainer } from "../../../components";
+import PortfolioWallet from "../portfolio-wallet";
+import PortfolioOffshoreWallet from "../portfolio-offshore-wallet";
+import PortfolioWalletStocks from "../portfolio-wallet-stocks";
+import PortfolioWalletDigitalAssets from "../portfolio-wallet-digital-assets";
+import { localiseCurrency } from "../../../modules/i18n";
+import Theme from "../../../theme";
+import { Body3, Display2 } from "../../../components-2";
+
+const CardContainer = styled.View`
+  background-color: white;
+  margin-bottom: 8;
+  margin-left: 16;
+  margin-right: 16;
+  border-radius: 8;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.2;
+  margin-top: 16;
+  shadow-radius: 4;
+  shadow-offset: 0px 2px;
+  padding: 16px 16px;
+`;
+
+const CashBackground = styled.View`
+  background-color: ${props => props.theme.backgroundSecondaryPurple};
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  shadow-radius: 1;
+  shadow-offset: 0px 2px;
+  shadow-color: ${props => props.theme.boxShadowColor};
+  shadow-opacity: 0.15;
+`;
+
+const TotalBalanceTitle = styled(Body3)`
+  line-height: 20;
+`;
+
+const TotalBalance = styled(Display2)`
+  margin-top: 4;
+`;
+
+
+const PortfolioCash = props => {
+  const {
+    i18n,
+    totalPortfolioCash,
+    onNavigateOffshoreCashScreen,
+    isPortfolioWalletLoading,
+    user,
+    onFetchPortfolioWalletInfo,
+    onFetchPortfolioOffshoreWalletInfo,
+    onNavigateWallet,
+    onNavigateDigitalAssetsScreen,
+    cashList
+  } = props;
+  const [isRenderFirstTime, setIsRenderFirstTime] = useState(true);
+
+  const cashListComponent = cashList.map(element => {
+    if (element.type === "wallet") {
+      return <PortfolioWallet onPress={() => onNavigateWallet()} />;
+    } else if (element.type === "stock") {
+      return <PortfolioWalletStocks onPress={() => onNavigateOffshoreCashScreen()} />;
+    } else if (element.type === "offshore-wallet") {
+      return <PortfolioOffshoreWallet onPress={() => onNavigateOffshoreCashScreen()} />;
+    } else if (element.type === "digital-assets") {
+      return <PortfolioWalletDigitalAssets onPress={() => onNavigateDigitalAssetsScreen()} />;
+    }
+    return null;
+  });
+
+  return (
+    <ViewContainer variant="light-disabled" isFullScreen>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: 56
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={!isRenderFirstTime && isPortfolioWalletLoading}
+            tintColor={Theme.dotNormal}
+            colors={[Theme.dotActive]}
+            onRefresh={() => {
+              setIsRenderFirstTime(false);
+              onFetchPortfolioWalletInfo(user.userId);
+              onFetchPortfolioOffshoreWalletInfo();
+            }}
+          />
+        }
+      >
+        <CashBackground>
+          <CardContainer>
+            <TotalBalanceTitle>{i18n.translations["Portfolio.Cash.TotalAmount"]}</TotalBalanceTitle>
+            <TotalBalance>
+              {localiseCurrency({
+                value: totalPortfolioCash,
+                hideCurrency: true
+              })}{" "}
+              {i18n.translations["Portfolio.Cash.THB"]}
+            </TotalBalance>
+          </CardContainer>
+        </CashBackground>
+        {cashListComponent}
+      </ScrollView>
+    </ViewContainer>
+  );
+};
+
+PortfolioCash.defaultProps = {
+  user: {},
+  onFetchPortfolioWalletInfo: () => {},
+  onFetchPortfolioOffshoreWalletInfo: () => {},
+  onNavigateOffshoreCashScreen: () => {},
+  onNavigateWallet: () => {},
+  onNavigateDigitalAssetsScreen: () => {},
+  totalPortfolioCash: "0.00",
+  cashList: [],
+  isPortfolioWalletLoading: false
+};
+
+PortfolioCash.propTypes = {
+  // eslint-disable-next-line react/forbid-prop-types
+  user: PropTypes.object,
+  totalPortfolioCash: PropTypes.string,
+  i18n: I18nPropTypes.isRequired,
+  onFetchPortfolioWalletInfo: PropTypes.func,
+  onFetchPortfolioOffshoreWalletInfo: PropTypes.func,
+  onNavigateOffshoreCashScreen: PropTypes.func,
+  onNavigateWallet: PropTypes.func,
+  onNavigateDigitalAssetsScreen: PropTypes.func,
+  isPortfolioWalletLoading: PropTypes.bool,
+  cashList: PropTypes.arrayOf(PropTypes.object)
+};
+
+export default PortfolioCash;

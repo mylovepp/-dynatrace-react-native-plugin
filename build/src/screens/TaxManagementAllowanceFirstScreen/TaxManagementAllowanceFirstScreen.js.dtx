@@ -1,0 +1,627 @@
+import React, { Component } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, BackHandler } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components";
+import I18n from "react-native-i18n";
+import cloneDeep from "lodash/cloneDeep";
+import defaultTo from "lodash/defaultTo";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
+import {
+  SCREEN_CHANGE_EVENT,
+  TAX_MANAGEMENT_TAX_ALLOWANCE1_TIPS,
+  TAX_MANAGEMENT_TAX_ALLOWANCE1_SAVE,
+  TAX_MANAGEMENT_TAX_ALLOWANCE1_BACK,
+  TAX_MANAGEMENT_CONTENT_TAX_ALLOWANCE_1
+} from "../../modules/analytics/analytics-constants";
+import { trackEvent, trackCurrentScreen } from "../../modules/analytics/AnalyticsService";
+import { safeTranslate } from "../../modules/i18n";
+import { TaxManagementRadioButton } from "../../features/tax-management/tax-management-button";
+import { TaxManagementSelect } from "../../features/tax-management/tax-management-select";
+
+import {
+  Header1,
+  Header3,
+  Body2,
+  DatePicker,
+  NumberInput,
+  SectionBackground,
+  PrimaryButton,
+  Separator,
+  ScrollViewContainer,
+  BottomModal,
+  PickerRoller,
+  LoadingScreen,
+  TouchableOpacityDebounced,
+  Icon,
+  ViewContainer
+} from "../../components-2";
+import { formatDate, SERVER_DATE_FORMAT } from "../../modules/format";
+import {
+  MARITAL,
+  getTipData,
+  navigateToTipScreen,
+  parseConfigToDict,
+  parseLocalizeNumber
+} from "../../features/tax-management/tax-management-utils";
+import { GeneralError, BackButtonAlert } from "../../features/tax-management/tax-management-dialog";
+
+const SectionHeader = styled(SectionBackground)(props => ({
+  flexBasis: "auto",
+  flexGrow: 0,
+  padding: props.theme.spacingMedium,
+  paddingTop: props.theme.spacingMediumValue
+}));
+
+const InputContainer = styled.View`
+  flex: 1;
+  margin-left: ${props => props.theme.spacingMediumLargeValue};
+  margin-right: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const SubmitContainer = styled.View`
+  padding-left: ${props => props.theme.spacingMediumLargeValue};
+  padding-right: ${props => props.theme.spacingMediumLargeValue};
+  padding-bottom: ${props => (Platform.OS === "android" ? props.theme.spacingXSmall : "0")};
+`;
+
+const RadioContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmallValue};
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const SelectorContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmallValue};
+  margin-bottom: ${props => props.theme.spacingXSmallValue};
+  background: ${props => props.theme.contentColorWhite};
+  border-radius: ${props => props.theme.spacingXSmall};
+  border-color: ${props => props.theme.contentColorLight};
+  flex-direction: row;
+  align-items: center;
+  border-width: 1px;
+  overflow: hidden;
+  width: 100%;
+`;
+
+const TotalContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: ${props => props.theme.spacingMediumValue};
+`;
+
+const SelectorValue = styled.View`
+  margin-left: ${props => props.theme.spacingMediumValue};
+  margin-right: ${props => props.theme.spacingMediumValue};
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 48;
+  flex: 1;
+`;
+
+const RadioItem = styled(TaxManagementRadioButton)(props => ({
+  marginRight: props.gap ? props.theme.spacingXSmall : 0,
+  flex: 1
+}));
+
+const FadeBox = styled.View`
+  box-shadow: 0px -2px 4px ${props => props.theme.sdkBorderColor};
+`;
+
+const TaxSeparator = styled(Separator)`
+  margin-top: ${props => props.theme.spacingMediumLargeValue};
+  margin-bottom: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+const BottomSeparator = styled(Separator)`
+  margin-bottom: ${props => props.theme.spacingMediumLargeValue};
+`;
+
+export const StyledLabelText = styled(Header3).attrs()`
+  color: ${props => props.theme.contentColorVeryHigh};
+`;
+
+export const SelectedValue = styled(Body2)`
+  color: ${props =>
+    props.isEmpty === 0 ? props.theme.contentColorMedium : props.theme.contentColorVeryHigh};
+`;
+
+export const TotalAmount = styled(Header1).attrs()`
+  color: ${props => props.theme.contentColorCTAPurple};
+`;
+
+const TextInputContainer = styled.View`
+  margin-top: ${props => props.theme.spacingXSmallValue};
+  margin-bottom: ${props => props.theme.spacingXSmallValue};
+`;
+
+const InfoIcon = styled(Icon).attrs(props => ({
+  color: props.theme.ctaPurple,
+  name: "info-2"
+}))``;
+
+const Asterisk = styled(Header3).attrs({ children: "*" })`
+  color: ${({ theme }) => theme.graphRed};
+  top: -4px;
+`;
+
+const Title = styled(Header3)`
+  color: ${props => props.theme.contentColorVeryHigh};
+  margin-bottom: ${props => props.theme.spacingXSmall};
+`;
+
+const InputExtraSpace = styled.View(props => ({
+  marginTop: props.theme.spacingXSmall
+}));
+
+const TRANSLATE_KEYS = {
+  Errors: "TaxManagement.PageAllowance.Errors"
+};
+const NumberOfOwnParents = [0, 1, 2];
+class TaxManagementAllowanceFirstScreen extends Component {
+  constructor(props) {
+    super(props);
+    const { taxData } = this.props;
+    const { numberOfChild2 } = taxData.personalAllowance;
+
+    props.navigator.setStyle({
+      navBarCustomView: "defaultCenterTextNavbar",
+      navBarCustomViewInitialProps: {
+        title: I18n.t("TaxManagement.PageAllowance.First.ScreenTitle"),
+        endComponent: (
+          <TouchableOpacityDebounced onPress={this.handleAllowanceTipPress}>
+            <InfoIcon />
+          </TouchableOpacityDebounced>
+        ),
+        onBack: this.handleBack
+      }
+    });
+
+    this.maximumDate = new Date();
+    this.state = {
+      taxData: cloneDeep(taxData),
+      selectPicker: null,
+      childrenSecond: numberOfChild2 > 0,
+      isSubmit: false,
+      isValid: true,
+      errors: {},
+      isEditData: false,
+      isBackButton: false
+    };
+  }
+
+  componentDidMount() {
+    const { user } = this.props;
+    trackCurrentScreen(SCREEN_CHANGE_EVENT, {
+      firebase_screen: TAX_MANAGEMENT_CONTENT_TAX_ALLOWANCE_1,
+      user_id: user.externalCustomerId
+    });
+
+    BackHandler.addEventListener("hardwareBackPress", this.handleBack);
+    this.parseConfig();
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { navigator, errorResponse } = this.props;
+    if (!nextProps.loading && this.state.isSubmit) {
+      this.setState({ isSubmit: false, isEditData: false });
+      if (!errorResponse) {
+        navigator.pop({ animated: false });
+      }
+    }
+  }
+
+  componentWillUnmount() {
+    BackHandler.removeEventListener("hardwareBackPress", this.handleBack);
+  }
+
+  onSelected = (value, fieldName) => {
+    this.setTaxValue(value, fieldName);
+    this.setState({
+      selectPicker: null
+    });
+  };
+
+  onPressPicker = fieldName => {
+    this.setState({
+      selectPicker: fieldName
+    });
+  };
+
+  onSelectSpouseType = item => {
+    this.setTaxValue(item.key, "spouseAllowanceType");
+  };
+
+  setTaxValue = (value, fieldName) => {
+    const { taxData } = this.state;
+    taxData.personalAllowance[fieldName] = value || 0.0;
+    this.validateFormValue(taxData);
+    this.setState({ taxData, isEditData: true });
+  };
+
+  SPOUSE_TYPE = () => {
+    return [
+      { key: "EXCLUDE", label: I18n.t("TaxManagement.PageAllowance.First.SpouseType.HaveIncome") },
+      { key: "INCLUDE", label: I18n.t("TaxManagement.PageAllowance.First.SpouseType.NoIncome") }
+    ];
+  };
+
+  validateFormValue = data => {
+    const errs = {};
+    const { numberOfChild1 = 0, numberOfChild2 = 0 } = data.personalAllowance;
+    const childAmountErrorText = safeTranslate(`${TRANSLATE_KEYS.Errors}.ChildExceedLimit`);
+    const numberOfChild1Error = numberOfChild1 > this.allowanceLimitRules.numberofchild1;
+    errs.numberOfChild1 = numberOfChild1Error ? childAmountErrorText : null;
+
+    const numberOfChild2Error = numberOfChild2 > this.allowanceLimitRules.numberofchild2;
+    errs.numberOfChild2 = numberOfChild2Error ? childAmountErrorText : null;
+
+    const valid = Object.values(errs).every(err => err == null);
+    this.setState(old => ({ ...old, valid, errors: { ...old.errors, ...errs } }));
+  };
+
+  saveAllowance1 = () => {
+    trackEvent(TAX_MANAGEMENT_TAX_ALLOWANCE1_SAVE);
+    const { currentYear, saveTaxData } = this.props;
+    const { taxData, childrenSecond } = this.state;
+    const { maritalStatus, spouseAllowanceType } = taxData.personalAllowance;
+
+    const result = cloneDeep(taxData);
+    if (!childrenSecond) {
+      result.personalAllowance.numberOfChild2 = 0;
+    }
+    if (maritalStatus === MARITAL.MARRIED) {
+      if (!spouseAllowanceType) {
+        result.personalAllowance.spouseAllowanceType = this.SPOUSE_TYPE()[0].key;
+      }
+      if (spouseAllowanceType === this.SPOUSE_TYPE()[0].key) {
+        result.personalAllowance.numberOfSpouseParents = 0;
+      }
+    } else {
+      result.personalAllowance.spouseAllowanceType = this.SPOUSE_TYPE()[0].key;
+      result.personalAllowance.numberOfSpouseParents = 0;
+    }
+
+    this.setState({ isSubmit: true, isBackButton: false });
+    saveTaxData(currentYear, result);
+  };
+
+  parseConfig() {
+    const { taxConfig } = this.props;
+    const config = parseConfigToDict(taxConfig.globalConfig);
+
+    this.allowanceLimitRules = {
+      numberofchild1: parseLocalizeNumber(
+        defaultTo(config["config.allowance.cat1.limit.numberofchild1"], 20)
+      ),
+      numberofchild2: parseLocalizeNumber(
+        defaultTo(config["config.allowance.cat1.limit.numberofchild2"], 20)
+      )
+    };
+  }
+
+  handleBack = () => {
+    trackEvent(TAX_MANAGEMENT_TAX_ALLOWANCE1_BACK);
+    if (this.state.isEditData) {
+      this.setState({ isBackButton: true });
+      return;
+    }
+    this.props.navigator.pop();
+  };
+
+  handleAllowanceTipPress = () => {
+    trackEvent(TAX_MANAGEMENT_TAX_ALLOWANCE1_TIPS);
+    const deductTip = getTipData(
+      this.props.taxConfig.globalConfig,
+      "config.tooltip.allowance.header",
+      "config.tooltip.allowance.detail"
+    );
+    navigateToTipScreen(this.props.navigator, deductTip.header, deductTip.detail);
+  };
+
+  handleSelectDate = date => {
+    this.setTaxValue(formatDate(date, SERVER_DATE_FORMAT), "birthDate");
+  };
+
+  isDisable = () => {
+    const { taxData, valid } = this.state;
+    return (
+      !valid || !taxData.personalAllowance.birthDate || !taxData.personalAllowance.maritalStatus
+    );
+  };
+
+  calculateDeduct = () => {
+    const { taxData } = this.state;
+    const { maritalStatus, spouseAllowanceType } = taxData.personalAllowance;
+    if (maritalStatus === MARITAL.MARRIED && spouseAllowanceType === this.SPOUSE_TYPE()[1].key) {
+      return I18n.t("TaxManagement.PageAllowance.First.DeductMarried");
+    }
+    return I18n.t("TaxManagement.PageAllowance.First.DeductSingle");
+  };
+
+  renderDialogError = () => {
+    const { resetErrorResponse, errorResponse, navigator } = this.props;
+
+    return (
+      <GeneralError
+        isVisible={!!errorResponse}
+        onPress={() => {
+          resetErrorResponse();
+          navigator.pop();
+        }}
+      />
+    );
+  };
+
+  renderDialogBackButton = () => {
+    const { navigator } = this.props;
+    return (
+      <BackButtonAlert
+        isVisible={this.state.isBackButton}
+        onPressLeft={() => {
+          this.setState({ isEditData: false, isBackButton: false });
+          navigator.pop();
+        }}
+        onPressRight={() => {
+          this.saveAllowance1();
+        }}
+      />
+    );
+  };
+
+  render() {
+    const { loading } = this.props;
+    const { taxData, errors, selectPicker, childrenSecond } = this.state;
+
+    const {
+      birthDate,
+      maritalStatus,
+      spouseAllowanceType,
+      numberOfChild1,
+      numberOfChild2,
+      numberOfOwnParents,
+      numberOfSpouseParents,
+      numberOfDisablePerson
+    } = taxData.personalAllowance;
+
+    if (loading) {
+      return <LoadingScreen />;
+    }
+
+    return (
+      <ViewContainer variant="light" isFullScreen>
+        <SafeAreaView style={{ flex: 1 }}>
+          <KeyboardAwareScrollView>
+            <ScrollViewContainer>
+              <SectionHeader variant="tertiary">
+                <Header1>{I18n.t("TaxManagement.PageAllowance.First.Group")}</Header1>
+              </SectionHeader>
+              <InputContainer>
+                <TextInputContainer>
+                  <Title>
+                    {I18n.t("TaxManagement.PageAllowance.First.BirthDate")}
+                    <Asterisk>*</Asterisk>
+                  </Title>
+                  <DatePicker
+                    placeholder={I18n.t("TaxManagement.PageAllowance.First.DatePlaceHolder")}
+                    calendarType="buddhist"
+                    selectText={I18n.t("TaxManagement.PageAllowance.First.Confirm")}
+                    cancelText={I18n.t("TaxManagement.PageAllowance.First.Cancle")}
+                    onConfirm={this.handleSelectDate}
+                    value={birthDate ? new Date(birthDate) : new Date()}
+                    maximumDate={this.maximumDate}
+                  />
+                </TextInputContainer>
+                <TaxSeparator variant="full" />
+                <StyledLabelText>
+                  {I18n.t("TaxManagement.PageAllowance.First.Marital")}
+                  <Header3 variant="error">*</Header3>
+                </StyledLabelText>
+                <RadioContainer>
+                  <RadioItem
+                    gap
+                    name={I18n.t("TaxManagement.PageAllowance.First.MaritalType.Single")}
+                    isSelected={maritalStatus === MARITAL.SINGLE}
+                    onPress={() => this.setTaxValue(MARITAL.SINGLE, "maritalStatus")}
+                  />
+                  <RadioItem
+                    gap
+                    name={I18n.t("TaxManagement.PageAllowance.First.MaritalType.Married")}
+                    isSelected={maritalStatus === MARITAL.MARRIED}
+                    onPress={() => this.setTaxValue(MARITAL.MARRIED, "maritalStatus")}
+                  />
+                  <RadioItem
+                    isSelected={maritalStatus === MARITAL.DIVORCED}
+                    name={I18n.t("TaxManagement.PageAllowance.First.MaritalType.Widow")}
+                    onPress={() => this.setTaxValue(MARITAL.DIVORCED, "maritalStatus")}
+                  />
+                </RadioContainer>
+                <TaxSeparator variant="full" />
+                {maritalStatus === MARITAL.MARRIED && (
+                  <>
+                    <StyledLabelText>
+                      {I18n.t("TaxManagement.PageAllowance.First.SpouseType.Title")}
+                    </StyledLabelText>
+                    <InputExtraSpace>
+                      <TaxManagementSelect
+                        title={I18n.t("TaxManagement.PageAllowance.First.SpouseType.SelectTitle")}
+                        optionItems={this.SPOUSE_TYPE()}
+                        onChange={this.onSelectSpouseType}
+                        initValue={spouseAllowanceType}
+                      />
+                    </InputExtraSpace>
+                    <TaxSeparator variant="full" />
+                  </>
+                )}
+
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageAllowance.First.NoChildren")}
+                    placeholder={I18n.t("TaxManagement.PageAllowance.First.PeoplePlaceHolder")}
+                    inlineLabel={I18n.t("TaxManagement.PageAllowance.First.Unit")}
+                    onValueChange={value => this.setTaxValue(value.numericValue, "numberOfChild1")}
+                    initialValue={numberOfChild1}
+                    variant={errors.numberOfChild1 != null ? "error" : ""}
+                    helperText={errors.numberOfChild1}
+                    maxLength={2}
+                  />
+                </TextInputContainer>
+                <TaxSeparator variant="full" />
+                <StyledLabelText>
+                  {I18n.t("TaxManagement.PageAllowance.First.NoChildrenSecond")}
+                </StyledLabelText>
+                <RadioContainer>
+                  <RadioItem
+                    gap
+                    name={I18n.t("TaxManagement.PageAllowance.First.RadioButton.Have")}
+                    isSelected={childrenSecond}
+                    onPress={() => this.setState({ childrenSecond: true })}
+                  />
+                  <RadioItem
+                    name={I18n.t("TaxManagement.PageAllowance.First.RadioButton.NotHave")}
+                    isSelected={!childrenSecond}
+                    onPress={() => this.setState({ childrenSecond: false })}
+                  />
+                </RadioContainer>
+                {childrenSecond && (
+                  <InputExtraSpace>
+                    <NumberInput
+                      placeholder={I18n.t("TaxManagement.PageAllowance.First.PeoplePlaceHolder")}
+                      inlineLabel={I18n.t("TaxManagement.PageAllowance.First.Unit")}
+                      onValueChange={value =>
+                        this.setTaxValue(value.numericValue, "numberOfChild2")
+                      }
+                      initialValue={numberOfChild2}
+                      variant={errors.numberOfChild2 != null ? "error" : ""}
+                      helperText={errors.numberOfChild2}
+                      maxLength={2}
+                    />
+                  </InputExtraSpace>
+                )}
+                <TextInputContainer>
+                  <StyledLabelText>
+                    {I18n.t("TaxManagement.PageAllowance.First.NoParentalCare")}
+                  </StyledLabelText>
+                  <TouchableWithoutFeedback
+                    onPress={() => this.onPressPicker("numberOfOwnParents")}
+                  >
+                    <SelectorContainer>
+                      <SelectorValue>
+                        <SelectedValue isEmpty={numberOfOwnParents}>
+                          {numberOfOwnParents}
+                        </SelectedValue>
+                        <SelectedValue isEmpty={numberOfOwnParents}>
+                          {I18n.t("TaxManagement.PageAllowance.First.Unit")}
+                        </SelectedValue>
+                      </SelectorValue>
+                    </SelectorContainer>
+                  </TouchableWithoutFeedback>
+                </TextInputContainer>
+                {maritalStatus === MARITAL.MARRIED &&
+                  spouseAllowanceType === this.SPOUSE_TYPE()[1].key && (
+                    <TextInputContainer>
+                      <StyledLabelText>
+                        {I18n.t("TaxManagement.PageAllowance.First.SpouseType.SpouseParents")}
+                      </StyledLabelText>
+                      <TouchableWithoutFeedback
+                        onPress={() => this.onPressPicker("numberOfSpouseParents")}
+                      >
+                        <SelectorContainer>
+                          <SelectorValue>
+                            <SelectedValue isEmpty={numberOfSpouseParents}>
+                              {numberOfSpouseParents}
+                            </SelectedValue>
+                            <SelectedValue isEmpty={numberOfSpouseParents}>
+                              {I18n.t("TaxManagement.PageAllowance.First.Unit")}
+                            </SelectedValue>
+                          </SelectorValue>
+                        </SelectorContainer>
+                      </TouchableWithoutFeedback>
+                    </TextInputContainer>
+                  )}
+                <TextInputContainer>
+                  <NumberInput
+                    label={I18n.t("TaxManagement.PageAllowance.First.NoIncompetent")}
+                    placeholder={I18n.t("TaxManagement.PageAllowance.First.PeoplePlaceHolder")}
+                    inlineLabel={I18n.t("TaxManagement.PageAllowance.First.Unit")}
+                    onValueChange={value =>
+                      this.setTaxValue(value.numericValue, "numberOfDisablePerson")
+                    }
+                    initialValue={numberOfDisablePerson}
+                    maxLength={2}
+                  />
+                </TextInputContainer>
+              </InputContainer>
+            </ScrollViewContainer>
+          </KeyboardAwareScrollView>
+          <FadeBox>
+            <BottomSeparator variant="full" />
+          </FadeBox>
+          <SubmitContainer>
+            <TotalContainer>
+              <Header1>{I18n.t("TaxManagement.PageAllowance.First.Total")}</Header1>
+              <TotalAmount>
+                {this.calculateDeduct()} {I18n.t("TaxManagement.Currency.THB")}
+              </TotalAmount>
+            </TotalContainer>
+            <PrimaryButton
+              size="large"
+              disable={this.isDisable()}
+              onPress={this.saveAllowance1}
+              label={I18n.t("TaxManagement.Infomation.Button.Save")}
+            />
+          </SubmitContainer>
+        </SafeAreaView>
+
+        <BottomModal
+          swipeDirection={null}
+          isVisible={selectPicker}
+          onModalClose={() => {
+            this.setState({ selectPicker: null });
+          }}
+          noPadding
+          isDisabledScrollView
+        >
+          <PickerRoller
+            confirmText={I18n.t("TaxRegistration.InputInformation.Form.Button.Done")}
+            cancelText={I18n.t("TaxRegistration.InputInformation.Form.Button.Cancel")}
+            selectedValue={taxData.personalAllowance[selectPicker]}
+            pickerData={NumberOfOwnParents}
+            onConfirm={value => this.onSelected(value, selectPicker)}
+            onCancel={() => {
+              this.setState({ selectPicker: null });
+            }}
+          />
+        </BottomModal>
+        {this.renderDialogBackButton()}
+        {this.renderDialogError()}
+      </ViewContainer>
+    );
+  }
+}
+
+TaxManagementAllowanceFirstScreen.defaultProps = {
+  loading: false
+};
+
+TaxManagementAllowanceFirstScreen.propTypes = {
+  saveTaxData: PropTypes.func.isRequired,
+  resetErrorResponse: PropTypes.func.isRequired,
+  taxConfig: PropTypes.shape().isRequired,
+  taxData: PropTypes.shape().isRequired,
+  currentYear: PropTypes.number.isRequired,
+  errorResponse: PropTypes.number.isRequired,
+  loading: PropTypes.bool,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func,
+    setStyle: PropTypes.func
+  }).isRequired,
+  user: PropTypes.shape({
+    externalCustomerId: PropTypes.string
+  }).isRequired
+};
+
+export default TaxManagementAllowanceFirstScreen;

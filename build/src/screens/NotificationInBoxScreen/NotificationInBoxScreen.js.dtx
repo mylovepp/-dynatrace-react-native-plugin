@@ -1,0 +1,429 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Platform, BackHandler } from "react-native";
+import PropTypes, { shape } from "prop-types";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+
+import {
+  NOTIFICATION_ABOUT_YOU,
+  NOTIFICATION_PROMOTION,
+  NOTIFICATION_ANNOUNCE,
+  NOTIFICATION_MARK_ALL_READ,
+  NOTIFICATION_DELETE
+} from "../../modules/analytics/analytics-constants";
+import { trackEvent } from "../../modules/analytics/AnalyticsService";
+import { trackNotificationClick } from "../../modules/analytics/analytics-utils";
+import { navigationPushScreen, navigateInAppDeeplink } from "../../modules/navigation";
+
+import { Icon, ViewContainer, MessageBottomModal } from "../../components-2";
+import { NOTIFICATION_INBOX_TAB } from "../../features/notification-inbox/notification-inbox-constant";
+import NotificationInBox from "../../features/notification-inbox";
+import NotificationInBoxTab from "../../features/notification-inbox-tab";
+import NotificationInboxActionMenu from "../../features/notification-inbox-action-menu";
+import NotificationInboxDeletePanel from "../../features/notification-inbox-delete-panel/NotificationInboxDeletePanel";
+import NotificationAppIconBadgeNumber from "../../features/notification-app-icon-badge-number";
+import {
+  TutorialNotiMenuTabStep,
+  TutorialNotiMoreActionStep
+} from "../../features/tutorial/notification";
+import { NOTIFICATION_INBOX_SCREEN_ID } from "../../redux/navigation/navigation-constants";
+
+const MoreIcon = styled(Icon).attrs(props => ({
+  name: "other-menu",
+  color: props.theme.ctaPurple
+}))({});
+
+const Content = styled.View(props => ({
+  marginTop: props.theme.spacingXXXSmallValue * -3, // tab overlap first item
+  flex: 1
+}));
+
+const TABS = [
+  { id: NOTIFICATION_INBOX_TAB.ALL, text: "ทั้งหมด" },
+  { id: NOTIFICATION_INBOX_TAB.PROMOTION, text: "ข้อเสนอพิเศษ" },
+  { id: NOTIFICATION_INBOX_TAB.RECOMMEND, text: "แนะนำ" },
+  { id: NOTIFICATION_INBOX_TAB.TRANSACTION, text: "การทำรายการ" },
+  { id: NOTIFICATION_INBOX_TAB.OTHER, text: "อื่นๆ" }
+];
+
+// TODO: Need change to 2.0 tracker
+const TAB_TRACKER = {
+  PERSONAL: NOTIFICATION_ABOUT_YOU,
+  PROMOTION: NOTIFICATION_PROMOTION,
+  ANNOUNCEMENT: NOTIFICATION_ANNOUNCE
+};
+
+class NotificationInBoxScreen extends PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isActionOpen: false,
+      isSelectMode: false,
+      selectItems: {}
+    };
+    this.previousDeleteItems = [];
+
+    if (Platform.OS === "ios") {
+      props.navigator.setButtons({
+        leftButtons: [
+          {
+            component: "notificationNavBar",
+            id: "left-button",
+            testID: "left_button",
+            passProps: {
+              onPressBack: this.handleGoBack,
+              onPressAction: this.handleOpenActionDialog,
+              navigator: props.navigator
+            }
+          }
+        ],
+        animated: true
+      });
+    } else {
+      props.navigator.setButtons({
+        leftButtons: [{}],
+        animated: true
+      });
+      props.navigator.setStyle({
+        navBarCustomView: "defaultCenterTextNavbar",
+        navBarCustomViewInitialProps: {
+          onBack: this.handleGoBack,
+          title: I18n.t("Notification.Menu.Title"),
+          endComponent: (
+            <TouchableOpacity onPress={this.handleOpenActionDialog}>
+              <TutorialNotiMoreActionStep placement="bottom" navigator={this.props.navigator}>
+                <MoreIcon />
+              </TutorialNotiMoreActionStep>
+            </TouchableOpacity>
+          )
+        },
+        navBarComponentAlignment: "fill"
+      });
+    }
+  }
+
+  componentWillMount() {
+    BackHandler.addEventListener("hardwareBackPress", this.handleGoBack);
+  }
+
+  componentDidMount() {
+    this.props.onFetchInitial(NOTIFICATION_INBOX_TAB.ALL);
+    this.props.onFetchUnreadCount();
+    this.initTutorial();
+  }
+
+  componentDidUpdate() {
+    // reset the scroll to top ?;
+  }
+
+  componentWillUnmount() {
+    BackHandler.removeEventListener("hardwareBackPress", this.handleGoBack);
+  }
+
+  updateSelectItem = (id, selected) => {
+    this.setState(old => ({
+      ...old,
+      selectItems: {
+        ...old.selectItems,
+        [id]: selected
+      }
+    }));
+  };
+
+  initTutorial = () => {
+    const { initTutorial, user, tutorialReplay, navigator, screenTutorialSteps } = this.props;
+    if (initTutorial && user?.email && tutorialReplay) {
+      initTutorial({
+        email: user?.email,
+        navigator,
+        screenTutorialSteps,
+        screenId: NOTIFICATION_INBOX_SCREEN_ID,
+        tutorialReplay
+      });
+    }
+  };
+
+  navigateWithLink = async link => {
+    navigateInAppDeeplink(link);
+  };
+
+  navigateToInboxDetail = item => {
+    navigationPushScreen(
+      {
+        screen: "notificationInBoxDetail",
+        backButtonTitle: "",
+        title: "",
+        passProps: {
+          title: item.title,
+          message: item.message,
+          createdDate: item.createdDate,
+          category: item.category,
+          deeplink: item.deeplink,
+          deeplinkLabel: item.deeplinkLabel,
+          imageRef: item.inboxImage ? item.inboxImage.ref : undefined
+        }
+      },
+      0
+    );
+  };
+
+  handleGoBack = () => {
+    this.props.navigator.pop();
+    return true;
+  };
+
+  handleOpenActionDialog = () => {
+    this.setState({ isActionOpen: true });
+  };
+
+  handleTurnSelectModeOn = () => {
+    this.setState({ isSelectMode: true, isActionOpen: false });
+  };
+
+  handleTurnSelectModeOff = () => {
+    this.setState({ isSelectMode: false, selectItems: {} });
+  };
+
+  handleFetchMoreInbox = () => {
+    const { canNext, onFetchMore } = this.props;
+    if (!canNext) {
+      onFetchMore();
+    }
+  };
+
+  handlePressInboxItem = item => {
+    const { isSelectMode, selectItems } = this.state;
+    const { onMarkReadItem } = this.props;
+    if (isSelectMode) {
+      const selected = selectItems[item.id];
+      this.updateSelectItem(item.id, !selected);
+    } else {
+      if (!item.markRead) {
+        onMarkReadItem(item);
+      }
+      if (item.category === "questionnaire") {
+        // return and navigate to questionnaire screen
+      }
+      if (item.openPageInfo) {
+        this.navigateToInboxDetail(item);
+      } else if (item.deeplink) {
+        trackNotificationClick("inbox", item.deeplink);
+        this.navigateWithLink(item.deeplink);
+      } else {
+        this.navigateToInboxDetail(item);
+      }
+    }
+  };
+
+  handleDeleteSelectedItem = () => {
+    const { selectItems } = this.state;
+    const items = this.props.items.filter(item => selectItems[item.id]);
+    if (items.length > 0) {
+      trackEvent(NOTIFICATION_DELETE);
+      this.previousDeleteItems = items;
+      this.props.onDeleteItem(items);
+      this.handleTurnSelectModeOff();
+    }
+  };
+
+  handleDeleteInboxItem = item => {
+    trackEvent(NOTIFICATION_DELETE);
+    const items = [item];
+    this.previousDeleteItems = items;
+    this.props.onDeleteItem([item]);
+  };
+
+  handleRetryDeleteItem = () => {
+    trackEvent(NOTIFICATION_DELETE);
+    this.props.onDeleteItem(this.previousDeleteItems);
+    this.props.onCloseErrorDeleteModal();
+  };
+
+  handleMarkReadAll = () => {
+    trackEvent(NOTIFICATION_MARK_ALL_READ);
+    this.props.onMarkReadTab(this.props.activeTab);
+    this.setState({ isActionOpen: false });
+  };
+
+  handleRetryMarkReadAll = () => {
+    trackEvent(NOTIFICATION_MARK_ALL_READ);
+    this.props.onMarkReadTab(this.props.activeTab);
+    this.props.onCloseErrorMarkReadAllModal();
+  };
+
+  handleTabPress = tab => {
+    const { activeTab } = this.props;
+    if (tab !== activeTab) {
+      this.props.onFetchInitial(tab);
+      this.handleTurnSelectModeOff();
+      const event = TAB_TRACKER[tab];
+      if (event) {
+        trackEvent(event);
+      }
+    }
+  };
+
+  render() {
+    const { isSelectMode, selectItems } = this.state;
+    const noItemSelect = Object.keys(selectItems).length === 0;
+
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <TutorialNotiMenuTabStep placement="bottom" loading={this.props.loading}>
+          <NotificationInBoxTab tabs={TABS} onTabPress={this.handleTabPress} />
+        </TutorialNotiMenuTabStep>
+        <Content>
+          <NotificationInBox
+            items={this.props.items}
+            selectItems={this.state.selectItems}
+            loading={this.props.loading}
+            fetching={this.props.fetching}
+            error={this.props.showError}
+            isSelectMode={this.state.isSelectMode}
+            onFetchMore={this.handleFetchMoreInbox}
+            onDeleteItem={this.handleDeleteInboxItem}
+            onPressItem={this.handlePressInboxItem}
+          />
+        </Content>
+        {isSelectMode && (
+          <NotificationInboxDeletePanel
+            deleteDisabled={noItemSelect}
+            onPressCancal={this.handleTurnSelectModeOff}
+            onPressDelete={this.handleDeleteSelectedItem}
+          />
+        )}
+
+        <NotificationInboxActionMenu
+          isVisible={this.state.isActionOpen}
+          title={I18n.t("NotificationInBox.Action.Title")}
+          actions={[
+            {
+              id: "delete",
+              icon: "delete",
+              label: I18n.t("NotificationInBox.Action.Delete"),
+              onPress: this.handleTurnSelectModeOn
+            },
+            {
+              id: "readall",
+              icon: "readall",
+              label: I18n.t("NotificationInBox.Action.ReadAll"),
+              onPress: this.handleMarkReadAll
+            }
+          ]}
+          onBackdropPress={() => {
+            this.setState({ isActionOpen: false });
+          }}
+          onClosePress={() => {
+            this.setState({ isActionOpen: false });
+          }}
+        />
+
+        <MessageBottomModal
+          isVisible={this.props.showErrorDelete}
+          title={I18n.t("NotificationInBox.Error.Title2")}
+          body={I18n.t("NotificationInBox.Error.Msg2")}
+          buttons={[
+            {
+              variant: "secondary",
+              onPress: this.props.onCloseErrorDeleteModal,
+              size: "large",
+              label: I18n.t("NotificationInBox.Error.CancelLabel")
+            },
+            {
+              variant: "primary",
+              onPress: this.handleRetryDeleteItem,
+              size: "large",
+              label: I18n.t("NotificationInBox.Error.TryLabel")
+            }
+          ]}
+          buttonAlignment="row"
+        />
+
+        <MessageBottomModal
+          isVisible={this.props.showErrorMarkReadAll}
+          title={I18n.t("NotificationInBox.Error.Title2")}
+          body={I18n.t("NotificationInBox.Error.Msg3")}
+          buttons={[
+            {
+              variant: "secondary",
+              onPress: this.props.onCloseErrorMarkReadAllModal,
+              size: "large",
+              label: I18n.t("NotificationInBox.Error.CancelLabel")
+            },
+            {
+              variant: "primary",
+              onPress: this.handleRetryMarkReadAll,
+              size: "large",
+              label: I18n.t("NotificationInBox.Error.TryLabel")
+            }
+          ]}
+          buttonAlignment="row"
+        />
+        {/* render nothing buy sync app badge count (kinda hacky) */}
+        <NotificationAppIconBadgeNumber />
+      </ViewContainer>
+    );
+  }
+}
+
+NotificationInBoxScreen.defaultProps = {
+  items: [],
+  loading: false,
+  fetching: false,
+  showError: false,
+  showErrorDelete: false,
+  showErrorMarkReadAll: false,
+  canNext: false,
+  initTutorial: null,
+  user: null,
+  tutorialReplay: null
+};
+
+NotificationInBoxScreen.propTypes = {
+  navigator: PropTypes.shape({
+    pop: PropTypes.func.isRequired,
+    setButtons: PropTypes.func.isRequired,
+    setStyle: PropTypes.func.isRequired
+  }).isRequired,
+  items: PropTypes.arrayOf(
+    shape({
+      id: PropTypes.string,
+      title: PropTypes.string,
+      message: PropTypes.string,
+      category: PropTypes.string,
+      tab: PropTypes.string,
+      tags: PropTypes.arrayOf(PropTypes.string),
+      deeplink: PropTypes.string,
+      deeplinkLabel: PropTypes.string,
+      inboxType: PropTypes.string,
+      markRead: PropTypes.bool,
+      thumbnailImage: PropTypes.shape({ ref: PropTypes.string }),
+      inboxImage: PropTypes.shape({ ref: PropTypes.string }),
+      openPageInfo: PropTypes.bool,
+      createdDate: PropTypes.string,
+      displayCreatedDate: PropTypes.string
+    })
+  ),
+  loading: PropTypes.bool,
+  fetching: PropTypes.bool,
+  showError: PropTypes.bool,
+  showErrorDelete: PropTypes.bool,
+  showErrorMarkReadAll: PropTypes.bool,
+  canNext: PropTypes.bool,
+  activeTab: PropTypes.string.isRequired,
+  onFetchInitial: PropTypes.func.isRequired,
+  onFetchMore: PropTypes.func.isRequired,
+  onFetchUnreadCount: PropTypes.func.isRequired,
+  onMarkReadItem: PropTypes.func.isRequired,
+  onMarkReadTab: PropTypes.func.isRequired,
+  onDeleteItem: PropTypes.func.isRequired,
+  onCloseErrorDeleteModal: PropTypes.func.isRequired,
+  onCloseErrorMarkReadAllModal: PropTypes.func.isRequired,
+  initTutorial: PropTypes.func,
+  user: PropTypes.objectOf(PropTypes.any),
+  screenTutorialSteps: PropTypes.objectOf(PropTypes.any).isRequired,
+  tutorialReplay: PropTypes.string
+};
+
+export default NotificationInBoxScreen;

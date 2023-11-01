@@ -1,0 +1,99 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View } from "react-native";
+import I18n from "react-native-i18n";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import { Caption2, Icon, LargeCaption, Subhead } from "../../../components";
+import { RightContainerSpaced, AccountRow } from "./StockInvestAccount";
+import { ThaiStockAccountsPropTypes } from "../stocks-util";
+import { sharesValueDisplay, currencyDisplay } from "../../../modules/i18n/value-display";
+
+const ThaiAccountLeftSection = styled(View)`
+  height: 38;
+  justify-content: space-between;
+`;
+
+const ThaiAccountRightSection = styled(View)`
+  height: 38;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const ThaiAccountRightSectionDetails = styled(View)`
+  justify-content: space-between;
+  padding-right: ${props => props.theme.spacingSmall};
+`;
+
+const ThaiStockInvestAccount = ({
+  sell,
+  marketCurrency,
+  onPress,
+  account,
+  isSelected,
+  displayDropdownIcon,
+  lastPrice
+}) => {
+  const { lineAvailable, accountId, accountType, amountOfShares } = account;
+  const valueOfShares =
+    !Number.isNaN(Number(amountOfShares)) && !Number.isNaN(Number(lastPrice))
+      ? Number(lastPrice) * Number(amountOfShares)
+      : "-";
+  const rightSection = sell ? (
+    <ThaiAccountRightSection>
+      <ThaiAccountRightSectionDetails>
+        <LargeCaption textAlign="right">
+          {I18n.t("ThaiStocks.AmountOfShares", {
+            amountOfShares: sharesValueDisplay(amountOfShares)
+          })}
+        </LargeCaption>
+        <RightContainerSpaced>
+          <Subhead variant="subdued">{currencyDisplay(valueOfShares, marketCurrency)}</Subhead>
+        </RightContainerSpaced>
+      </ThaiAccountRightSectionDetails>
+      {displayDropdownIcon && <Icon name="chevron-down" customSize={10} />}
+    </ThaiAccountRightSection>
+  ) : (
+    <ThaiAccountRightSection>
+      <ThaiAccountRightSectionDetails>
+        <Caption2 variant="subdued" textAlign="right">
+          {I18n.t("ThaiStocks.LineAvailable")}
+        </Caption2>
+        <RightContainerSpaced>
+          <Subhead>{currencyDisplay(lineAvailable, marketCurrency)}</Subhead>
+        </RightContainerSpaced>
+      </ThaiAccountRightSectionDetails>
+      {displayDropdownIcon && <Icon name="chevron-down" customSize={10} />}
+    </ThaiAccountRightSection>
+  );
+
+  const leftSection = (
+    <ThaiAccountLeftSection>
+      <Subhead>{accountType ? I18n.t(`ThaiStocks.AccountTypes.${accountType}`) : "-"}</Subhead>
+      <LargeCaption variant="subdued">{accountId || "-"}</LargeCaption>
+    </ThaiAccountLeftSection>
+  );
+
+  return (
+    <TouchableOpacity onPress={onPress}>
+      <AccountRow isSelected={isSelected} left={leftSection} right={rightSection} />
+    </TouchableOpacity>
+  );
+};
+ThaiStockInvestAccount.defaultProps = {
+  account: {},
+  displayDropdownIcon: false,
+  lastPrice: null
+};
+
+ThaiStockInvestAccount.propTypes = {
+  sell: PropTypes.string.isRequired,
+  marketCurrency: PropTypes.string.isRequired,
+  account: ThaiStockAccountsPropTypes,
+  isSelected: PropTypes.bool.isRequired,
+  onPress: PropTypes.func.isRequired,
+  displayDropdownIcon: PropTypes.bool,
+  lastPrice: PropTypes.string
+};
+
+export default ThaiStockInvestAccount;

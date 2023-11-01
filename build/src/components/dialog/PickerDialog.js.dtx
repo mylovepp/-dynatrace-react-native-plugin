@@ -1,0 +1,124 @@
+import React, { Component } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import Picker from "react-native-wheel-pick/src/picker";
+import styled from "styled-components/native";
+import { FONT_FAMILY } from "../../theme/fonts";
+import TouchableOpacityDebounced from "../button/TouchableOpacityDebounced";
+import { Text } from "../text/Text";
+import { handleBackAndroidModalDialog } from "../../modules/navigation";
+
+const TouchableOverlay = styled(TouchableOpacity).attrs({
+  activeOpacity: 1
+})`
+  flex: 1;
+`;
+
+const Container = styled.View`
+  flex: 1;
+  justify-content: flex-end;
+  margin: 0;
+`;
+
+const Content = styled.View`
+  padding-bottom: ${props => (props.isIphoneX ? "40px" : "0px")};
+`;
+
+const Header = styled.View`
+  height: 50px;
+  flex-direction: row;
+  background-color: ${props => props.theme.sectionBackgroundColor};
+  border-bottom-width: 1px;
+  border-bottom-color: ${props => props.theme.sectionBorderColor};
+  align-items: center;
+  justify-content: space-between;
+  border-top-left-radius: ${props => props.theme.bottomModalBorderRadius};
+  border-top-right-radius: ${props => props.theme.bottomModalBorderRadius};
+`;
+
+const TextContainer = styled(TouchableOpacityDebounced)`
+  height: 50px;
+  flex-direction: row;
+  margin-horizontal: 10;
+  flex: 1;
+  align-items: center;
+  justify-content: ${props => (props.isLeft ? "flex-start" : "flex-end")};
+`;
+
+const CustomText = styled(Text).attrs({
+  fontWeight: "bold"
+})`
+  color: ${props => props.theme.textDefaultColor};
+  font-size: 24px;
+  line-height: 24px;
+`;
+
+class PickerDialog extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      value: this.props.selectedValue
+    };
+
+    const { navigator, onValueChange } = props;
+    handleBackAndroidModalDialog(navigator, onValueChange);
+  }
+
+  render() {
+    const { items, selectedValue, onValueChange, hideModal, confirmText, cancelText } = this.props;
+    return (
+      <Container>
+        <TouchableOverlay onPress={hideModal} />
+        <Content>
+          <Header>
+            <TextContainer isLeft onPress={hideModal}>
+              <CustomText>{cancelText}</CustomText>
+            </TextContainer>
+            <TextContainer onPress={() => onValueChange(this.state.value)}>
+              <CustomText>{confirmText}</CustomText>
+            </TextContainer>
+          </Header>
+          <Picker
+            style={{ backgroundColor: "white" }}
+            selectedValue={selectedValue}
+            pickerData={items}
+            itemStyle={{
+              fontFamily: FONT_FAMILY,
+              fontSize: 28
+            }}
+            onValueChange={value => {
+              this.setState({
+                value
+              });
+            }}
+          />
+        </Content>
+      </Container>
+    );
+  }
+}
+
+PickerDialog.defaultProps = {
+  selectedValue: null,
+  items: [],
+  cancelText: null
+};
+
+PickerDialog.propTypes = {
+  hideModal: PropTypes.func.isRequired,
+  confirmText: PropTypes.string.isRequired,
+  cancelText: PropTypes.string,
+  onValueChange: PropTypes.func.isRequired,
+  selectedValue: PropTypes.string,
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.string,
+      label: PropTypes.string
+    })
+  ),
+  navigator: PropTypes.shape({
+    addOnNavigatorEvent: PropTypes.func
+  }).isRequired
+};
+
+export default PickerDialog;

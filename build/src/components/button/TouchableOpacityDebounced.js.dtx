@@ -1,0 +1,18 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import DebouncedButton from "./DebouncedButton";
+
+export default class TouchableOpacityDebounced extends PureComponent {
+  render() {
+    return (
+      <DebouncedButton {...this.props} ButtonComponent={TouchableOpacity}>
+        {this.props.children}
+      </DebouncedButton>
+    );
+  }
+}
+
+TouchableOpacityDebounced.propTypes = {
+  children: PropTypes.node.isRequired
+};

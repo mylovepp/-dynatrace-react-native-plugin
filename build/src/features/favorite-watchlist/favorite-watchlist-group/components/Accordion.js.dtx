@@ -1,0 +1,178 @@
+import React, { useCallback } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { View, FlatList } from "react-native";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import i18n from "react-native-i18n";
+import { Body3, Header1, Icon } from "../../../../components-2";
+import ListItem from "../../../favorite-watchlist/favorite-watchlist-group/components/ListItem";
+import { WATCHLIST_DETAIL, WATCH_LIST } from "../../../../modules/analytics/analytics-constants";
+
+const AccordionContainer = styled.View`
+  background-color: ${props => props.theme.backgroundLightColor};
+  margin-horizontal: ${props => props.theme.spacingXSmallValue * 2};
+  margin-bottom: ${props => props.theme.spacingMedium};
+  padding-horizontal: ${props => props.theme.spacingMedium};
+  box-shadow: 0px 2px 5px rgba(182, 182, 182, 0.2);
+  border-radius: ${props => props.theme.spacingXSmallValue};
+`;
+
+const AccordionGroupContainer = styled.View(props => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  paddingVertical: props.theme.spacingXSmall
+}));
+
+const WatchlistLeftContainer = styled.View(() => ({
+  display: "flex",
+  flexDirection: "column"
+}));
+
+const Column = styled.View(props => ({
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: props.leftSide ? "flex-start" : "flex-end",
+  flex: props.leftSide ? 5 : 4
+}));
+
+const MainWatchlistFlag = styled(Body3)(props => ({
+  // color: props.theme.primaryColor,
+  lineHeight: `${props.theme.spacingXXXSmallValue * 15}px`
+}));
+
+const IconContainer = styled.View(props => ({
+  display: "flex",
+  flexDirection: "column",
+  marginRight: props.isRight ? "-4px" : "4px"
+}));
+
+const MainLabelContainer = styled.View(props => ({
+  backgroundColor: "#F6F6F6",
+  borderRadius: props.theme.spacingSmall,
+  paddingHorizontal: props.theme.spacingXXSmall
+}));
+
+const MainWatchlistLabel = styled(Body3)(props => ({
+  color: props.theme.ctaPurple,
+  lineHeight: `${props.theme.spacingXXXSmallValue * 15}px`
+}));
+
+// const Container = styled.View(props => ({
+//   // marginTop: props.theme.spacingXSmall,
+//   marginBottom: props.theme.spacingXSmall
+// }));
+
+const FlatListContainer = styled(FlatList).attrs(props => ({
+  contentContainerStyle: { paddingBottom: props.theme.spacingLargeValue }
+}))``;
+
+const Accordion = props => {
+  const {
+    watchlistInfo,
+    setAnalyticsTrackChannel,
+    isExpand,
+    onPressItem,
+    onPressOtherMenu,
+    navigator
+  } = props;
+
+  const handleTrackChannel = useCallback(() => {
+    setAnalyticsTrackChannel(WATCHLIST_DETAIL);
+  }, [setAnalyticsTrackChannel]);
+
+  const renderListItem = param => {
+    const { item } = param;
+    return (
+      <ListItem
+        setTrackChannel={handleTrackChannel}
+        updateAssetMappings={() => {}}
+        assetMappings={[]}
+        isBriefView
+        hideAssetType
+        hideGraph
+        data={item}
+        navigator={navigator}
+        showTopLine
+        departure={WATCH_LIST}
+      />
+    );
+  };
+
+  return (
+    <TouchableOpacity
+      accessible={false}
+      onPress={onPressItem}
+    >
+      <AccordionContainer>
+        <AccordionGroupContainer>
+          <Column leftSide>
+            <WatchlistLeftContainer>
+              <Header1>{watchlistInfo.name}</Header1>
+              <MainWatchlistFlag variant="greyHigh">
+                {i18n.translate("FavoriteWatchlist.WatchlistGroup.Accordion.Count", {
+                  count: watchlistInfo.numberOfAsset
+                })}
+              </MainWatchlistFlag>
+            </WatchlistLeftContainer>
+          </Column>
+          <Column style={{ flexDirection: "column" }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignSelf: "flex-end"
+              }}
+            >
+              <IconContainer>
+                <Icon testId={`ico${watchlistInfo.name}Expand`} name={isExpand ? "chevron-up-2" : "chevron-down-2"} size="icon24" />
+              </IconContainer>
+              <TouchableOpacity accessible={false} onPress={onPressOtherMenu}>
+                <IconContainer isRight>
+                  <Icon testId={`ico${watchlistInfo.name}Menu`} name="other-menu" size="icon24" />
+                </IconContainer>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: "row", alignSelf: "flex-end", marginVertical: 4 }}>
+              {watchlistInfo.isMainWatchlist && (
+                <MainLabelContainer>
+                  <MainWatchlistLabel>
+                    {i18n.translate("FavoriteWatchlist.WatchlistGroup.Accordion.Main")}
+                  </MainWatchlistLabel>
+                </MainLabelContainer>
+              )}
+            </View>
+          </Column>
+        </AccordionGroupContainer>
+        {isExpand && (
+          <FlatListContainer
+            showsVerticalScrollIndicator={false}
+            data={watchlistInfo?.details || []}
+            renderItem={renderListItem}
+          />
+        )}
+      </AccordionContainer>
+    </TouchableOpacity>
+  );
+};
+
+Accordion.defaultProps = {
+  onPressOtherMenu: () => {}
+};
+
+Accordion.propTypes = {
+  onPressItem: PropTypes.func.isRequired,
+  watchlistInfo: PropTypes.shape({
+    id: PropTypes.number,
+    name: PropTypes.string,
+    isMainWatchlist: PropTypes.bool,
+    createdDate: PropTypes.string,
+    numberOfAsset: PropTypes.number,
+    details: PropTypes.arrayOf(PropTypes.shape({}))
+  }).isRequired,
+  navigator: PropTypes.shape({}).isRequired,
+  setAnalyticsTrackChannel: PropTypes.func.isRequired,
+  isExpand: PropTypes.number.isRequired,
+  onPressOtherMenu: PropTypes.func
+};
+
+export default Accordion;

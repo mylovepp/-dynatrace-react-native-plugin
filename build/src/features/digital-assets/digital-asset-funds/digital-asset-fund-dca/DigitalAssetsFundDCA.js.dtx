@@ -1,0 +1,223 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import { View } from "react-native";
+import styled from "styled-components/native";
+import { isEmpty } from "lodash/fp";
+import { WALLET_PROFILE_SCREEN_ID } from "../../../../redux/navigation/navigation-constants";
+import DigitalAssetsFundDCAContainer from "./DigitalAssetsFundDCAContainer";
+import DigitalAssetsFund from "../../../../components-2/digital-assets-funds/DigitalAssetsFund";
+import { LoadingScreen, ViewContainer, NavigationBar, Icon } from "../../../../components-2";
+import { DA_PAYMENT_SYSTEM } from "../../../digital-assets/digital-assets-constants";
+import DigitalAssetsFiatOpenEiWalletModal from "../../digital-assets-fiat-modal/DigitalAssetsFiatOpenEiWalletModal";
+
+const supportedSystems = [DA_PAYMENT_SYSTEM.EI_WALLET];
+
+const DeleteIcon = styled(Icon).attrs(props => ({
+  name: "delete",
+  size: "icon24",
+  color: props.theme.contentColorCTAPurple
+}))``;
+
+const DigitalAssetsFundsEditDCA = props => {
+  const {
+    dcaData,
+    navigator,
+    isPaymentLoading,
+    getDaFundPayment,
+    getDaFundInformation,
+    paymentList,
+    resetDaFundPayment
+  } = props;
+
+  const [paymentMethods, setPaymentMethods] = useState({
+    data: [],
+    isLoading: false,
+    isLoaded: false,
+    isError: false
+  });
+  const [isVisible, setIsVisible] = useState(false);
+  const [modalVisible, setMoalVisible] = useState(false);
+  const [infoData, setInfoData] = useState({});
+
+  const onLoadInformationSuccess = daFundInformationData => {
+    setInfoData(daFundInformationData);
+  };
+
+  const initialData = () => {
+    const request = { fundCompanyId: dcaData?.fundCompanyId, fundId: dcaData?.fundId };
+    const onSuccess = daFundInformationData => onLoadInformationSuccess(daFundInformationData);
+    // eslint-disable-next-line no-console
+    getDaFundInformation(request, onSuccess, () => {});
+  };
+
+  const loadPaymentMethods = () => {
+    let paymentMethodsData = paymentList.filter(paymentMethod =>
+      supportedSystems.includes(paymentMethod.code)
+    );
+
+    const hasEiWallet =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET && paymentMethod.isEnabled === true
+      ) !== undefined;
+
+    const isEnabledWalletWithoutPaymentList =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.isEnabled === false &&
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET &&
+          paymentMethod.accountNumber === ""
+      ) !== undefined;
+
+    const isEnabledWalletWithPaymentList =
+      paymentList.find(
+        paymentMethod =>
+          paymentMethod.isEnabled === false &&
+          paymentMethod.code === DA_PAYMENT_SYSTEM.EI_WALLET &&
+          paymentMethod.accountNumber !== ""
+      ) !== undefined;
+
+    if (isEnabledWalletWithoutPaymentList) {
+      paymentMethodsData = [
+        {
+          accountNumber: "0",
+          code: "GO_TO_EI_WALLET",
+          text: "บัญชีบริหารเงินสด",
+          linkToOpenAccount: true
+        }
+      ];
+    } else if (isEnabledWalletWithPaymentList) {
+      paymentMethodsData.push({
+        accountNumber: "0",
+        code: "GO_TO_EI_WALLET",
+        text: "บัญชีบริหารเงินสด",
+        linkToOpenAccount: true
+      });
+    }
+
+    setPaymentMethods(prevState => ({
+      ...prevState,
+      data: paymentMethodsData,
+      isLoading: false,
+      isLoaded: true,
+      isError: false
+    }));
+
+    if (!hasEiWallet) {
+      setTimeout(() => {
+        setIsVisible(true);
+      }, 1000);
+    }
+  };
+
+  const loadPaymentListMethods = async () => {
+    if (paymentMethods.isLoading || paymentMethods.isLoaded) {
+      return;
+    }
+    setPaymentMethods(prevState => ({ ...prevState, isLoading: true }));
+    await getDaFundPayment();
+  };
+
+  const onModalOpen = () => {
+    setMoalVisible(true);
+  };
+
+  useEffect(() => {
+    if (!isEmpty(paymentList) && !isPaymentLoading) {
+      loadPaymentMethods();
+    }
+  }, [paymentList, isPaymentLoading]);
+
+  useEffect(() => {
+    initialData();
+    loadPaymentListMethods();
+  }, []);
+
+  const popScreen = () => {
+    navigator.pop();
+  };
+
+  const onResetDaFundPayment = async () => {
+    await resetDaFundPayment();
+  };
+
+  const deleteIcon = (
+    <TouchableOpacity onPress={onModalOpen}>
+      <DeleteIcon />
+    </TouchableOpacity>
+  );
+
+  return (
+    <ViewContainer>
+      {paymentMethods.isLoaded || !isPaymentLoading ? (
+        <>
+          <NavigationBar
+            title={props.i18n.translations["DigitalAssetsFunds.Fund.DCA.Edit.Title"]}
+            onPressBackButton={popScreen}
+            rightComponent={deleteIcon}
+          />
+          <DigitalAssetsFund {...props} infoData={infoData}>
+            <DigitalAssetsFundDCAContainer
+              paymentMethods={paymentMethods.data}
+              {...props}
+              modalVisible={modalVisible}
+              setMoalVisible={setMoalVisible}
+              infoData={infoData}
+              openModalEiWallet={() => setIsVisible(true)}
+            />
+            <DigitalAssetsFiatOpenEiWalletModal
+              isVisible={isVisible}
+              close={() => setIsVisible(false)}
+              openEiWallet={() => {
+                onResetDaFundPayment();
+                navigator.pop({ animated: false });
+                navigator.push({
+                  screen: WALLET_PROFILE_SCREEN_ID,
+                  title: props.i18n.translations["Wallet.AccountTitle"],
+                  backButtonTitle: "",
+                  animationType: "slide-horizontal",
+                  navigatorStyle: { tabBarHidden: true }
+                });
+              }}
+            />
+          </DigitalAssetsFund>
+        </>
+      ) : (
+        <View style={{ alignItems: "center", justifyContent: "center", flex: 1 }}>
+          <LoadingScreen displayRetry={!paymentMethods.isLoading} onButtonPressed={initialData} />
+        </View>
+      )}
+    </ViewContainer>
+  );
+};
+
+DigitalAssetsFundsEditDCA.defaultProps = {
+  isPaymentLoading: true
+};
+
+DigitalAssetsFundsEditDCA.propTypes = {
+  i18n: PropTypes.shape({
+    translations: PropTypes.object,
+    getLabel: PropTypes.func
+  }).isRequired,
+  navigator: PropTypes.shape({
+    pop: PropTypes.func.isRequired,
+    push: PropTypes.func.isRequired
+  }).isRequired,
+  navigation: PropTypes.func.isRequired,
+  getDaFundPayment: PropTypes.func.isRequired,
+
+  goNext: PropTypes.func.isRequired,
+  isPaymentLoading: PropTypes.bool,
+  dcaData: PropTypes.shape().isRequired,
+  getDaFundInformation: PropTypes.func.isRequired,
+  infoData: PropTypes.shape().isRequired,
+  postCancelDCAEdit: PropTypes.func.isRequired,
+  cancelEditDCA: PropTypes.shape({}).isRequired,
+  fundData: PropTypes.shape({}).isRequired,
+  paymentList: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  resetDaFundPayment: PropTypes.func.isRequired,
+};
+
+export default DigitalAssetsFundsEditDCA;

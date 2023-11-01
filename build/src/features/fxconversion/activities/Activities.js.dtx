@@ -1,0 +1,565 @@
+import React from "react";
+import { TouchableWithoutFeedback, RefreshControl } from '@dynatrace/react-native-plugin/lib/react-native/';
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import queryString from "query-string";
+import moment from "moment";
+import { FlatList, View, SafeAreaView } from "react-native";
+import theme from "../../../theme";
+import {
+  ActivityBanner,
+  BottomSheet,
+  Icon,
+  ViewContainer,
+  LoadingIndicator,
+  Header1,
+  Header2,
+  Header3,
+  Body2,
+  Body3,
+  TextOverlineR,
+  Separator
+} from "../../../components-2";
+import { dateToStringFormat, formatDate } from "../../../modules/format";
+import { getToday } from "../../../modules/utils/date-time-utils";
+
+import { mapTransferStatus, mapCurrencyTypeToAction } from "../fxconversion-utils";
+import { fetchGet } from "../helper/fxconversion-fetch-util";
+import {
+  statusCode as STATUS_CODE,
+  ACTIVITY_ACTION,
+  ACTIVITY_STATUS,
+  DATE_FORMAT,
+  DATETIME_FORMAT,
+  DISPLAY_DATETIME_FORMAT,
+  MONTH_FORMAT,
+  TIME_FORMAT,
+  VND
+} from "../fxconversion-constants";
+import ActivityListItem from "./ActivityListItem";
+import ActivityAmount from "./ActivityAmount";
+import ActivityFilterButton from "./ActivityFilterButton";
+
+const LIMIT = 50;
+
+const Center = styled.View`
+  align-items: center;
+`;
+
+const Row = styled.View`
+  width: ${props => (props?.fullWidth ? "100%" : "auto")};
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+`;
+
+const RowSpeaceBetween = styled(Row)`
+  justify-content: space-between;
+`;
+
+const DetailsRow = styled(RowSpeaceBetween)`
+  margin-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const DetailsSeparator = styled(Separator)`
+  margin-vertical: ${props => props.theme.spacingXXSmall};
+`;
+
+const Divider = styled.View`
+  margin-horizontal: 10;
+  margin-top: 3;
+  width: 1px;
+  height: 100%;
+  background-color: ${props => props.theme.selectDividerColor};
+`;
+
+const Container = styled(ViewContainer).attrs({
+  variant: "screen",
+  isFullScreen: true
+})``;
+
+const HeaderContainer = styled(View)`
+  flex-direction: row;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-horizontal: ${props => props.theme.spacingMedium}
+  padding-vertical: ${props => props.theme.spacingMedium}
+`;
+
+const ContentContainer = styled(ViewContainer)`
+  flex: 1;
+  background-color: ${props => props.theme.backgroundWhite};
+`;
+
+const EmptyContainer = styled(ViewContainer)`
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 76px;
+`;
+
+const ListContainer = styled(ViewContainer)`
+  flex: 1;
+`;
+
+const FooterContainer = styled(Center)`
+  padding-top: ${props => props.theme.spacingXXSmall};
+  padding-bottom: ${props => props.theme.spacingMedium};
+  background-color: ${props => props.theme.backgroundWhite};
+`;
+
+const CenterLoadingContainer = styled(Center)`
+  flex: 1;
+  justify-content: center;
+  margin-vertical: ${props => props.theme.spacingMedium};
+`;
+
+const FooterLoadingContainer = styled(Center)`
+  margin-vertical: ${props => props.theme.spacingMedium};
+`;
+
+const IconRefreshContainer = styled.View`
+  margin-top: 3px;
+  margin-right: 6px;
+`;
+
+const RefreshIcon = styled(Icon).attrs({
+  name: "update",
+  size: "icon16",
+  color: theme.textPrimaryColor
+})``;
+
+const SelectedDateLabel = styled(Header3).attrs({
+  variant: "greyHigh",
+  textAlign: "auto"
+})``;
+
+const mapIconName = status => {
+  switch (status) {
+    case ACTIVITY_STATUS.SUCCESS:
+      return "success";
+    case ACTIVITY_STATUS.FAILURE:
+      return "fail";
+    case ACTIVITY_STATUS.PENDING:
+      return "clock-2";
+    default:
+      return "clock-2";
+  }
+};
+
+const CenterLoading = () => {
+  return (
+    <CenterLoadingContainer>
+      <LoadingIndicator size="medium" />
+    </CenterLoadingContainer>
+  );
+};
+
+const FooterLoading = () => {
+  return (
+    <FooterLoadingContainer>
+      <LoadingIndicator size="medium" />
+    </FooterLoadingContainer>
+  );
+};
+
+const Activities = props => {
+  const { activities, currencyList } = props;
+
+  const [selectedItem, setSelectedItem] = React.useState();
+  const [selectedDate, setSelectedDate] = React.useState({
+    value: formatDate(getToday().setDate(1), MONTH_FORMAT),
+    label: I18n.t("ActivityMain.Activity.List.ThisMonth"),
+    selectedLabel: I18n.t("ActivityMain.Activity.List.ThisMonth")
+  });
+  const [lastUpdate, setLastUpdate] = React.useState();
+
+  const [state, setState] = React.useState({
+    loading: false,
+    items: activities || undefined,
+    totalCount: 0,
+    offset: 0,
+    error: false
+  });
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [flatListReady, setFlatListReady] = React.useState(false);
+
+  const shouldShowLoading = React.useMemo(() => {
+    return !state.items && state.loading;
+  }, [state.loading, state.items]);
+
+  const shouldShowEmpty = React.useMemo(() => {
+    return !state.loading && state.items && state.items.length <= 0;
+  }, [state.loading, state.items]);
+
+  const shouldShowList = React.useMemo(() => {
+    return state.items && state.items.length > 0;
+  }, [state.items]);
+
+  const fetchApi = params =>
+    new Promise(resolve => {
+      const date = moment(`${params.monthStr}-01`, DATE_FORMAT);
+
+      const url = `/clients/activities?${queryString.stringify({
+        includes: "interest",
+        createdAtFrom: date.startOf("month").format(DATETIME_FORMAT),
+        createdAtTo: date.endOf("month").format(DATETIME_FORMAT),
+        offset: params.offset,
+        limit: params.limit
+      })}`;
+
+      fetchGet({
+        url,
+        callback: res => {
+          if (res?.status?.code === STATUS_CODE.SUCCESS) {
+            resolve(res.data);
+          } else {
+            resolve({
+              contents: [],
+              totalCount: 0
+            });
+          }
+        }
+      })(null);
+    });
+
+  const fetchActivities = (params = {}) => {
+    const month = params.selectedDate !== undefined ? params.selectedDate : selectedDate;
+    const offset = params.offset !== undefined ? params.offset : state.offset;
+    const items = params.items !== undefined ? params.items : state.items;
+
+    if (state.loading) {
+      return;
+    }
+
+    setState({
+      ...state,
+      loading: true
+    });
+
+    fetchApi({
+      monthStr: month.value,
+      limit: LIMIT,
+      offset
+    }).then(data => {
+      setState({
+        ...state,
+        loading: false,
+        items: [...(items || []), ...data.contents],
+        totalCount: data.totalCount,
+        offset: offset + LIMIT >= data.totalCount ? data.totalCount : offset + LIMIT
+      });
+      setLastUpdate(moment().format(TIME_FORMAT));
+    });
+  };
+
+  const handleOnRefresh = (params = {}) => {
+    const month = params.selectedDate !== undefined ? params.selectedDate : selectedDate;
+    const offset = params.offset !== undefined ? params.offset : state.offset;
+    const items = params.items !== undefined ? params.items : state.items;
+
+    if (state.loading) {
+      return;
+    }
+
+    setRefreshing(true);
+    setState({
+      ...state,
+      loading: true
+    });
+
+    fetchApi({
+      monthStr: month.value,
+      limit: LIMIT,
+      offset
+    }).then(data => {
+      setState({
+        ...state,
+        loading: false,
+        items: [...(items || []), ...data.contents],
+        totalCount: data.totalCount,
+        offset: offset + LIMIT >= data.totalCount ? data.totalCount : offset + LIMIT
+      });
+      setLastUpdate(moment().format(TIME_FORMAT));
+      setRefreshing(false);
+    });
+  };
+
+  const handleLoadMore = () => {
+    if (state.totalCount > state.offset) {
+      fetchActivities();
+    }
+  };
+
+  const handleSelectDate = selected => {
+    setSelectedDate(selected);
+    fetchActivities({
+      selectedDate: selected,
+      offset: 0,
+      items: []
+    });
+  };
+
+  const handleReload = () => {
+    handleOnRefresh({
+      offset: 0,
+      items: []
+    });
+  };
+
+  React.useEffect(() => {
+    if (!state.loading && !state.items) {
+      fetchActivities();
+    }
+  }, []);
+
+  const mapActivityItem = activity => {
+    const currency = currencyList.find(
+      c => c.code === activity.currencyCode && c.counterpart === activity?.counterpart
+    );
+
+    const action = mapCurrencyTypeToAction(activity.currencyType);
+    const status = mapTransferStatus(activity.status);
+    let description = currency?.description;
+    if (
+      activity.currencyCode === VND &&
+      action === ACTIVITY_ACTION.BUY &&
+      status === ACTIVITY_STATUS.PENDING
+    ) {
+      description = I18n.t("FXConversion.Activities.DisclaimerBuyVND");
+    }
+
+    return {
+      ...activity,
+      createdAt: dateToStringFormat(activity.createdAt, DISPLAY_DATETIME_FORMAT, DATETIME_FORMAT),
+      action,
+      status,
+      description
+    };
+  };
+
+  const renderList = React.useCallback(() => {
+    return (
+      <ListContainer>
+        <SafeAreaView>
+          <FlatList
+            onScroll={() => {
+              setFlatListReady(true);
+            }}
+            data={(state.items || []).map(mapActivityItem)}
+            renderItem={({ item }) => (
+              <ActivityListItem
+                item={item}
+                onPress={() => {
+                  setSelectedItem(item);
+                }}
+              />
+            )}
+            ItemSeparatorComponent={() => <Separator variant="full" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleOnRefresh} />}
+            ListFooterComponent={() => {
+              if (state.loading) {
+                return <FooterLoading />;
+              }
+              return null;
+            }}
+            onEndReachedThreshold={0.2}
+            onEndReached={() => {
+              if (flatListReady && !refreshing && !state.loading) {
+                handleLoadMore();
+              }
+            }}
+          />
+        </SafeAreaView>
+      </ListContainer>
+    );
+  }, [state.items, state.loading, refreshing, flatListReady]);
+
+  const renderEmpty = () => {
+    return (
+      <EmptyContainer>
+        <ActivityBanner size="illus78" />
+        <Header1 style={{ paddingTop: 24 }}>
+          {I18n.t("FXConversion.Activities.EmptyTransaction")}
+        </Header1>
+      </EmptyContainer>
+    );
+  };
+
+  const renderBottomSheetExchangeRate = () => {
+    const { action, netRate, currencyCode, status } = selectedItem;
+
+    if (action === ACTIVITY_ACTION.BUY) {
+      if (currencyCode === VND && status !== ACTIVITY_STATUS.SUCCESS) {
+        return (
+          <DetailsRow>
+            <Body2>
+              {I18n.t("FXConversion.Activities.Labels.ExchangeRate", {
+                currency: currencyCode
+              })}
+            </Body2>
+            <Row>
+              <Icon name={mapIconName(status)} size="icon16" />
+              <Header2 style={{ marginLeft: 4 }}>
+                {I18n.t(`FXConversion.Activities.Status.${status}`)}
+              </Header2>
+            </Row>
+          </DetailsRow>
+        );
+      }
+      return (
+        <DetailsRow>
+          <Body2>
+            {I18n.t("FXConversion.Activities.Labels.ExchangeRate", {
+              currency: currencyCode
+            })}
+          </Body2>
+          <Header2>{`${netRate} ${I18n.t("General.Currencies.THB")}`}</Header2>
+        </DetailsRow>
+      );
+    }
+    return null;
+  };
+
+  const renderBottomSheet = () => {
+    const {
+      action,
+      requestId,
+      createdAt,
+      debitAmount,
+      currencyCode,
+      status,
+      description
+    } = selectedItem;
+
+    return (
+      <BottomSheet
+        title={I18n.t("FXConversion.Activities.DetailsTitle")}
+        isVisible={selectedItem}
+        isDisableCloseButton={false}
+        onModalClose={() => {
+          setSelectedItem(null);
+        }}
+      >
+        <DetailsRow>
+          <Header1>
+            {action === ACTIVITY_ACTION.INTEREST
+              ? I18n.t("FXConversion.Activities.Labels.InterestActivity", {
+                  currency: currencyCode
+                })
+              : I18n.t("FXConversion.Activities.Labels.Activity", {
+                  action: I18n.t(`FXConversion.Activities.Action.${action}`),
+                  currency: currencyCode
+                })}
+          </Header1>
+          <ActivityAmount
+            action={action}
+            amount={debitAmount}
+            currency={currencyCode}
+            status={status}
+            size="large"
+          />
+        </DetailsRow>
+        {description && (
+          <DetailsRow style={{ marginTop: 0 }}>
+            <Body3>{description}</Body3>
+          </DetailsRow>
+        )}
+        <DetailsSeparator />
+        <DetailsRow>
+          <Body2>{I18n.t("FXConversion.Activities.Labels.Status")}</Body2>
+          <Row>
+            <Icon name={mapIconName(status)} size="icon16" />
+            <Header2 style={{ marginLeft: 4 }}>
+              {I18n.t(`FXConversion.Activities.Status.${status}`)}
+            </Header2>
+          </Row>
+        </DetailsRow>
+        <DetailsSeparator />
+        {renderBottomSheetExchangeRate()}
+        <DetailsRow>
+          <Body2>{I18n.t(`FXConversion.Activities.Account.${action}`)}</Body2>
+          <Header2>
+            {action === ACTIVITY_ACTION.INTEREST
+              ? I18n.t("FXConversion.Activities.Account.Foreign", { currency: currencyCode })
+              : I18n.t("FXConversion.Activities.Account.Cash")}
+          </Header2>
+        </DetailsRow>
+        <DetailsRow>
+          <Body2>{I18n.t("FXConversion.Activities.Labels.RequestNumber")}</Body2>
+          <Header2>{requestId || "-"}</Header2>
+        </DetailsRow>
+        <DetailsRow>
+          <Body2>{I18n.t("FXConversion.Activities.Labels.RequestDate")}</Body2>
+          <Header2>{createdAt}</Header2>
+        </DetailsRow>
+      </BottomSheet>
+    );
+  };
+
+  return (
+    <Container>
+      <HeaderContainer>
+        <RowSpeaceBetween fullWidth>
+          <Header1>{I18n.t("FXConversion.Activities.SubTitle")}</Header1>
+          <ActivityFilterButton initialDate={selectedDate?.value} onConfirm={handleSelectDate} />
+        </RowSpeaceBetween>
+        <Row fullWidth style={{ justifyContent: "flex-start", marginTop: 4 }}>
+          <SelectedDateLabel>{selectedDate?.selectedLabel}</SelectedDateLabel>
+          <Divider />
+          {lastUpdate && (
+            <Row>
+              <TouchableWithoutFeedback
+                onPress={() => {
+                  handleReload();
+                }}
+              >
+                <IconRefreshContainer>
+                  <RefreshIcon />
+                </IconRefreshContainer>
+              </TouchableWithoutFeedback>
+              <Body3 variant="primary">
+                {I18n.t("FXConversion.Activities.LastUpdate", { lastUpdate })}
+              </Body3>
+            </Row>
+          )}
+        </Row>
+      </HeaderContainer>
+      <ContentContainer>
+        {shouldShowLoading && <CenterLoading />}
+        {shouldShowEmpty && renderEmpty()}
+        {shouldShowList && renderList()}
+      </ContentContainer>
+      {shouldShowList && (
+        <FooterContainer>
+          <TextOverlineR>{I18n.t("FXConversion.Activities.Footer1")}</TextOverlineR>
+          <TextOverlineR>{I18n.t("FXConversion.Activities.Footer2")}</TextOverlineR>
+        </FooterContainer>
+      )}
+      {selectedItem && renderBottomSheet()}
+    </Container>
+  );
+};
+
+Activities.propTypes = {
+  activities: PropTypes.arrayOf(PropTypes.shape()),
+  currencyList: PropTypes.arrayOf(
+    PropTypes.shape({
+      code: PropTypes.string,
+      counterpart: PropTypes.string,
+      currencyStatus: PropTypes.string,
+      minBuyingAmount: PropTypes.number,
+      maxBuyingAmount: PropTypes.number,
+      minSellingAmount: PropTypes.number,
+      maxSellingAmount: PropTypes.number
+    })
+  ).isRequired
+};
+
+Activities.defaultProps = {
+  activities: undefined
+};
+
+export default Activities;

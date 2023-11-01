@@ -1,0 +1,308 @@
+// originally copied from react-native-insta-story
+
+import React, { useState, useEffect, useRef } from "react";
+import { TouchableOpacity, TouchableWithoutFeedback, Text } from '@dynatrace/react-native-plugin/lib/react-native/';
+import {
+  Animated,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+  View,
+  Platform,
+  SafeAreaView,
+  Image,
+} from "react-native";
+import PropTypes from "prop-types";
+import GestureRecognizer from "react-native-swipe-gestures";
+import { Icon } from "../../components-2";
+
+const { width, height } = Dimensions.get("window");
+
+const imageStyle = color => {
+  return {
+    width,
+    height,
+    backgroundColor: color
+  };
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#000"
+  },
+  backgroundContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0
+  },
+  spinnerContainer: {
+    zIndex: -100,
+    position: "absolute",
+    justifyContent: "center",
+    backgroundColor: "black",
+    alignSelf: "center",
+    width,
+    height
+  },
+  animationBarContainer: {
+    flexDirection: "row",
+    paddingTop: 10,
+    paddingHorizontal: 10
+  },
+  animationBackground: {
+    height: 2,
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    marginHorizontal: 2
+  },
+  userContainer: {
+    height: 50,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 15
+  },
+  avatarImage: {
+    height: 30,
+    width: 30,
+    borderRadius: 100
+  },
+  avatarText: {
+    fontWeight: "bold",
+    color: "white",
+    paddingLeft: 10
+  },
+  closeIconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 50
+  },
+  pressContainer: {
+    flex: 1,
+    flexDirection: "row"
+  },
+  swipeUpBtn: {
+    position: "absolute",
+    right: 0,
+    left: 0,
+    alignItems: "center",
+    bottom: Platform.OS === "ios" ? 20 : 50
+  }
+});
+
+export const ImageWithTimer = props => {
+  const { stories } = props;
+
+  const [load, setLoad] = useState(true);
+  const [pressed, setPressed] = useState(false);
+  const [content, setContent] = useState(
+    stories.map(x => {
+      return {
+        image: x.story_image,
+        onPress: x.onPress,
+        swipeText: x.swipeText,
+        finish: 0,
+        backgroundColor: x.background_color
+      };
+    })
+  );
+
+  const [current, setCurrent] = useState(0);
+
+  const progress = useRef(new Animated.Value(0)).current;
+
+  function startAnimation() {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: props.duration,
+      useNativeDriver: false
+    }).start(({ finished }) => {
+      if (finished) {
+        // eslint-disable-next-line no-use-before-define
+        next();
+      }
+    });
+  }
+
+  function start() {
+    setLoad(false);
+    progress.setValue(0);
+    startAnimation();
+  }
+
+  useEffect(() => {
+    const data = [...content];
+    setContent(data);
+    start();
+  }, []);
+
+  useEffect(() => {
+    start();
+  }, [current]);
+
+  const config = {
+    velocityThreshold: 0.3,
+    directionalOffsetThreshold: 80
+  };
+
+  function next() {
+    // check if the next content is not empty
+    setLoad(true);
+    if (current !== content.length - 1) {
+      const data = [...content];
+      data[current].finish = 1;
+      setContent(data);
+      setCurrent(current + 1);
+      progress.setValue(0);
+    } else {
+      const data = [...content];
+      data.forEach(item => {
+        // eslint-disable-next-line no-param-reassign
+        item.finish = 0;
+      });
+      setContent(data);
+      setCurrent(0);
+      start();
+    }
+  }
+
+  function previous() {
+    // checking if the previous content is not empty
+    setLoad(true);
+    if (current - 1 >= 0) {
+      const data = [...content];
+      data[current].finish = 0;
+      setContent(data);
+      setCurrent(current - 1);
+      progress.setValue(0);
+    } else {
+      const data = [...content];
+      data.forEach((item, i) => {
+        if (i !== data.length - 1) {
+          // eslint-disable-next-line no-param-reassign
+          item.finish = 1;
+        }
+      });
+      setContent(data);
+      setCurrent(data.length - 1);
+      start();
+    }
+  }
+
+  return (
+    (<GestureRecognizer
+      config={config}
+      style={{
+        flex: 1,
+        backgroundColor: "black"
+      }}
+    >
+      <SafeAreaView>
+        <View style={styles.backgroundContainer}>
+          <Image
+            onLoadEnd={() => start()}
+            source={{ uri: content[current].image }}
+            style={imageStyle(content[current].backgroundColor)}
+            resizeMode="contain"
+          />
+          {load && (
+            <View style={styles.spinnerContainer}>
+              <ActivityIndicator size="large" color="white" />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+      <View style={{ flexDirection: "column", flex: 1 }}>
+        <View style={styles.animationBarContainer}>
+          {content.map((index, key) => {
+            return (
+              // eslint-disable-next-line react/no-array-index-key
+              (<View key={key} style={styles.animationBackground}>
+                <Animated.View
+                  style={{
+                    flex: current === key ? progress : content[key].finish,
+                    height: 2,
+                    backgroundColor: "white"
+                  }}
+                />
+              </View>)
+            );
+          })}
+        </View>
+        <View style={styles.userContainer}>
+          <TouchableOpacity
+            onPress={() => {
+              if (props.onClosePress) {
+                props.onClosePress();
+              }
+            }}
+          >
+            <View style={styles.closeIconContainer}>
+              {props.customCloseComponent ? (
+                props.customCloseComponent
+              ) : (
+                <Text style={{ color: "white" }}><Icon name="close-2" size="icon24" color="#FFF" /></Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.pressContainer}>
+          <TouchableWithoutFeedback
+            onPressIn={() => progress.stopAnimation()}
+            onLongPress={() => setPressed(true)}
+            onPressOut={() => {
+              setPressed(false);
+              startAnimation();
+            }}
+            onPress={() => {
+              if (!pressed && !load) {
+                previous();
+              }
+            }}
+          >
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+          <TouchableWithoutFeedback
+            onPressIn={() => progress.stopAnimation()}
+            onLongPress={() => setPressed(true)}
+            onPressOut={() => {
+              setPressed(false);
+              startAnimation();
+            }}
+            onPress={() => {
+              if (!pressed && !load) {
+                next();
+              }
+            }}
+          >
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+        </View>
+      </View>
+    </GestureRecognizer>)
+  );
+};
+
+export default ImageWithTimer;
+
+ImageWithTimer.defaultProps = {
+  duration: 10000,
+  onClosePress: () => {},
+  customCloseComponent: null
+};
+
+ImageWithTimer.propTypes = {
+  duration: PropTypes.number,
+  onClosePress: PropTypes.func,
+  customCloseComponent: PropTypes.element,
+  stories: PropTypes.arrayOf(
+    PropTypes.shape({
+      story_id: PropTypes.number,
+      story_image: PropTypes.string,
+      background_color: PropTypes.string
+    })
+  ).isRequired
+};

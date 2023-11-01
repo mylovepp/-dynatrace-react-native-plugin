@@ -1,0 +1,249 @@
+import React, { PureComponent } from "react";
+import { TouchableWithoutFeedback } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Keyboard } from "react-native";
+
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import I18n from "react-native-i18n";
+
+import { SearchTab } from "@invx/redux/search/search-constants";
+
+import I18nPropTypes from "../../../components/i18n/I18nPropTypes";
+import { ViewContainer, SectionBackground } from "../../../components-2";
+import {
+  PLACE_HOLDER_CONTENT_OFFSET,
+  IS_LOGICAL_OR_SUPPORTED,
+  MIN_SHOWTIPS_TEXT_LENGTH
+} from "../search-constants";
+import { allSearchPartsMeetMinLength } from "../search-utils";
+import SearchBar from "../search-bar";
+import SearchPlaceholder from "../search-placeholder";
+import SearchResultsSummary from "../search-results-summary";
+import SearchAssetTabs from "../search-asset-tab";
+import FundsQuickSearchList from "../funds-quick-search-list";
+import FundOffshoreQuickSearchList from "../funds-offshore-quick-search-list";
+import { getConfig } from "../../../Config";
+import DigitalAssetsList from "../../digital-assets/digital-assets-list";
+
+const SearchContentContainer = styled.View`
+  flex-grow: 1;
+`;
+
+const PlaceholderContainer = styled.View`
+  flex: 1;
+  padding-bottom: ${PLACE_HOLDER_CONTENT_OFFSET};
+`;
+const TABS = SearchTab;
+class SearchMain extends PureComponent {
+  constructor() {
+    super();
+    this.nameInput = React.createRef();
+    this.isStocksEnabled = getConfig().STOCKS_ENABLED === "true";
+    this.isFundsOffshoreEnabled = getConfig().OFFSHORE_FUNDS_ENABLED === "true";
+    this.isDigitalAssetsEnabled = getConfig().DIGITAL_ASSETS_ENABLED === "true";
+    this.tabs = [
+      { value: TABS.FUNDS, description: I18n.t("Search.TabbedAsset.ThaiFund") },
+      ...(this.isFundsOffshoreEnabled
+        ? [{ value: TABS.OFFSHORE_FUNDS, description: I18n.t("Search.TabbedAsset.OffshoreFund") }]
+        : []),
+      ...(this.isStocksEnabled
+        ? [{ value: TABS.STOCKS, description: I18n.t("Search.TabbedAsset.Stocks") }]
+        : []),
+      { value: TABS.BONDS, description: I18n.t("Search.TabbedAsset.Bonds") },
+      ...(this.isDigitalAssetsEnabled
+        ? [{ value: TABS.DIGITAL_ASSETS, description: I18n.t("Search.TabbedAsset.DigitalAssets") }]
+        : [])
+    ];
+  }
+
+  componentWillUnmount() {
+    Keyboard.dismiss();
+  }
+
+  hasMetMinLengthRequirement = () => {
+    const { searchInputValue, searchString, minTextLength } = this.props;
+    if (!allSearchPartsMeetMinLength(searchInputValue, minTextLength, IS_LOGICAL_OR_SUPPORTED)) {
+      return false;
+    }
+    if (!allSearchPartsMeetMinLength(searchString, minTextLength, IS_LOGICAL_OR_SUPPORTED)) {
+      return false;
+    }
+    return true;
+  };
+
+  formatAssetType = assetClassToSearch => {
+    let assetType = assetClassToSearch;
+    switch (assetClassToSearch) {
+      case TABS.FUNDS:
+        assetType = I18n.t("Search.TabbedAsset.ThaiFund");
+        break;
+      case TABS.OFFSHORE_FUNDS:
+        assetType = I18n.t("Search.TabbedAsset.OffshoreFund");
+        break;
+      case TABS.STOCKS:
+        assetType = I18n.t("Search.TabbedAsset.Stocks");
+        break;
+      case TABS.BONDS:
+        assetType = I18n.t("Search.TabbedAsset.Bonds");
+        break;
+      case TABS.DIGITAL_ASSETS:
+        assetType = I18n.t("Search.TabbedAsset.DigitalAssets");
+        break;
+      default:
+        break;
+    }
+    return assetType;
+  };
+
+  inputplaceholder = assetClassToSearch => {
+    let placeholder = "";
+    switch (assetClassToSearch) {
+      case TABS.FUNDS:
+        placeholder = I18n.t("Search.TabbedPlaceholder.ThaiFund");
+        break;
+      case TABS.OFFSHORE_FUNDS:
+        placeholder = I18n.t("Search.TabbedPlaceholder.OffshoreFund");
+        break;
+      case TABS.STOCKS:
+        placeholder = I18n.t("Search.TabbedPlaceholder.Stocks");
+        break;
+      case TABS.BONDS:
+        placeholder = I18n.t("Search.TabbedPlaceholder.Bonds");
+        break;
+      case TABS.DIGITAL_ASSETS:
+        placeholder = I18n.t("Search.TabbedPlaceholder.DigitalAssets");
+        break;
+      default:
+        break;
+    }
+    return placeholder;
+  };
+
+  renderPlaceholder = () => {
+    const { assetClassToSearch } = this.props;
+    const isStock = assetClassToSearch === TABS.STOCKS;
+    const placeHolderMessage = isStock
+      ? this.props.i18n.getLabel("Search.Main.MessageWithStock", {
+          typeSearch: this.formatAssetType(assetClassToSearch)
+        })
+      : this.props.i18n.getLabel("Search.Main.MessageWithoutStock", {
+          typeSearch: this.formatAssetType(assetClassToSearch),
+          minShowTipsTextLength: MIN_SHOWTIPS_TEXT_LENGTH
+        });
+    return (
+      <PlaceholderContainer>
+        <SearchPlaceholder searchMessage={placeHolderMessage} />
+      </PlaceholderContainer>
+    );
+  };
+
+  renderResultsSummary = () => {
+    const { onViewFund, onViewBond, onViewStock, assetClassToSearch } = this.props;
+    return (
+      <SearchResultsSummary
+        onViewFund={onViewFund}
+        onViewBond={onViewBond}
+        onViewStock={onViewStock}
+        assetClassToSearch={assetClassToSearch}
+      />
+    );
+  };
+
+  renderFundsQuickSearchList = () => {
+    const { onChangeText } = this.props;
+    return <FundsQuickSearchList onChangeText={onChangeText} />;
+  };
+
+  renderOffhoreFundsQuickSearchList = () => {
+    const { onChangeText } = this.props;
+    return <FundOffshoreQuickSearchList onChangeText={onChangeText} />;
+  };
+
+  renderResultsArea = () => {
+    if (!this.hasMetMinLengthRequirement()) {
+      return this.renderPlaceholder();
+    }
+    return this.renderResultsSummary();
+  };
+
+  renderResultSearchResults = () => {
+    const { searchInputValue, assetClassToSearch, minTextLength, onViewDigitalAssets } = this.props;
+    if (assetClassToSearch === "FUNDS" && searchInputValue <= minTextLength) {
+      return this.renderFundsQuickSearchList();
+    }
+    if (assetClassToSearch === SearchTab.OFFSHORE_FUNDS && searchInputValue <= minTextLength) {
+      return this.renderOffhoreFundsQuickSearchList();
+    }
+    if (assetClassToSearch === TABS.DIGITAL_ASSETS) {
+      return (
+        <DigitalAssetsList
+          searchEnabled
+          searchTerm={searchInputValue}
+          viewDigitalAssetsTradeScreen={onViewDigitalAssets}
+        />
+      );
+    }
+    return this.renderResultsArea();
+  };
+
+  render() {
+    const {
+      searchInputValue,
+      searchString,
+      onChangeText,
+      onClear,
+      assetClassToSearch
+    } = this.props;
+
+    return (
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ViewContainer style={{ overflow: "hidden" }} variant="light">
+          <SectionBackground style={{ paddingBottom: 16 }} variant="secondary" borderRadius="big">
+            <SearchBar
+              _ref={this.nameInput}
+              searchInputValue={searchInputValue}
+              placeholder={this.inputplaceholder(assetClassToSearch)}
+              onChangeText={onChangeText}
+              onClear={onClear}
+              assetClass={assetClassToSearch}
+              accessibilityLabel="Search Input"
+            />
+            <SearchAssetTabs
+              searchInputValue={searchInputValue}
+              searchString={searchString}
+              tabs={this.tabs}
+            />
+          </SectionBackground>
+          <SearchContentContainer>{this.renderResultSearchResults()}</SearchContentContainer>
+        </ViewContainer>
+      </TouchableWithoutFeedback>
+    );
+  }
+}
+
+SearchMain.defaultProps = {
+  searchInputValue: "",
+  searchString: "",
+  assetClassToSearch: "",
+  minTextLength: 3,
+  onViewFund: () => {},
+  onViewBond: () => {},
+  onViewStock: () => {},
+  onViewDigitalAssets: () => {}
+};
+
+SearchMain.propTypes = {
+  searchInputValue: PropTypes.string,
+  searchString: PropTypes.string,
+  assetClassToSearch: PropTypes.string,
+  onChangeText: PropTypes.func.isRequired,
+  onClear: PropTypes.func.isRequired,
+  onViewFund: PropTypes.func,
+  onViewBond: PropTypes.func,
+  onViewStock: PropTypes.func,
+  onViewDigitalAssets: PropTypes.func,
+  minTextLength: PropTypes.number,
+  i18n: I18nPropTypes.isRequired
+};
+
+export default SearchMain;

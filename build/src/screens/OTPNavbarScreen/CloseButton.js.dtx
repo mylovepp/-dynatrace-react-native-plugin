@@ -1,0 +1,41 @@
+import React, { PureComponent } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { PixelRatio } from "react-native";
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import { Icon } from "../../components-2";
+
+const ButtonContainer = styled.View`
+  flex: 1;
+  min-width: ${PixelRatio.getPixelSizeForLayoutSize(15)};
+`;
+
+const IconContainer = styled(TouchableOpacity)`
+  margin-top: ${props => props.theme.spacingMedium};
+  align-self: center;
+`;
+
+class CloseButton extends PureComponent {
+  render() {
+    const { onClose, color } = this.props;
+    return (
+      <ButtonContainer>
+        <IconContainer onPress={onClose}>
+          <Icon size="icon24" color={color} name="close-2" />
+        </IconContainer>
+      </ButtonContainer>
+    );
+  }
+}
+
+CloseButton.defaultProps = {
+  onClose: () => {},
+  color: null
+};
+
+CloseButton.propTypes = {
+  onClose: PropTypes.func,
+  color: PropTypes.string
+};
+
+export default CloseButton;

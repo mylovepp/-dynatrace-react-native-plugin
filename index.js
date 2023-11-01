@@ -1,0 +1,10 @@
+export { Dynatrace } from './lib/instrumentor/base/Dynatrace';
+export { DataCollectionLevel } from './lib/instrumentor/base/model/DataCollectionLevel';
+export { ManualStartupConfiguration } from './lib/instrumentor/base/configuration/ManualStartupConfiguration';
+export { ConfigurationBuilder } from './lib/instrumentor/base/configuration/ConfigurationBuilder';
+export { Platform } from './lib/instrumentor/base/model/Platform';
+export { LogLevel } from './lib/instrumentor/base/model/LogLevel';
+export { ApplicationHandler } from './lib/instrumentor/base/Application';
+export { UserPrivacyOptions } from './lib/instrumentor/base/UserPrivacyOptions';
+export { DynatraceWebRequestTiming } from './lib/instrumentor/base/DynatraceWebRequestTiming';
+export { createElement } from './lib/CreateElement';

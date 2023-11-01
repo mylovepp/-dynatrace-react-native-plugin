@@ -1,0 +1,225 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import { Linking, View } from "react-native";
+import I18n from "react-native-i18n";
+import PropTypes from "prop-types";
+import {
+  Header2,
+  Body2,
+  Body3,
+  Display3,
+  TextButtonM,
+  CheckBox,
+  Icon,
+  ErrorSevereBanner
+} from "../../../components-2";
+import { getConfig } from "../../../Config";
+import { amountValueDisplay } from "../../../modules/i18n/value-display";
+import theme from "../../../theme";
+import WalletIcon from "../../wallet-main/wallet-icon";
+import WalletDAAssetRow from "./WalletDAAssetRow";
+import WalletActionPanel from "../../wallet-main/wallet-action-panel";
+import { trackEvent } from "../../../modules/analytics/AnalyticsService";
+import {
+  WALLET_DA_ASSET_HIDE,
+  WALLET_DA_ASSET_UNHIDE,
+  WALLET_DA_ASSET_VIEWFEE
+} from "../../../modules/analytics/analytics-constants";
+
+const WalletDAAsset = ({
+  navigator,
+  navigateToDeposit,
+  navigateToWithdraw,
+  navigateToTrade,
+  amountDA,
+  switchToDACashTab,
+  digitalAssetsCoin,
+  products,
+  allInstrumentsList,
+  updateBCPStatus,
+  coinListBCPStatus,
+  isBCP,
+  apexAuthenticated
+}) => {
+  useEffect(() => {
+    updateBCPStatus();
+    if (isBCP) {
+      coinListBCPStatus();
+    }
+  }, [isBCP]);
+
+  const [isLowValueCoinHiddenToggle, setLowValueCoinHiddenToggle] = useState(true);
+
+  const isServiceDown = isBCP || !apexAuthenticated;
+
+  const isLowValueCoinHidden = isServiceDown ? false : isLowValueCoinHiddenToggle;
+
+  const sortedCoins = [...digitalAssetsCoin].sort((a, b) => {
+    if (a.priceTHB !== b.priceTHB) {
+      return b.priceTHB - a.priceTHB;
+    }
+    return a.assetId < b.assetId ? -1 : 1;
+  });
+
+  const toggleLowValueCoinHidden = () => {
+    trackEvent(isLowValueCoinHidden ? WALLET_DA_ASSET_UNHIDE : WALLET_DA_ASSET_HIDE);
+    setLowValueCoinHiddenToggle(!isLowValueCoinHiddenToggle);
+  };
+
+  const lowValueFilteredCoins = () => {
+    return sortedCoins.filter(coin => coin.priceTHB >= 20);
+  };
+
+  const linkingToFeePage = () => {
+    trackEvent(WALLET_DA_ASSET_VIEWFEE);
+    const { DIGITAL_ASSETS_FEE_INFO } = getConfig();
+    Linking.openURL(DIGITAL_ASSETS_FEE_INFO);
+  };
+
+  return (
+    <View style={{ marginBottom: 88 }}>
+      <WalletActionPanel
+        iconActions={[
+          {
+            key: "deposit",
+            icon: "crypto-add",
+            text: I18n.t("WalletMain.DAAsset.Deposit"),
+            onPress: navigateToDeposit,
+            disabled: isServiceDown
+          },
+          {
+            key: "withdraw",
+            icon: "crypto-minus",
+            text: I18n.t("WalletMain.DAAsset.Withdraw"),
+            onPress: navigateToWithdraw,
+            disabled: !apexAuthenticated
+          },
+          {
+            key: "trade",
+            icon: "da-asset",
+            text: I18n.t("WalletMain.DAAsset.Trade"),
+            onPress: navigateToTrade,
+            disabled: isServiceDown
+          }
+        ]}
+      />
+
+      <View style={{ backgroundColor: theme.backgroundTertiaryGrey, height: 4 }} />
+
+      <TouchableOpacity onPress={switchToDACashTab} disabled={isServiceDown}>
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderColor: theme.contentColorLight,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <WalletIcon
+              bgIcon={isServiceDown ? theme.backgroundTertiaryGrey : theme.backgroundLighterBlue}
+              iconName={isServiceDown ? "DAWalletMainBCP" : "DAWalletMain"}
+              iconSize="icon16"
+            />
+            <Body3 style={{ marginLeft: 4 }}>{I18n.t("WalletMain.WalletList.DAWallet")}</Body3>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <Header2 style={{ marginRight: 4 }}>
+              {isServiceDown ? "-" : amountValueDisplay(amountDA).trim() || "0.00"}
+            </Header2>
+            <Body3 style={{ color: theme.contentColorHigh }}>
+              {I18n.t("General.Currencies.THB")}
+            </Body3>
+            <View
+              style={{
+                backgroundColor: theme.backgroundTertiaryGrey,
+                marginLeft: 4,
+                padding: 2,
+                borderRadius: 20
+              }}
+            >
+              <Icon
+                name="chevron-right-2"
+                color={isServiceDown ? theme.contentColorMedium : theme.ctaPurple}
+                size="icon16"
+              />
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 8,
+          paddingHorizontal: 16
+        }}
+      >
+        <TouchableOpacity
+          style={{ flexDirection: "row", alignItems: "center" }}
+          onPress={toggleLowValueCoinHidden}
+          disabled={isServiceDown}
+        >
+          <CheckBox
+            borderColor="#93979F"
+            value={isLowValueCoinHidden}
+            onValueChange={toggleLowValueCoinHidden}
+            iconColor="#FFFFFF"
+            disabled={isServiceDown}
+          />
+          <Body2 style={{ marginLeft: 6 }}>{I18n.t("WalletMain.DAAsset.HideCoin")}</Body2>
+        </TouchableOpacity>
+        <View>
+          <TextButtonM style={{ color: theme.ctaPurple }} onPress={linkingToFeePage}>
+            {I18n.t("WalletMain.DAAsset.Fee")}
+          </TextButtonM>
+        </View>
+      </View>
+
+      {apexAuthenticated &&
+        (isLowValueCoinHidden ? lowValueFilteredCoins() : sortedCoins).map(coin => (
+          <WalletDAAssetRow
+            key={coin.assetId}
+            isBCP={isBCP}
+            coin={coin}
+            product={products.find(product => product.ProductId === coin.productId)}
+            instrument={allInstrumentsList.find(instr => instr.base === coin.assetId)}
+            navigator={navigator}
+          />
+        ))}
+
+      {!apexAuthenticated && (
+        <View style={{ flex: 1, alignItems: "center", paddingVertical: 40 }}>
+          <ErrorSevereBanner size="illus78" />
+          <Display3 style={{ paddingTop: 24 }}>{I18n.t("WalletMain.DAAsset.NoCoinList")}</Display3>
+        </View>
+      )}
+    </View>
+  );
+};
+
+WalletDAAsset.propTypes = {
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired,
+  navigateToDeposit: PropTypes.func.isRequired,
+  navigateToWithdraw: PropTypes.func.isRequired,
+  navigateToTrade: PropTypes.func.isRequired,
+  amountDA: PropTypes.number.isRequired,
+  switchToDACashTab: PropTypes.func.isRequired,
+  products: PropTypes.arrayOf().isRequired,
+  allInstrumentsList: PropTypes.arrayOf().isRequired,
+  updateBCPStatus: PropTypes.func.isRequired,
+  coinListBCPStatus: PropTypes.func.isRequired,
+  isBCP: PropTypes.bool.isRequired,
+  apexAuthenticated: PropTypes.bool.isRequired,
+  digitalAssetsCoin: PropTypes.arrayOf().isRequired
+};
+
+export default WalletDAAsset;

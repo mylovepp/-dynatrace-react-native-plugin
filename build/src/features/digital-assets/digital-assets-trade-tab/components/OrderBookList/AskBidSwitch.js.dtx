@@ -1,0 +1,92 @@
+import React from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import PropTypes from "prop-types";
+import AskListIcon from "../../../../../components/icon/digital-assets-icon/trade/AskListIcon";
+import BidListIcon from "../../../../../components/icon/digital-assets-icon/trade/BidListIcon";
+import AskBidListIcon from "../../../../../components/icon/digital-assets-icon/trade/AskBidListIcon";
+
+const Contianer = styled.View`
+  flex-direction: row;
+`;
+
+const ItemContainer = styled(TouchableOpacity)((props) => ({
+  padding: `${props.theme.spacingXXXSmall}`,
+  margin: `${props.theme.spacingXSmall} 0`,
+  background: props.theme.backgroundTertiaryGrey,
+  borderRadius: 8,
+  alignSelf: "center",
+  alignItems: "center",
+  flex: 1
+}));
+
+export const AskBidSwitchMode = {
+  ASK: "ASK",
+  BID: "BID",
+  ASK_BID: "ASK_BID"
+};
+
+const Ask = ({ changeMode }) => (
+  <Contianer>
+    <ItemContainer testID="da-trade-tab-switch-ask" onPress={() => changeMode(AskBidSwitchMode.ASK_BID)} style={{ marginRight: 4 }}>
+      <AskBidListIcon />
+    </ItemContainer>
+    <ItemContainer testID="da-trade-tab-switch-bid" onPress={() => changeMode(AskBidSwitchMode.BID)}>
+      <BidListIcon />
+    </ItemContainer>
+  </Contianer>
+);
+Ask.propTypes = {
+  changeMode: PropTypes.func.isRequired
+};
+
+const Bid = ({ changeMode }) => (
+  <Contianer>
+    <ItemContainer testID="da-trade-tab-switch-ask" onPress={() => changeMode(AskBidSwitchMode.ASK)} style={{ marginRight: 4 }}>
+      <AskListIcon />
+    </ItemContainer>
+    <ItemContainer testID="da-trade-tab-switch-bid" onPress={() => changeMode(AskBidSwitchMode.ASK_BID)}>
+      <AskBidListIcon />
+    </ItemContainer>
+  </Contianer>
+);
+Bid.propTypes = {
+  changeMode: PropTypes.func.isRequired
+};
+
+const AskBid = ({ changeMode }) => (
+  <Contianer>
+    <ItemContainer testID="da-trade-tab-switch-ask" onPress={() => changeMode(AskBidSwitchMode.BID)} style={{ marginRight: 4 }}>
+      <BidListIcon />
+    </ItemContainer>
+    <ItemContainer testID="da-trade-tab-switch-bid" onPress={() => changeMode(AskBidSwitchMode.ASK)}>
+      <AskListIcon />
+    </ItemContainer>
+  </Contianer>
+);
+AskBid.propTypes = {
+  changeMode: PropTypes.func.isRequired
+};
+
+const AskBidSwitch = ({ mode, changeMode }) => {
+  switch (mode) {
+    case AskBidSwitchMode.ASK:
+      return <Ask changeMode={changeMode} />;
+    case AskBidSwitchMode.BID:
+      return <Bid changeMode={changeMode} />;
+    case AskBidSwitchMode.ASK_BID:
+      return <AskBid changeMode={changeMode} />;
+    default:
+      return <AskBid changeMode={changeMode} />;
+  }
+};
+
+AskBidSwitch.defualtProps = {
+  mode: AskBidSwitch.ASK_BID
+};
+AskBidSwitch.propTypes = {
+  mode: PropTypes.string.isRequired,
+  changeMode: PropTypes.func.isRequired
+};
+
+export default AskBidSwitch;

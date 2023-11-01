@@ -1,0 +1,265 @@
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import PropTypes from "prop-types";
+import styled from "styled-components/native";
+import { View, Dimensions, Image, Platform } from "react-native";
+import QRCodeScanner from "react-native-qrcode-scanner";
+import { RNCamera } from "react-native-camera";
+import { launchImageLibrary } from "react-native-image-picker";
+import RNQRGenerator from "rn-qr-generator";
+
+import { Icon, LoadingIndicator, ViewContainer } from "../../../components-2";
+import { showInAppNotification } from "../../../modules/navigation";
+import flashOffImg from "../../../../assets/images/digital-assets/icons/unflash.png";
+import flashOnImg from "../../../../assets/images/digital-assets/icons/flash.png";
+import albumImg from "../../../../assets/images/digital-assets/icons/album.png";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
+const rectDimensions = SCREEN_WIDTH * 0.7;
+
+const overlayColor = "rgba(0,0,0,0.5)";
+
+const LoadingContainer = styled.View`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
+
+const styles = {
+  rectangleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent"
+  },
+
+  rectangle: {
+    height: rectDimensions,
+    width: rectDimensions,
+    zIndex: 1,
+    elevation: Platform.OS === "android" ? 1 : 0
+  },
+
+  rectangleInner: {
+    position: "absolute",
+    top: -2.5,
+    left: -2.5,
+    borderWidth: 3,
+    borderColor: "#ffffff",
+    borderRadius: 8,
+    height: rectDimensions + 5,
+    width: rectDimensions + 5,
+    zIndex: 1
+  },
+
+  topOverlay: {
+    backgroundColor: overlayColor,
+    flex: 1,
+    height: SCREEN_WIDTH,
+    width: SCREEN_WIDTH,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+
+  bottomOverlay: {
+    backgroundColor: overlayColor,
+    flex: 1,
+    height: SCREEN_WIDTH,
+    width: SCREEN_WIDTH,
+    paddingBottom: SCREEN_WIDTH * 0.25
+  },
+
+  leftAndRightOverlay: {
+    backgroundColor: overlayColor,
+    height: rectDimensions,
+    width: SCREEN_WIDTH
+  },
+
+  topBar: {
+    position: "absolute",
+    top: 50,
+    padding: 16,
+    flexDirection: "row",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "space-between",
+    width: SCREEN_WIDTH
+  },
+
+  bottomBar: {
+    position: "absolute",
+    bottom: 50,
+    padding: 16,
+    flexDirection: "row",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "space-between",
+    width: SCREEN_WIDTH
+  }
+};
+
+const QRCodeCamera = ({ goBack, turnFlashOn, navigator }) => {
+  const [loading, setLoading] = useState(false);
+  const [flashOn, setFlashStatus] = useState(turnFlashOn);
+
+  const showNotifiSuccess = () => {
+    showInAppNotification(navigator, {
+      text: "DigitalAssets.Notification.ScanQRCode.Success",
+      variant: "success"
+    });
+  };
+
+  const showNotifiFail = () => {
+    showInAppNotification(navigator, {
+      text: "DigitalAssets.Notification.ScanQRCode.FromImageInvalid",
+      variant: "error"
+    });
+  };
+
+  const goBackOnePage = () => {
+    setLoading(true);
+    goBack();
+  };
+
+  const onSuccess = e => {
+    setLoading(true);
+    setFlashStatus(false);
+    showNotifiSuccess();
+    goBack(e.data);
+  };
+
+  const onDecodeSuccess = data => {
+    showNotifiSuccess();
+    goBack(data);
+  };
+
+  const onDecodeError = () => {
+    showNotifiFail();
+  };
+
+  const pickFromGallery = async () => {
+    setFlashStatus(false);
+    setLoading(true);
+    const image = await launchImageLibrary({
+      includeBase64: true,
+      selectionLimit: 1,
+      mediaType: "photo"
+    });
+
+    setLoading(false);
+
+    if (!image.didCancel) {
+      const imageData = image.assets[0];
+      RNQRGenerator.detect({
+        uri: imageData.uri
+      })
+        .then(response => {
+          const { values } = response; // Array of detected QR code values. Empty if nothing found.
+          if (values.length > 0) {
+            onDecodeSuccess(values[0]);
+          } else {
+            onDecodeError();
+          }
+        })
+        .catch(error => {
+          // eslint-disable-next-line no-console
+          console.log("error :>> ", error);
+          onDecodeError();
+        });
+    }
+  };
+
+  useEffect(() => {
+    setFlashStatus(turnFlashOn);
+  }, []);
+
+  if (loading) {
+    return (
+      <ViewContainer variant="screen" isFullScreen>
+        <LoadingContainer>
+          <LoadingIndicator size="large" />
+        </LoadingContainer>
+      </ViewContainer>
+    );
+  }
+
+  return (
+    <QRCodeScanner
+      showMarker
+      markerStyle={{ backgroundColor: "red" }}
+      onRead={onSuccess}
+      cameraStyle={{ height: SCREEN_HEIGHT }}
+      flashMode={flashOn ? RNCamera.Constants.FlashMode.torch : RNCamera.Constants.FlashMode.off}
+      customMarker={
+        <View style={styles.rectangleContainer}>
+          <View style={styles.topOverlay}>
+            <View style={styles.topBar}>
+              <TouchableOpacity
+                onPress={() => {
+                  goBackOnePage();
+                }}
+              >
+                <Icon name="close" size="icon24" color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row" }}>
+            <View style={styles.leftAndRightOverlay} />
+            <View style={styles.rectangle}>
+              <View style={styles.rectangleInner} />
+            </View>
+            <View style={styles.leftAndRightOverlay} />
+          </View>
+
+          <View style={styles.bottomOverlay}>
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                onPress={() => {
+                  pickFromGallery();
+                }}
+              >
+                <Image resizeMode="stretch" source={albumImg} style={{ height: 40, width: 40 }} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setFlashStatus(!flashOn);
+                }}
+              >
+                {flashOn ? (
+                  <Image
+                    resizeMode="stretch"
+                    source={flashOffImg}
+                    style={{ height: 40, width: 40 }}
+                  />
+                ) : (
+                  <Image
+                    resizeMode="stretch"
+                    source={flashOnImg}
+                    style={{ height: 40, width: 40 }}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      }
+    />
+  );
+};
+
+QRCodeCamera.defaultProps = {
+  turnFlashOn: false
+};
+
+QRCodeCamera.propTypes = {
+  turnFlashOn: PropTypes.bool,
+  goBack: PropTypes.func.isRequired,
+  navigator: PropTypes.shape({
+    push: PropTypes.func.isRequired
+  }).isRequired
+};
+
+export default QRCodeCamera;

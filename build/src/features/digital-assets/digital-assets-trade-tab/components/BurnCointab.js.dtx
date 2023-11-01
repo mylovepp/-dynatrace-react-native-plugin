@@ -1,0 +1,298 @@
+import React, { useState } from "react";
+import { TouchableOpacity } from '@dynatrace/react-native-plugin/lib/react-native/';
+import styled from "styled-components/native";
+import { View } from "react-native";
+import PropTypes from "prop-types";
+import I18n from "react-native-i18n";
+import {
+  POINT_EXCHANGE_SCREEN_ID,
+  DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID
+} from "../../../../redux/navigation/navigation-constants";
+import theme from "../../../../theme";
+import { Text } from "../../../../components/text/Text";
+import {
+  Toggle,
+  SVGIcon,
+  Icon,
+  Header3,
+  IconButton,
+  MessageBottomModal
+} from "../../../../components-2";
+import { invxCoinValueDisplay } from "../../../../modules/i18n/value-display";
+import { pointToInvestNavigatorStyle } from "../../../../modules/navigation/defaultStyle";
+import TCCoinWebviewModal from "./Modal/TCCoinWebviewModal";
+
+const Column = styled.View`
+  flex-direction: column;
+  justify-content: flex-start;
+`;
+
+const Row = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RowContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0px 12px 6px 12px;
+`;
+
+const DetailContainer = styled.View`
+  flex-direction: row;
+  background-color: #f6f6f6;
+  border-radius: 10px;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  margin-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+`;
+
+const SpaceBetweenContainer = styled.View`
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const IconContainer = styled.View`
+  align-self: flex-end;
+`;
+
+const LabelText = styled(Text)`
+  padding-left: 4px;
+  font-family: Graphik TH;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 17px;
+`;
+
+const LinkText = styled(Text)`
+  padding-left: 4px;
+  font-family: Graphik TH;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 17px;
+  color: ${props => props.theme.ctaPurple};
+`;
+
+const BurnCoinZeroFeeInfo = () => {
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  return (
+    <>
+      <RowContainer>
+        <DetailContainer>
+          <TouchableOpacity
+            accessibilityLabel="da-view-zero-fee-error"
+            onPress={() => setModalVisible(true)}
+          >
+            <Icon name="info-2" color={theme.contentColorHigh} size="icon16" />
+          </TouchableOpacity>
+          <LabelText>{I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.ZeroFeeError")}</LabelText>
+        </DetailContainer>
+      </RowContainer>
+
+      <MessageBottomModal
+        isVisible={isModalVisible}
+        title={I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.ZeroFeeModal")}
+        buttons={[{ variant: "primary", label: "ตกลง", onPress: () => setModalVisible(false) }]}
+        onModalClose={() => setModalVisible(false)}
+      />
+    </>
+  );
+};
+
+const BurnCoinTab = ({ navigator, burnCoin, invxCoin, onConfirm }) => {
+  const [isVisibleCoinPrivacy, setIsVisibleCoinPrivacy] = useState(false);
+
+  const handlePressTermAndCons = () => {
+    setIsVisibleCoinPrivacy(true);
+  };
+
+  const goToUsageCoinPage = () => {
+    navigator.push({
+      title: I18n.t("DigitalAssets.Trade.BurnInvxCoin.CoinUsage.Title"),
+      screen: DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID,
+      backButtonTitle: "",
+      navigatorStyle: {
+        tabBarHidden: true,
+        navBarBackgroundColor: theme.backgroundLightColor
+      },
+      passProps: {
+        invxCoin,
+        effectiveMinimumCoin: burnCoin.effectiveMinimumCoin,
+        effectiveMaximumCoin: burnCoin.effectiveMaximumCoin,
+        onConfirm
+      }
+    });
+  };
+  const navigateToExchangePoint = () => {
+    navigator.push({
+      title: I18n.t("Profile.PointToInvest.Exchange.TitleScreen"),
+      screen: POINT_EXCHANGE_SCREEN_ID,
+      backButtonTitle: "",
+      navigatorStyle: pointToInvestNavigatorStyle,
+      passProps: {
+        fromScreen: DIGITAL_ASSETS_COIN_USAGE_SCREEN_ID
+      },
+      tabBarHidden: true
+    });
+  };
+
+  const renderBalanceNotEnoughForMinimumInfo = () => {
+    return (
+      <RowContainer>
+        <DetailContainer>
+          <LabelText>{I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.NotEnough")}</LabelText>
+          <TouchableOpacity onPress={navigateToExchangePoint}>
+            <Row>
+              <LinkText style={{ fontSize: 12 }}>
+                {I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.ToPoint")}
+              </LinkText>
+              <IconContainer>
+                <Icon name="chevron-right-2" color={theme.ctaPurple} size="icon16" />
+              </IconContainer>
+            </Row>
+          </TouchableOpacity>
+        </DetailContainer>
+      </RowContainer>
+    );
+  };
+
+  const renderAdditionalAmountToUseCoinInfo = () => {
+    return (
+      <RowContainer>
+        <DetailContainer>
+          <LabelText>
+            {I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.BuyMore", {
+              amount: invxCoinValueDisplay(burnCoin.additionalAmountForMinimum),
+              minimumCoinBurn: invxCoinValueDisplay(burnCoin.coinAmountFromEffectiveMinimum)
+            })}
+          </LabelText>
+        </DetailContainer>
+      </RowContainer>
+    );
+  };
+
+  const renderUsingCoinInfo = () => {
+    return (
+      <RowContainer>
+        <DetailContainer>
+          <SpaceBetweenContainer>
+            <LabelText>
+              {I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.TransferCoin", {
+                amount: invxCoinValueDisplay(invxCoin)
+              })}
+            </LabelText>
+            <TouchableOpacity onPress={goToUsageCoinPage}>
+              <Row>
+                <LinkText style={{ fontSize: 12 }}>
+                  {I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.ToCoinUsage")}
+                </LinkText>
+                <IconContainer>
+                  <Icon name="chevron-right-2" color={theme.ctaPurple} size="icon16" />
+                </IconContainer>
+              </Row>
+            </TouchableOpacity>
+          </SpaceBetweenContainer>
+        </DetailContainer>
+      </RowContainer>
+    );
+  };
+
+  const renderInfo = () => {
+    if (burnCoin.isDisabled) {
+      return (
+        <RowContainer>
+          <DetailContainer>
+            <LabelText>{I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.Error")}</LabelText>
+          </DetailContainer>
+        </RowContainer>
+      );
+    }
+
+    if (!burnCoin.isToggledOn) {
+      return <></>;
+    }
+
+    if (burnCoin.isDisabledDueToZeroFee) {
+      return <BurnCoinZeroFeeInfo />;
+    }
+
+    if (!burnCoin.isBalanceEnoughForMinimum) {
+      return renderBalanceNotEnoughForMinimumInfo();
+    }
+
+    if (burnCoin.additionalAmountForMinimum !== "0") {
+      return renderAdditionalAmountToUseCoinInfo();
+    }
+
+    return renderUsingCoinInfo();
+  };
+
+  return (
+    <>
+      <Column style={{ marginTop: 4, marginBottom: 4 }}>
+        <RowContainer>
+          <Row>
+            <SVGIcon name="TradeCoin" size={20} />
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Header3
+                style={{
+                  color: burnCoin.isDisabled ? theme.contentColorLight : theme.textDefaultColor,
+                  paddingLeft: 4
+                }}
+              >
+                {I18n.t("DigitalAssets.Trade.BurnInvxCoin.BurnTab.BurnCoin")}
+              </Header3>
+              <IconButton
+                testID="da-burn-coin-view-terms"
+                icon="info-2"
+                onPress={handlePressTermAndCons}
+                color={theme.ctaPurple}
+              />
+            </View>
+          </Row>
+
+          <Toggle
+            accessibilityLabel="da-burn-coin-toggle"
+            value={burnCoin.isToggledOn}
+            onPress={() => burnCoin.setToggledOn(prevState => !prevState)}
+            disabled={burnCoin.isDisabled}
+          />
+        </RowContainer>
+
+        {renderInfo()}
+      </Column>
+
+      <TCCoinWebviewModal
+        isVisible={isVisibleCoinPrivacy}
+        onModalClose={() => setIsVisibleCoinPrivacy(false)}
+        onPress={() => setIsVisibleCoinPrivacy(false)}
+      />
+    </>
+  );
+};
+
+BurnCoinTab.propTypes = {
+  navigator: PropTypes.func.isRequired,
+  burnCoin: PropTypes.shape({
+    isDisabled: PropTypes.bool.isRequired,
+    isToggledOn: PropTypes.bool.isRequired,
+    setToggledOn: PropTypes.func.isRequired,
+    isDisabledDueToZeroFee: PropTypes.bool.isRequired,
+    coinAmountFromEffectiveMinimum: PropTypes.number.isRequired,
+    additionalAmountForMinimum: PropTypes.string.isRequired,
+    isBalanceEnoughForMinimum: PropTypes.bool.isRequired,
+    effectiveMinimumCoin: PropTypes.number.isRequired,
+    effectiveMaximumCoin: PropTypes.number.isRequired
+  }).isRequired,
+  invxCoin: PropTypes.number.isRequired,
+  onConfirm: PropTypes.func.isRequired
+};
+
+export default BurnCoinTab;
